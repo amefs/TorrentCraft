@@ -5,6 +5,13 @@ on:
     tags:
       - 'v*'
 
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Artifact version label without a leading v
+        required: true
+        default: 0.0.0-ci
+
 permissions:
   contents: read
 
@@ -15,6 +22,8 @@ jobs:
   linux-static:
     name: Linux musl static release
     runs-on: ubuntu-24.04
+    env:
+      RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
       - name: Cache Alpine dependency downloads
@@ -27,10 +36,12 @@ jobs:
         env:
           GITHUB_REF_NAME: ${{ github.ref_name }}
           GITHUB_SHA: ${{ github.sha }}
+          RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
         run: |
           docker run --rm \
             --env GITHUB_REF_NAME \
             --env GITHUB_SHA \
+            --env RELEASE_VERSION \
             --env VCPKG_COMMIT \
             --volume "$GITHUB_WORKSPACE:/workspace" \
             --workdir /workspace \
@@ -57,7 +68,7 @@ jobs:
               git -C "$VCPKG_ROOT" checkout "$VCPKG_COMMIT"
               ci/patch-vcpkg-qtbase-glib.sh "$VCPKG_ROOT"
               "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics -musl
-              release_version="${GITHUB_REF_NAME#v}"
+              release_version="${RELEASE_VERSION#v}"
               export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
               cmake --preset linux-musl-static-gui -DTORRENTCRAFT_BUILD_DATE="$release_version"
               cmake --build --preset linux-musl-static-gui
@@ -66,6 +77,10 @@ jobs:
                 ctest --preset linux-musl-static-gui \
                 --output-junit out/test-linux-musl-static-gui.xml \
                 --output-on-failure
+              python3 ci/release/summarize_junit.py \
+                --output out/phase8-test-summary.json \
+                --source-commit "$GITHUB_SHA" \
+                out/test-linux-musl-static-gui.xml
               mkdir -p out/release/linux
               python3 ci/release/static_release.py \
                 --build-dir out/build/linux-musl-static-gui \
@@ -89,12 +104,15 @@ jobs:
           name: linux-static-release
           path: |
             out/release/linux
+            out/phase8-test-summary.json
             out/test-linux-musl-static-gui.xml
           if-no-files-found: warn
 
   windows-static:
     name: Windows static release
     runs-on: windows-2022
+    env:
+      RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -123,13 +141,23 @@ jobs:
           cmake --preset windows-msvc-static-gui
           cmake --build --preset windows-msvc-static-gui --config Release
           New-Item -ItemType Directory -Force -Path out | Out-Null
-          ctest --preset windows-msvc-static-gui --output-junit out\test-windows-msvc-static-gui.xml --output-on-failure
+          ctest --preset windows-msvc-static-gui --config Release --output-junit out\test-windows-msvc-static-gui.xml --output-on-failure
+          python ci/release/summarize_junit.py --output out\phase8-test-summary.json --source-commit $env:GITHUB_SHA out\test-windows-msvc-static-gui.xml
+      - name: Prepare MSVC inspection tools
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (-not (Test-Path -LiteralPath $vswhere)) { throw "vswhere.exe was not found" }
+          $dumpbin = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find 'VC\Tools\MSVC\**\bin\Hostx64\x64\dumpbin.exe' | Select-Object -First 1
+          if (-not $dumpbin) { throw "dumpbin.exe was not found in the selected Visual Studio installation" }
+          Split-Path -Parent $dumpbin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Package and validate
         shell: pwsh
         env:
           VCPKG_ROOT: ${{ github.workspace }}\.vcpkg
         run: |
-          $version = $env:GITHUB_REF_NAME.Substring(1)
+          $version = $env:RELEASE_VERSION
+          if ($version.StartsWith('v')) { $version = $version.Substring(1) }
           New-Item -ItemType Directory -Force -Path out\release\windows | Out-Null
           python ci/release/static_release.py --build-dir out\build\windows-msvc-static-gui --output-dir out\release\windows --vcpkg-root $env:VCPKG_ROOT --version $version --triplet x64-windows-static --platform windows-x86_64 --config Release --include-source
           python ci/release/check_static_release.py --directory out\release\windows --platform windows-x86_64 --include-source --version $version
@@ -139,13 +167,14 @@ jobs:
           name: windows-static-release
           path: |
             out/release/windows
+            out\phase8-test-summary.json
             out/test-windows-msvc-static-gui.xml
           if-no-files-found: warn
 
   publish:
     name: Publish GitHub release
     needs: [linux-static, windows-static]
-    if: needs.linux-static.result == 'success' && needs.windows-static.result == 'success'
+    if: startsWith(github.ref, 'refs/tags/v') && needs.linux-static.result == 'success' && needs.windows-static.result == 'success'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
