@@ -1,0 +1,23 @@
+{
+  "qt_version": "6.11.1",
+  "modules": [
+    {
+      "name": "qtbase",
+      "filename": "qtbase-everywhere-src-6.11.1.tar.xz",
+      "sha512": "b5608b6cefd483ecdc5e4fa3536acfc31116c8dfb698257f945180a8e412ee444dc670d754d4f6145649170f7d55637a70820188337a6c6b79193fbfbcd6a3fc",
+      "urls": [
+        "https://download.qt.io/archive/qt/6.11/6.11.1/submodules/qtbase-everywhere-src-6.11.1.tar.xz",
+        "https://mirrors.ocf.berkeley.edu/qt/archive/qt/6.11/6.11.1/submodules/qtbase-everywhere-src-6.11.1.tar.xz"
+      ]
+    },
+    {
+      "name": "qtsvg",
+      "filename": "qtsvg-everywhere-src-6.11.1.tar.xz",
+      "sha512": "6cbadc333d3616a361360043da9a6809d03ee131cfb0661c9d01901c4bcf1d074c19f04b959616a1d35b712f2f50c66b5c40ea7bf204e680d054d538aabcf3e7",
+      "urls": [
+        "https://download.qt.io/archive/qt/6.11/6.11.1/submodules/qtsvg-everywhere-src-6.11.1.tar.xz",
+        "https://mirrors.ocf.berkeley.edu/qt/archive/qt/6.11/6.11.1/submodules/qtsvg-everywhere-src-6.11.1.tar.xz"
+      ]
+    }
+  ]
+}

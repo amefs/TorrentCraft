@@ -1,0 +1,56 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "torrentutils-core",
+  "version-string": "1.0.0",
+  "license": "MIT",
+  "builtin-baseline": "d92484ed3c5020c6679d095ad3e5add907887b62",
+  "dependencies": [
+    "catch2",
+    "indicators",
+    "libtorrent",
+    "nlohmann-json"
+  ],
+  "features": {
+    "gui": {
+      "description": "TorrentCraft Qt Widgets GUI dependencies",
+      "dependencies": [
+        {
+          "name": "qtbase",
+          "default-features": false,
+          "features": [
+            "thread",
+            "gui",
+            "widgets",
+            "testlib",
+            "harfbuzz"
+          ]
+        },
+        {
+          "name": "qtbase",
+          "host": true,
+          "default-features": false
+        },
+        {
+          "name": "qtbase",
+          "default-features": false,
+          "features": [
+            "fontconfig",
+            "xcb",
+            "gtk3"
+          ],
+          "platform": "linux"
+        },
+        {
+          "name": "qtbase",
+          "default-features": false,
+          "features": [
+            "windeployqt"
+          ],
+          "platform": "windows"
+        },
+        "qtsvg",
+        "qttools"
+      ]
+    }
+  }
+}

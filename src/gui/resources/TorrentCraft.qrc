@@ -1,0 +1,34 @@
+<RCC>
+    <qresource prefix="/torrentcraft">
+        <file alias="logo/TorrentCraft.svg">TorrentCraft.svg</file>
+        <file alias="icons/add.svg">icons/add.svg</file>
+        <file alias="icons/batch-convert.svg">icons/batch-convert.svg</file>
+        <file alias="icons/clear.svg">icons/clear.svg</file>
+        <file alias="icons/config-settings.svg">icons/config-settings.svg</file>
+        <file alias="icons/file.svg">icons/file.svg</file>
+        <file alias="icons/folder.svg">icons/folder.svg</file>
+        <file alias="icons/import-preset.svg">icons/import-preset.svg</file>
+        <file alias="icons/metadata-fields.svg">icons/metadata-fields.svg</file>
+        <file alias="icons/move-down.svg">icons/move-down.svg</file>
+        <file alias="icons/move-up.svg">icons/move-up.svg</file>
+        <file alias="icons/open-folder.svg">icons/open-folder.svg</file>
+        <file alias="icons/open-torrent.svg">icons/open-torrent.svg</file>
+        <file alias="icons/preset.svg">icons/preset.svg</file>
+        <file alias="icons/refresh.svg">icons/refresh.svg</file>
+        <file alias="icons/remove.svg">icons/remove.svg</file>
+        <file alias="icons/save-torrent.svg">icons/save-torrent.svg</file>
+        <file alias="icons/status-cancelled.svg">icons/status-cancelled.svg</file>
+        <file alias="icons/status-error.svg">icons/status-error.svg</file>
+        <file alias="icons/status-idle.svg">icons/status-idle.svg</file>
+        <file alias="icons/status-ready.svg">icons/status-ready.svg</file>
+        <file alias="icons/status-running.svg">icons/status-running.svg</file>
+        <file alias="icons/status-success.svg">icons/status-success.svg</file>
+        <file alias="icons/status-warning.svg">icons/status-warning.svg</file>
+        <file alias="icons/torrent-create.svg">icons/torrent-create.svg</file>
+        <file alias="icons/torrent-inspect.svg">icons/torrent-inspect.svg</file>
+        <file alias="icons/torrent-modify.svg">icons/torrent-modify.svg</file>
+        <file alias="icons/torrent-validate.svg">icons/torrent-validate.svg</file>
+        <file alias="icons/torrent-verify.svg">icons/torrent-verify.svg</file>
+        <file alias="icons/tracker-manage.svg">icons/tracker-manage.svg</file>
+    </qresource>
+</RCC>

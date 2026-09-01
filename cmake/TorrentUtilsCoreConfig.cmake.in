@@ -1,0 +1,8 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(LibtorrentRasterbar CONFIG REQUIRED)
+
+include("${CMAKE_CURRENT_LIST_DIR}/TorrentUtilsCoreTargets.cmake")
+
+check_required_components(TorrentUtilsCore)

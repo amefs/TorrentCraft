@@ -1,0 +1,22 @@
+{
+  "double-conversion": {
+    "copyright_sha256": "4af93c12062c58058378de2397dc1c92bbff9ddfb1d583a01c84127557ce97ca",
+    "license": "BSD-3-Clause",
+    "version": "3.4.0"
+  },
+  "indicators": {
+    "copyright_sha256": "46035285f8a5547b5b6a50f0433243a5ffc494b825dd51855bb1903a6c54382b",
+    "license": "MIT",
+    "version": "2.3"
+  },
+  "libb2": {
+    "copyright_sha256": "6a1ee543e5282cd9061881edf462e6fdab181f328da71fc2c9a6950a80e94d01",
+    "license": "CC0-1.0",
+    "version": "0.98.1"
+  },
+  "opengl-registry": {
+    "copyright_sha256": "c56ffb0cc40bd972c1b2d4759828b89f7860471f5ba52eedde7a4ddb4664cef5",
+    "license": "Apache-2.0 AND MIT AND SGI-B-1.0",
+    "version": "2026-01-26"
+  }
+}

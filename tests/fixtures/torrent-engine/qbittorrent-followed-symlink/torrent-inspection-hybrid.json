@@ -1,0 +1,15 @@
+{
+  "classification": "ordinary-followed-payload",
+  "contains_bep47_l_attribute": false,
+  "creator": "qBittorrent v4.6.3",
+  "file_attributes": [
+    "p"
+  ],
+  "has_bep47_symlink_path": false,
+  "payload_symlink": {
+    "path": "links/alias.bin",
+    "readlink": "../data/target.bin"
+  },
+  "torrent_file": "qbittorrent-4.6.3-hybrid-followed-symlink.torrent",
+  "torrent_sha256": "c7468dae2a564d81c7d8c4ce26572d685204c85412016ea279e9785078bf2faf"
+}

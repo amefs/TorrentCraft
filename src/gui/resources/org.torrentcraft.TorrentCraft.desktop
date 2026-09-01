@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=TorrentCraft
+Comment=Create, inspect, edit, and verify torrent files
+Exec=torrentcraft-gui
+Icon=torrentcraft
+Terminal=false
+Categories=Network;Utility;
+StartupWMClass=torrentcraft-gui

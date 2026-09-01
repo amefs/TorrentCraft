@@ -1,0 +1,311 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "installDir": "${sourceDir}/out/install/${presetName}",
+      "cacheVariables": {
+        "BUILD_TESTING": "ON",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "TORRENTUTILS_WARNINGS_AS_ERRORS": "ON",
+        "VCPKG_OVERLAY_PORTS": "${sourceDir}/cmake/vcpkg-ports"
+      }
+    },
+    {
+      "name": "ninja-vcpkg",
+      "hidden": true,
+      "inherits": "base",
+      "generator": "Ninja",
+      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+    },
+    {
+      "name": "linux-clang-debug",
+      "displayName": "Linux Clang Debug",
+      "inherits": "ninja-vcpkg",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_COMPILER": "clang++"
+      }
+    },
+    {
+      "name": "linux-clang-gui",
+      "displayName": "Linux Clang GUI",
+      "inherits": "linux-clang-debug",
+      "cacheVariables": {
+        "TORRENTUTILS_BUILD_GUI": "ON",
+        "VCPKG_MANIFEST_FEATURES": "gui"
+      }
+    },
+    {
+      "name": "linux-clang-gui-release",
+      "displayName": "Linux Clang GUI Release",
+      "inherits": "linux-clang-release",
+      "cacheVariables": {
+        "TORRENTUTILS_BUILD_GUI": "ON",
+        "VCPKG_MANIFEST_FEATURES": "gui"
+      }
+    },
+    {
+      "name": "linux-clang-release",
+      "displayName": "Linux Clang Release",
+      "inherits": "ninja-vcpkg",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_COMPILER": "clang++"
+      }
+    },
+    {
+      "name": "linux-musl-static-release",
+      "displayName": "Linux musl Static Release",
+      "inherits": "ninja-vcpkg",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "CMAKE_EXE_LINKER_FLAGS": "-static -static-libstdc++ -static-libgcc",
+        "CMAKE_PROJECT_INCLUDE": "${sourceDir}/cmake/vcpkg-toolchains/linux-musl-static.cmake",
+        "VCPKG_INSTALL_OPTIONS": "--allow-unsupported",
+        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake/vcpkg-triplets",
+        "VCPKG_TARGET_TRIPLET": "x64-linux-musl-static"
+      }
+    },
+    {
+      "name": "linux-musl-static-gui",
+      "displayName": "Linux musl Static GUI",
+      "inherits": "linux-musl-static-release",
+      "cacheVariables": {
+        "TORRENTUTILS_BUILD_GUI": "ON",
+        "VCPKG_MANIFEST_FEATURES": "gui"
+      }
+    },
+    {
+      "name": "linux-gcc-debug",
+      "displayName": "Linux GCC Debug",
+      "inherits": "ninja-vcpkg",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_COMPILER": "g++"
+      }
+    },
+    {
+      "name": "linux-gcc-release",
+      "displayName": "Linux GCC Release",
+      "inherits": "ninja-vcpkg",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_COMPILER": "g++"
+      }
+    },
+    {
+      "name": "linux-clang-asan-ubsan",
+      "displayName": "Linux Clang ASan + UBSan",
+      "inherits": "linux-clang-debug",
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined"
+      }
+    },
+    {
+      "name": "linux-clang-coverage",
+      "displayName": "Linux Clang Coverage",
+      "inherits": "linux-clang-debug",
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS": "-fprofile-instr-generate -fcoverage-mapping",
+        "CMAKE_CXX_FLAGS_DEBUG": "-gline-tables-only",
+        "CMAKE_EXE_LINKER_FLAGS": "-fprofile-instr-generate -fcoverage-mapping"
+      }
+    },
+    {
+      "name": "windows-msvc-base",
+      "hidden": true,
+      "inherits": "base",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+    },
+    {
+      "name": "windows-msvc-debug",
+      "displayName": "Windows MSVC Debug",
+      "inherits": "windows-msvc-base"
+    },
+    {
+      "name": "windows-msvc-release",
+      "displayName": "Windows MSVC Release",
+      "inherits": "windows-msvc-base"
+    },
+    {
+      "name": "windows-msvc-gui",
+      "displayName": "Windows MSVC GUI",
+      "inherits": "windows-msvc-release",
+      "cacheVariables": {
+        "TORRENTUTILS_BUILD_GUI": "ON",
+        "VCPKG_MANIFEST_FEATURES": "gui"
+      }
+    },
+    {
+      "name": "windows-msvc-static-release",
+      "displayName": "Windows MSVC Static Release",
+      "inherits": "windows-msvc-base",
+      "cacheVariables": {
+        "VCPKG_TARGET_TRIPLET": "x64-windows-static",
+        "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+      }
+    },
+    {
+      "name": "windows-msvc-static-gui",
+      "displayName": "Windows MSVC Static GUI",
+      "inherits": "windows-msvc-static-release",
+      "cacheVariables": {
+        "TORRENTUTILS_BUILD_GUI": "ON",
+        "VCPKG_MANIFEST_FEATURES": "gui"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "linux-clang-debug", "configurePreset": "linux-clang-debug", "jobs": 0 },
+    { "name": "linux-clang-gui", "configurePreset": "linux-clang-gui", "jobs": 0 },
+    { "name": "linux-clang-gui-release", "configurePreset": "linux-clang-gui-release", "jobs": 0 },
+    { "name": "linux-clang-release", "configurePreset": "linux-clang-release", "jobs": 0 },
+    { "name": "linux-musl-static-release", "configurePreset": "linux-musl-static-release", "jobs": 0 },
+    { "name": "linux-musl-static-gui", "configurePreset": "linux-musl-static-gui", "jobs": 0 },
+    { "name": "linux-gcc-debug", "configurePreset": "linux-gcc-debug", "jobs": 0 },
+    { "name": "linux-gcc-release", "configurePreset": "linux-gcc-release", "jobs": 0 },
+    {
+      "name": "linux-clang-asan-ubsan",
+      "configurePreset": "linux-clang-asan-ubsan",
+      "jobs": 0
+    },
+    {
+      "name": "linux-clang-coverage",
+      "configurePreset": "linux-clang-coverage",
+      "jobs": 0
+    },
+    {
+      "name": "windows-msvc-debug",
+      "configurePreset": "windows-msvc-debug",
+      "configuration": "Debug",
+      "jobs": 0
+    },
+    {
+      "name": "windows-msvc-release",
+      "configurePreset": "windows-msvc-release",
+      "configuration": "Release",
+      "jobs": 0
+    },
+    {
+      "name": "windows-msvc-gui",
+      "configurePreset": "windows-msvc-gui",
+      "configuration": "Release",
+      "jobs": 0
+    },
+    {
+      "name": "windows-msvc-static-release",
+      "configurePreset": "windows-msvc-static-release",
+      "configuration": "Release",
+      "jobs": 0
+    },
+    {
+      "name": "windows-msvc-static-gui",
+      "configurePreset": "windows-msvc-static-gui",
+      "configuration": "Release",
+      "jobs": 0
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "linux-clang-debug",
+      "configurePreset": "linux-clang-debug",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
+      "name": "linux-clang-gui",
+      "configurePreset": "linux-clang-gui",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
+      "name": "linux-clang-gui-release",
+      "configurePreset": "linux-clang-gui-release",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
+      "name": "linux-clang-release",
+      "configurePreset": "linux-clang-release",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
+      "name": "linux-musl-static-release",
+      "configurePreset": "linux-musl-static-release",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
+      "name": "linux-musl-static-gui",
+      "configurePreset": "linux-musl-static-gui",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
+      "name": "linux-gcc-debug",
+      "configurePreset": "linux-gcc-debug",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
+      "name": "linux-gcc-release",
+      "configurePreset": "linux-gcc-release",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
+      "name": "linux-clang-asan-ubsan",
+      "configurePreset": "linux-clang-asan-ubsan",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
+      "name": "linux-clang-coverage",
+      "configurePreset": "linux-clang-coverage",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
+      "name": "windows-msvc-debug",
+      "configurePreset": "windows-msvc-debug",
+      "configuration": "Debug",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
+      "name": "windows-msvc-release",
+      "configurePreset": "windows-msvc-release",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
+      "name": "windows-msvc-gui",
+      "configurePreset": "windows-msvc-gui",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
+      "name": "windows-msvc-static-gui",
+      "configurePreset": "windows-msvc-static-gui",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    }
+  ]
+}

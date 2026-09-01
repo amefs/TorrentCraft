@@ -1,0 +1,16 @@
+# Phase 8 repository API documentation
+PROJECT_NAME           = TorrentCraft
+PROJECT_NUMBER         = 1.0.0
+OUTPUT_DIRECTORY       = out/docs/doxygen
+INPUT                  = include
+RECURSIVE              = YES
+FILE_PATTERNS          = *.hpp
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
+EXTRACT_ALL            = NO
+WARN_IF_UNDOCUMENTED   = YES
+WARN_IF_DOC_ERROR      = YES
+QUIET                  = NO
+FULL_PATH_NAMES        = NO
+SORT_MEMBER_DOCS       = YES
+GENERATE_TREEVIEW      = YES

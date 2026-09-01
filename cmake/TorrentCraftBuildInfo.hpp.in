@@ -1,0 +1,23 @@
+#pragma once
+
+namespace torrentcraft::gui::build_info {
+inline constexpr char version[] = "@PROJECT_VERSION@";
+inline constexpr char git_commit[] = "@TORRENTCRAFT_GIT_COMMIT@";
+inline constexpr char git_branch[] = "@TORRENTCRAFT_GIT_BRANCH@";
+inline constexpr char build_date[] = "@TORRENTCRAFT_BUILD_DATE@";
+inline constexpr char build_type[] = "@TORRENTCRAFT_BUILD_TYPE@";
+inline constexpr char platform[] = "@CMAKE_SYSTEM_NAME@";
+inline constexpr char architecture[] = "@CMAKE_SYSTEM_PROCESSOR@";
+inline constexpr char compiler[] = "@CMAKE_CXX_COMPILER_ID@ @CMAKE_CXX_COMPILER_VERSION@";
+inline constexpr char qt_version[] = "@Qt6_VERSION@";
+inline constexpr char libtorrent_version[] = "@TORRENTCRAFT_LIBTORRENT_VERSION@";
+inline constexpr char build_system[] = "CMake";
+inline constexpr char generator[] = "@CMAKE_GENERATOR@";
+inline constexpr char package_manager[] = "vcpkg";
+inline constexpr char vcpkg_commit[] = "@TORRENTCRAFT_VCPKG_COMMIT@";
+inline constexpr char nlohmann_json_version[] = "@TORRENTCRAFT_NLOHMANN_JSON_VERSION@";
+inline constexpr char indicators_version[] = "@TORRENTCRAFT_INDICATORS_VERSION@";
+inline constexpr char openssl_version[] = "@TORRENTCRAFT_OPENSSL_VERSION@";
+inline constexpr char boost_version[] = "@TORRENTCRAFT_BOOST_VERSION@";
+inline constexpr char catch2_version[] = "@TORRENTCRAFT_CATCH2_VERSION@";
+} // namespace torrentcraft::gui::build_info

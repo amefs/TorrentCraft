@@ -1,0 +1,15 @@
+/out/
+/vcpkg_installed/
+/.cache/
+/compile_commands.json
+/node_modules/
+/docs/.vitepress/cache/
+/docs/.vitepress/dist/
+
+/.idea/
+/.vscode/
+*.swp
+*.user
+__pycache__/
+*.py[cod]
+.pytest_cache/

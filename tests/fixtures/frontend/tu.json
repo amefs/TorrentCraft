@@ -1,0 +1,16 @@
+{
+    "private": 0,
+    "piece_size": 16384,
+    "tracker_list": [
+        "https://tracker-01.example/announce",
+        "udp://tracker-02.example:80/announce",
+        "udp://tracker-03.example:80/announce",
+        "http://tracker-04.example/announce",
+        "http://tracker-05.example/announce",
+        "https://tracker-06.example/announce",
+        "http://tracker-07.example/announce",
+        "udp://tracker-08.example:6969/announce",
+        "http://tracker-09.example/announce",
+        "https://tracker-10.example/announce"
+    ]
+}

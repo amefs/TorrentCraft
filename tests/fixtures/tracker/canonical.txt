@@ -1,0 +1,4 @@
+https://one.example/announce
+
+udp://two.example:6969/announce
+https://three.example/announce

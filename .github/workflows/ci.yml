@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  VCPKG_COMMIT: d92484ed3c5020c6679d095ad3e5add907887b62
+  VCPKG_ROOT: ${{ github.workspace }}/.vcpkg
+  VCPKG_DOWNLOADS: ${{ github.workspace }}/.vcpkg-downloads
+
+jobs:
+  format:
+    name: clang-format-18
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install formatter
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y clang-format-18
+      - name: Check formatting
+        run: |
+          git ls-files -z '*.cpp' '*.hpp' |
+            xargs -0 --no-run-if-empty clang-format-18 --dry-run --Werror
+
+  build:
+    name: build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux Clang Debug
+            os: ubuntu-24.04
+            preset: linux-clang-debug
+          - name: Linux GCC Release
+            os: ubuntu-24.04
+            preset: linux-gcc-release
+          - name: Windows MSVC Release
+            os: windows-2025
+            preset: windows-msvc-release
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache vcpkg downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.VCPKG_DOWNLOADS }}
+          key: vcpkg-downloads-${{ runner.os }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json', 'cmake/vcpkg-ports/**', 'cmake/vcpkg-triplets/**', 'cmake/vcpkg-patches/**', 'ci/patch-vcpkg-qtbase-glib.sh') }}
+      - name: Prepare vcpkg on Linux
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          rm -rf "$VCPKG_ROOT"
+          git clone --filter=blob:none https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
+          git -C "$VCPKG_ROOT" fetch --depth 1 origin "$VCPKG_COMMIT"
+          git -C "$VCPKG_ROOT" checkout "$VCPKG_COMMIT"
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+      - name: Prepare vcpkg on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (Test-Path -LiteralPath $env:VCPKG_ROOT) {
+            Remove-Item -LiteralPath $env:VCPKG_ROOT -Recurse -Force
+          }
+          git clone --filter=blob:none https://github.com/microsoft/vcpkg.git $env:VCPKG_ROOT
+          git -C $env:VCPKG_ROOT fetch --depth 1 origin $env:VCPKG_COMMIT
+          git -C $env:VCPKG_ROOT checkout $env:VCPKG_COMMIT
+          & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
+      - name: Configure
+        run: cmake --preset ${{ matrix.preset }}
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }}
+      - name: Test
+        run: ctest --preset ${{ matrix.preset }} --output-on-failure
+
+  clang-tidy:
+    name: clang-tidy-18
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install analyzer
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y clang-18 clang-tidy-18 cmake ninja-build
+      - name: Cache vcpkg downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.VCPKG_DOWNLOADS }}
+          key: vcpkg-downloads-${{ runner.os }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json', 'cmake/vcpkg-ports/**', 'cmake/vcpkg-triplets/**', 'cmake/vcpkg-patches/**', 'ci/patch-vcpkg-qtbase-glib.sh') }}
+      - name: Prepare vcpkg
+        shell: bash
+        run: |
+          rm -rf "$VCPKG_ROOT"
+          git clone --filter=blob:none https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
+          git -C "$VCPKG_ROOT" fetch --depth 1 origin "$VCPKG_COMMIT"
+          git -C "$VCPKG_ROOT" checkout "$VCPKG_COMMIT"
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+      - name: Configure and build
+        run: |
+          cmake --preset linux-clang-debug
+          cmake --build --preset linux-clang-debug
+      - name: Analyze
+        run: run-clang-tidy-18 -p out/build/linux-clang-debug -quiet

@@ -1,0 +1,170 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+env:
+  VCPKG_COMMIT: d92484ed3c5020c6679d095ad3e5add907887b62
+
+jobs:
+  linux-static:
+    name: Linux musl static release
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache Alpine dependency downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            .vcpkg-downloads
+          key: vcpkg-musl-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json', 'cmake/vcpkg-ports/**', 'cmake/vcpkg-triplets/**', 'cmake/vcpkg-patches/**', 'ci/patch-vcpkg-qtbase-glib.sh', 'ci/release/install_alpine_static_xcb_deps.sh', 'ci/vcpkg-asset-download.sh') }}
+      - name: Build and validate
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          docker run --rm \
+            --env GITHUB_REF_NAME \
+            --env GITHUB_SHA \
+            --env VCPKG_COMMIT \
+            --volume "$GITHUB_WORKSPACE:/workspace" \
+            --workdir /workspace \
+            alpine:3.22.5@sha256:7c8cb692ae09657cbc4a3f3cbd0e8d5a2690ba38386aaaf252dbb060bf5eb2e6 \
+            sh -euxc '
+              apk add --no-cache \
+                autoconf autoconf-archive automake bash binutils bison build-base \
+                ca-certificates cmake curl file flex fontconfig font-dejavu font-wqy-zenhei \
+                gcompat gettext-dev gettext-static git gperf libtool linux-headers m4 meson ninja \
+                perl pkgconf python3 tar unzip xz zip libx11-dev libx11-static libxau-dev \
+                libxtst-dev libxtst-static libxrandr-dev libxcb-dev libxcb-static libxdmcp-dev \
+                libxkbcommon-dev libxkbcommon-static xcb-util-cursor-dev xcb-util-dev \
+                xcb-util-image-dev xcb-util-keysyms-dev xcb-util-renderutil-dev xcb-util-wm-dev \
+                xorgproto xvfb-run
+              export VCPKG_ROOT=/workspace/.vcpkg-musl
+              export VCPKG_DOWNLOADS=/workspace/.vcpkg-downloads
+              export VCPKG_BINARY_SOURCES=clear
+              export X_VCPKG_ASSET_SOURCES="clear;x-script,/workspace/ci/vcpkg-asset-download.sh {url} {sha512} {dst}"
+              mkdir -p "$VCPKG_DOWNLOADS"
+              ci/release/install_alpine_static_xcb_deps.sh
+              export CMAKE_LIBRARY_PATH="/usr/local/lib${CMAKE_LIBRARY_PATH:+:$CMAKE_LIBRARY_PATH}"
+              git clone --filter=blob:none https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
+              git -C "$VCPKG_ROOT" fetch --depth 1 origin "$VCPKG_COMMIT"
+              git -C "$VCPKG_ROOT" checkout "$VCPKG_COMMIT"
+              ci/patch-vcpkg-qtbase-glib.sh "$VCPKG_ROOT"
+              "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics -musl
+              release_version="${GITHUB_REF_NAME#v}"
+              export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+              cmake --preset linux-musl-static-gui -DTORRENTCRAFT_BUILD_DATE="$release_version"
+              cmake --build --preset linux-musl-static-gui
+              mkdir -p out
+              xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
+                ctest --preset linux-musl-static-gui \
+                --output-junit out/test-linux-musl-static-gui.xml \
+                --output-on-failure
+              mkdir -p out/release/linux
+              python3 ci/release/static_release.py \
+                --build-dir out/build/linux-musl-static-gui \
+                --output-dir out/release/linux \
+                --vcpkg-root "$VCPKG_ROOT" \
+                --version "$release_version" \
+                --triplet x64-linux-musl-static \
+                --platform linux-musl-x86_64 \
+                --include-source
+              xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
+                python3 ci/release/check_static_release.py \
+                --directory out/release/linux \
+                --platform linux-musl-x86_64 \
+                --include-source \
+                --version "$release_version"
+              (cd out/release/linux && sha256sum -c SHA256SUMS)
+            '
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux-static-release
+          path: |
+            out/release/linux
+            out/test-linux-musl-static-gui.xml
+          if-no-files-found: warn
+
+  windows-static:
+    name: Windows static release
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare vcpkg
+        shell: pwsh
+        env:
+          VCPKG_ROOT: ${{ github.workspace }}\.vcpkg
+          VCPKG_DOWNLOADS: ${{ github.workspace }}\.vcpkg-downloads
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:VCPKG_DOWNLOADS | Out-Null
+          if (Test-Path -LiteralPath $env:VCPKG_ROOT) {
+            Remove-Item -LiteralPath $env:VCPKG_ROOT -Recurse -Force
+          }
+          git clone --filter=blob:none https://github.com/microsoft/vcpkg.git $env:VCPKG_ROOT
+          git -C $env:VCPKG_ROOT fetch --depth 1 origin $env:VCPKG_COMMIT
+          git -C $env:VCPKG_ROOT checkout $env:VCPKG_COMMIT
+          & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
+      - name: Configure and build
+        shell: pwsh
+        env:
+          VCPKG_ROOT: ${{ github.workspace }}\.vcpkg
+          VCPKG_DOWNLOADS: ${{ github.workspace }}\.vcpkg-downloads
+        run: |
+          cmake --preset windows-msvc-static-gui
+          cmake --build --preset windows-msvc-static-gui --config Release
+          New-Item -ItemType Directory -Force -Path out | Out-Null
+          ctest --preset windows-msvc-static-gui --output-junit out\test-windows-msvc-static-gui.xml --output-on-failure
+      - name: Package and validate
+        shell: pwsh
+        env:
+          VCPKG_ROOT: ${{ github.workspace }}\.vcpkg
+        run: |
+          $version = $env:GITHUB_REF_NAME.Substring(1)
+          New-Item -ItemType Directory -Force -Path out\release\windows | Out-Null
+          python ci/release/static_release.py --build-dir out\build\windows-msvc-static-gui --output-dir out\release\windows --vcpkg-root $env:VCPKG_ROOT --version $version --triplet x64-windows-static --platform windows-x86_64 --config Release --include-source
+          python ci/release/check_static_release.py --directory out\release\windows --platform windows-x86_64 --include-source --version $version
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-static-release
+          path: |
+            out/release/windows
+            out/test-windows-msvc-static-gui.xml
+          if-no-files-found: warn
+
+  publish:
+    name: Publish GitHub release
+    needs: [linux-static, windows-static]
+    if: needs.linux-static.result == 'success' && needs.windows-static.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-static-release
+          path: out/release/linux
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-static-release
+          path: out/release/windows
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mapfile -d '' files < <(find out/release -type f -print0)
+          gh release create "$GITHUB_REF_NAME" \
+            --verify-tag \
+            --title "TorrentCraft ${GITHUB_REF_NAME#v}" \
+            --generate-notes \
+            "${files[@]}"

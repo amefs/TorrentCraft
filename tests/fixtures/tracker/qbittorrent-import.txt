@@ -1,0 +1,8 @@
+
+  # public endpoints
+ https://one.example/announce
+
+
+# private tier
+udp://two.example:6969/announce
+https://three.example/announce

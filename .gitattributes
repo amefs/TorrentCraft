@@ -1,0 +1,9 @@
+# Golden byte fixtures must stay byte-identical across platforms and are exempt
+# from git text processing, diff whitespace checks and merge normalization.
+tests/fixtures/**/*.torrent binary
+tests/fixtures/**/*.bencode binary
+tests/fixtures/**/*.bin binary
+# Payloads are hashed byte-for-byte by torrent verification tests. In
+# particular, do not convert README.txt to CRLF on Windows checkouts.
+tests/fixtures/**/payload/** -text
+tests/fixtures/tracker/** -text

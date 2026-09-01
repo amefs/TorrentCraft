@@ -1,0 +1,11 @@
+if(NOT DEFINED HEADER)
+    message(FATAL_ERROR "HEADER is required")
+endif()
+
+file(READ "${HEADER}" contents)
+foreach(forbidden IN ITEMS "<libtorrent/" "<boost/" "<Qt" "bencode_adapter" "libtorrent_adapter")
+    string(FIND "${contents}" "${forbidden}" position)
+    if(NOT position EQUAL -1)
+        message(FATAL_ERROR "public Torrent Engine header exposes forbidden dependency: ${forbidden}")
+    endif()
+endforeach()

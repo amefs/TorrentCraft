@@ -1,0 +1,313 @@
+diff --git a/ports/qtbase/GLIB2-static.patch b/ports/qtbase/GLIB2-static.patch
+--- a/ports/qtbase/GLIB2-static.patch
++++ b/ports/qtbase/GLIB2-static.patch
+@@ -53,1 +53,1 @@
+-@@ -153,12 +180,21 @@ if(GLIB2_GIO_FOUND AND NOT TARGET GLIB2::GIO)
++@@ -153,12 +180,41 @@ if(GLIB2_GIO_FOUND AND NOT TARGET GLIB2::GIO)
+@@ -57,9 +57,29 @@
+ +if(GLIB2_GMODULE_FOUND AND NOT TARGET GLIB2::GMODULE)
+ +  add_library(GLIB2::GMODULE UNKNOWN IMPORTED)
+ +  set_target_properties(GLIB2::GMODULE PROPERTIES
+ +                        IMPORTED_LOCATION "${GLIB2_GMODULE_LIBRARIES}"
+ +                        INTERFACE_INCLUDE_DIRECTORIES "${GLIB2_GMODULE_INCLUDE_DIRS}")
+ +endif()
+ +
+ +
+++if(TARGET GLIB2::GOBJECT AND PC_GOBJECT_STATIC_LDFLAGS)
+++  set(_glib2_gobject_static_ldflags ${PC_GOBJECT_STATIC_LDFLAGS})
+++  list(REMOVE_ITEM _glib2_gobject_static_ldflags "-lgobject-2.0")
+++  set_property(TARGET GLIB2::GOBJECT APPEND PROPERTY
+++               INTERFACE_LINK_LIBRARIES "${_glib2_gobject_static_ldflags}")
+++endif()
+++
+++if(TARGET GLIB2::GIO AND PC_GIO_STATIC_LDFLAGS)
+++  set(_glib2_gio_static_ldflags ${PC_GIO_STATIC_LDFLAGS})
+++  list(REMOVE_ITEM _glib2_gio_static_ldflags "-lgio-2.0")
+++  set_property(TARGET GLIB2::GIO APPEND PROPERTY
+++               INTERFACE_LINK_LIBRARIES "${_glib2_gio_static_ldflags}")
+++endif()
+++
+++if(TARGET GLIB2::GMODULE AND PC_GMODULE_STATIC_LDFLAGS)
+++  set(_glib2_gmodule_static_ldflags ${PC_GMODULE_STATIC_LDFLAGS})
+++  list(REMOVE_ITEM _glib2_gmodule_static_ldflags "-lgmodule-2.0")
+++  set_property(TARGET GLIB2::GMODULE APPEND PROPERTY
+++               INTERFACE_LINK_LIBRARIES "${_glib2_gmodule_static_ldflags}")
+++endif()
+  mark_as_advanced(GLIB2_INCLUDE_DIRS GLIB2_INCLUDE_DIR
+diff --git a/ports/qtbase/portfile.cmake b/ports/qtbase/portfile.cmake
+--- a/ports/qtbase/portfile.cmake
++++ b/ports/qtbase/portfile.cmake
+@@ -17,4 +17,6 @@
+         fix_egl_2.patch
+         installed_dir.patch
+         GLIB2-static.patch # alternative is to force pkg-config
++        qtbase-glib-plugin-link-order.patch
++        qtbase-static-xcb-private-deps.patch
+         clang-cl_source_location.patch
+diff --git a/ports/qtbase/qtbase-glib-plugin-link-order.patch b/ports/qtbase/qtbase-glib-plugin-link-order.patch
+new file mode 100644
+--- /dev/null
++++ b/ports/qtbase/qtbase-glib-plugin-link-order.patch
+@@ -0,0 +1,23 @@
++diff --git a/src/plugins/networkinformation/glib/CMakeLists.txt b/src/plugins/networkinformation/glib/CMakeLists.txt
++--- a/src/plugins/networkinformation/glib/CMakeLists.txt
+++++ b/src/plugins/networkinformation/glib/CMakeLists.txt
++@@ -4,1 +4,6 @@
+++set(qt_glib_plugin_static_libraries)
+++if(NOT BUILD_SHARED_LIBS)
+++    set(qt_glib_plugin_static_libraries ${PC_GIO_STATIC_LDFLAGS})
+++endif()
+++
++ qt_internal_add_plugin(QGlibNetworkInformationPlugin
++@@ -9,10 +14,11 @@ qt_internal_add_plugin(QGlibNetworkInformationPlugin
++     SOURCES
++         qglibnetworkinformationbackend.cpp
++     LIBRARIES
++         Qt::NetworkPrivate
++-        GLIB2::GOBJECT
++         GLIB2::GIO
+++        GLIB2::GOBJECT
+++        ${qt_glib_plugin_static_libraries}
++     DEFINES
++         "QT_ENABLE_STRICT_MODE_UP_TO=QT_VERSION_CHECK(6,11,0)"
++         QT_NO_CAST_FROM_ASCII
++         QT_NO_SIGNALS_SLOTS_KEYWORDS
+diff --git a/ports/qtbase/qtbase-static-xcb-private-deps.patch b/ports/qtbase/qtbase-static-xcb-private-deps.patch
+new file mode 100644
+--- /dev/null
++++ b/ports/qtbase/qtbase-static-xcb-private-deps.patch
+@@ -0,0 +1,20 @@
++diff --git a/cmake/3rdparty/extra-cmake-modules/find-modules/FindXCB.cmake b/cmake/3rdparty/extra-cmake-modules/find-modules/FindXCB.cmake
++index 0c546d0..9212bad 100644
++--- a/cmake/3rdparty/extra-cmake-modules/find-modules/FindXCB.cmake
+++++ b/cmake/3rdparty/extra-cmake-modules/find-modules/FindXCB.cmake
++@@ -177,6 +177,15 @@ ecm_find_package_parse_components(XCB
++ ecm_find_package_handle_library_components(XCB
++     COMPONENTS ${XCB_components}
++ )
+++# ECM uses pkg-config only as a search hint and does not copy its transitive
+++# link libraries to imported targets. Static libxcb needs the private Xau and
+++# Xdmcp dependencies that vcpkg records in PKG_XCB_XCB_LINK_LIBRARIES.
+++if(NOT BUILD_SHARED_LIBS AND TARGET XCB::XCB AND PKG_XCB_XCB_LINK_LIBRARIES)
+++    set(_xcb_static_link_libraries ${PKG_XCB_XCB_LINK_LIBRARIES})
+++    list(REMOVE_ITEM _xcb_static_link_libraries "${XCB_XCB_LIBRARY}" xcb)
+++    set_property(TARGET XCB::XCB APPEND PROPERTY
+++        INTERFACE_LINK_LIBRARIES "${_xcb_static_link_libraries}")
+++endif()
++
++ find_package_handle_standard_args(XCB
++     FOUND_VAR
+diff --git a/ports/glib/portfile.cmake b/ports/glib/portfile.cmake
+--- a/ports/glib/portfile.cmake
++++ b/ports/glib/portfile.cmake
+@@ -111,1 +111,18 @@
+ vcpkg_fixup_pkgconfig()
++if(VCPKG_LIBRARY_LINKAGE STREQUAL "static" AND VCPKG_TARGET_IS_LINUX)
++    file(GLOB glib_pkgconfig_files
++        "${CURRENT_PACKAGES_DIR}/lib/pkgconfig/*.pc"
++        "${CURRENT_PACKAGES_DIR}/debug/lib/pkgconfig/*.pc"
++    )
++    foreach(pc_file IN LISTS glib_pkgconfig_files)
++        vcpkg_replace_string("${pc_file}"
++            "[/A-Za-z0-9_.:+-]*libatomic[.]so([.][0-9]+)*"
++            "-Wl,-l:libatomic.a"
++            REGEX
++            IGNORE_UNCHANGED
++        )
++        vcpkg_replace_string("${pc_file}" "-latomic" "-Wl,-l:libatomic.a" IGNORE_UNCHANGED)
++    endforeach()
++endif()
++
+diff --git a/ports/harfbuzz/portfile.cmake b/ports/harfbuzz/portfile.cmake
+--- a/ports/harfbuzz/portfile.cmake
++++ b/ports/harfbuzz/portfile.cmake
+@@ -105,1 +105,3 @@ if(VCPKG_LIBRARY_LINKAGE STREQUAL "static")
+-            if(IS_ABSOLUTE "${lib}")
++            if(IS_ABSOLUTE "${lib}" AND "${lib}" MATCHES "/libstdc[+][+][.]so([.][0-9]+)*$")
++                list(APPEND cxx_link_flags "-Wl,-l:libstdc++.a")
++            elseif(IS_ABSOLUTE "${lib}")
+@@ -162,1 +164,19 @@ if(cxx_link_libraries)
+ endif()
++
++if(VCPKG_LIBRARY_LINKAGE STREQUAL "static" AND VCPKG_TARGET_IS_LINUX)
++    file(GLOB harfbuzz_pkgconfig_files
++        "${CURRENT_PACKAGES_DIR}/lib/pkgconfig/harfbuzz.pc"
++        "${CURRENT_PACKAGES_DIR}/debug/lib/pkgconfig/harfbuzz.pc"
++    )
++    foreach(pc_file IN LISTS harfbuzz_pkgconfig_files)
++        vcpkg_replace_string("${pc_file}"
++            "[/A-Za-z0-9_.:+-]*libstdc[+][+][.]so([.][0-9]+)*"
++            "-Wl,-l:libstdc++.a"
++            REGEX
++            IGNORE_UNCHANGED
++        )
++        vcpkg_replace_string("${pc_file}" "-lstdc++" "-Wl,-l:libstdc++.a" IGNORE_UNCHANGED)
++    endforeach()
++endif()
+diff --git a/ports/gtk3/portfile.cmake b/ports/gtk3/portfile.cmake
+--- a/ports/gtk3/portfile.cmake
++++ b/ports/gtk3/portfile.cmake
+@@ -23,1 +23,3 @@
+         avoid-multiple-definition.diff
++        disable-atk-bridge.patch
++        disable-dynamic-modules.patch
+@@ -50,1 +51,7 @@
+ endif()
++
++if(VCPKG_LIBRARY_LINKAGE STREQUAL "static")
++    list(APPEND OPTIONS
++        -Datk_bridge=false
++        "-Dc_link_args=-static-libgcc"
++        "-Dcpp_link_args=-static-libstdc++"
++    )
++else()
++    list(APPEND OPTIONS -Datk_bridge=true)
++endif()
+diff --git a/ports/gtk3/vcpkg.json b/ports/gtk3/vcpkg.json
+--- a/ports/gtk3/vcpkg.json
++++ b/ports/gtk3/vcpkg.json
+@@ -12,1 +12,1 @@
+-      "platform": "linux"
++      "platform": "linux & !static"
+diff --git a/ports/gtk3/disable-atk-bridge.patch b/ports/gtk3/disable-atk-bridge.patch
+new file mode 100644
+--- /dev/null
++++ b/ports/gtk3/disable-atk-bridge.patch
+@@ -0,0 +1,57 @@
++diff --git a/meson_options.txt b/meson_options.txt
++--- a/meson_options.txt
+++++ b/meson_options.txt
++@@ -13,4 +13,6 @@ option('quartz_backend', type: 'boolean', value: true,
++ # Optional dependencies
+++option('atk_bridge', type: 'boolean', value: true,
+++  description : 'Enable the AT-SPI accessibility bridge')
++ option('xinerama', type: 'combo', choices : ['yes', 'no', 'auto'], value : 'auto',
++   description : 'Enable support for the Xinerama extension')
++ option('cloudproviders', type: 'boolean', value: false,
++diff --git a/meson.build b/meson.build
++--- a/meson.build
+++++ b/meson.build
++@@ -565,7 +565,10 @@ if x11_enabled
++   xfixes_dep     = dependency('xfixes', required: false)
++   xcomposite_dep = dependency('xcomposite', required: false)
++   fontconfig_dep = dependency('fontconfig', fallback: ['fontconfig', 'fontconfig_dep'])
++-  atkbridge_dep  = dependency('atk-bridge-2.0', version: at_spi2_atk_req)
+++  if get_option('atk_bridge')
+++    atkbridge_dep = dependency('atk-bridge-2.0', version: at_spi2_atk_req)
+++    cdata.set('HAVE_ATK_BRIDGE', 1)
+++  endif
++
++   backend_immodules += ['xim']
++
++@@ -584,7 +587,9 @@ if x11_enabled
++     x11_pkgs += ['xdamage']
++   endif
++
++-  atk_pkgs += ['atk-bridge-2.0']
+++  if get_option('atk_bridge')
+++    atk_pkgs += ['atk-bridge-2.0']
+++  endif
++
++   cdata.set('HAVE_XDAMAGE', xdamage_dep.found() ? 1 : false)
++   cdata.set('HAVE_XCURSOR', xcursor_dep.found() ? 1 : false)
++diff --git a/gtk/a11y/gtkaccessibility.c b/gtk/a11y/gtkaccessibility.c
++--- a/gtk/a11y/gtkaccessibility.c
+++++ b/gtk/a11y/gtkaccessibility.c
++@@ -37,7 +37,7 @@
++ #include <gtk/gtktogglebutton.h>
++ #include <gtk/gtkaccessible.h>
++
++-#ifdef GDK_WINDOWING_X11
+++#ifdef HAVE_ATK_BRIDGE
++ #include <atk-bridge.h>
++ #endif
++
++@@ -986,7 +986,7 @@ _gtk_accessibility_init (void)
++   _gtk_accessibility_override_atk_util ();
++   do_window_event_initialization ();
++
++-#ifdef GDK_WINDOWING_X11
+++#ifdef HAVE_ATK_BRIDGE
++   atk_bridge_adaptor_init (NULL, NULL);
++ #endif
++
+diff --git a/ports/gtk3/disable-dynamic-modules.patch b/ports/gtk3/disable-dynamic-modules.patch
+new file mode 100644
+--- /dev/null
++++ b/ports/gtk3/disable-dynamic-modules.patch
+@@ -0,0 +1,75 @@
++diff --git a/gtk/gtkbuilder.c b/gtk/gtkbuilder.c
++index 886913b..37f313a 100644
++--- a/gtk/gtkbuilder.c
+++++ b/gtk/gtkbuilder.c
++@@ -412,6 +412,9 @@ _gtk_builder_resolve_type_lazily (const gchar *name)
++   if (!module)
++     module = g_module_open (NULL, 0);
++
+++  if (module == NULL)
+++    return G_TYPE_INVALID;
+++
++   symbol = type_name_mangle (name);
++
++   if (g_module_symbol (module, symbol, (gpointer)&func))
++diff --git a/gtk/gtkbuilderparser.c b/gtk/gtkbuilderparser.c
++index 5ee5423..2c61506 100644
++--- a/gtk/gtkbuilderparser.c
+++++ b/gtk/gtkbuilderparser.c
++@@ -167,6 +167,9 @@ _get_type_by_symbol (const gchar *symbol)
++   if (!module)
++     module = g_module_open (NULL, 0);
++
+++  if (module == NULL)
+++    return G_TYPE_INVALID;
+++
++   if (!g_module_symbol (module, symbol, (gpointer)&func))
++     return G_TYPE_INVALID;
++
++diff --git a/gtk/gtkmodules.c b/gtk/gtkmodules.c
++index f93101c..e3601ff 100644
++--- a/gtk/gtkmodules.c
+++++ b/gtk/gtkmodules.c
++@@ -407,6 +407,10 @@ gtk_module_info_unref (GtkModuleInfo *info)
++ static GSList *
++ load_modules (const char *module_str)
++ {
+++#ifdef GTK_DISABLE_DYNAMIC_MODULES
+++  (void) module_str;
+++  return NULL;
+++#else
++   gchar **module_names;
++   GSList *module_list = NULL;
++   gint i;
++@@ -421,6 +425,7 @@ load_modules (const char *module_str)
++   g_strfreev (module_names);
++
++   return module_list;
+++#endif
++ }
++
++ static void
++@@ -586,6 +591,9 @@ _gtk_module_has_mixed_deps (GModule *module_to_check)
++   else
++     module = module_to_check;
++
+++  if (module == NULL)
+++    return FALSE;
+++
++   if (g_module_symbol (module, "gtk_progress_get_type", &func))
++     result = TRUE;
++   else
++diff --git a/meson.build b/meson.build
++index f7d3f8e..b4859eb 100644
++--- a/meson.build
+++++ b/meson.build
++@@ -184,6 +184,9 @@ gtk_appdatadir = join_paths(gtk_datadir, 'metainfo')
++ gtk_mplocaledir = join_paths(gtk_prefix, get_option('localedir'))
++
++ cdata = configuration_data()
+++if get_option('default_library') == 'static'
+++  cdata.set('GTK_DISABLE_DYNAMIC_MODULES', 1)
+++endif
++ cdata.set_quoted('PACKAGE_VERSION', meson.project_version())
++ cdata.set_quoted('GTK_LOCALEDIR', gtk_localedir)
++ cdata.set_quoted('GTK_DATADIR', gtk_datadir)

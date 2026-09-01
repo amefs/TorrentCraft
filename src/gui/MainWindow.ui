@@ -1,0 +1,1047 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>TorrentCraftMainWindow</class>
+ <widget class="QMainWindow" name="TorrentCraftMainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>720</width>
+    <height>960</height>
+   </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>700</width>
+    <height>600</height>
+   </size>
+  </property>
+  <property name="windowTitle">
+   <string>TorrentCraft</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="vboxMainApp">
+    <property name="leftMargin"><number>8</number></property>
+    <property name="topMargin"><number>8</number></property>
+    <property name="rightMargin"><number>8</number></property>
+    <property name="bottomMargin"><number>8</number></property>
+    <item>
+     <widget class="QTabWidget" name="tabMain">
+      <property name="currentIndex">
+       <number>0</number>
+      </property>
+      <widget class="QWidget" name="Create">
+       <attribute name="title">
+        <string>Create</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="vboxCreateTab">
+        <item>
+         <widget class="QScrollArea" name="scrollCreate">
+          <property name="widgetResizable">
+           <bool>true</bool>
+          </property>
+          <widget class="QWidget" name="pageCreateScroll">
+           <property name="geometry">
+            <rect>
+             <x>0</x>
+             <y>0</y>
+             <width>820</width>
+             <height>880</height>
+            </rect>
+           </property>
+           <layout class="QVBoxLayout" name="vboxCreate">
+            <item>
+             <widget class="QGroupBox" name="grpCreateFile">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="title">
+               <string>File</string>
+              </property>
+              <layout class="QVBoxLayout" name="vboxCreateFile">
+               <item>
+                <widget class="QGroupBox" name="grpCreateInput">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                 <property name="minimumSize">
+                  <size><width>0</width><height>92</height></size>
+                 </property>
+                 <property name="acceptDrops">
+                  <bool>true</bool>
+                 </property>
+                 <property name="title">
+                  <string>Select file/folder to share</string>
+                 </property>
+                 <layout class="QVBoxLayout" name="vboxCreateInput">
+                  <item>
+                   <layout class="QHBoxLayout" name="hboxCreateInputPath">
+                    <item>
+                     <widget class="QLabel" name="lblCreateInputPath">
+                      <property name="text"><string>Path:</string></property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QLineEdit" name="editCreateInputPath">
+                      <property name="accessibleName"><string>Content path</string></property>
+                     </widget>
+                    </item>
+                   </layout>
+                  </item>
+                  <item>
+                   <layout class="QHBoxLayout" name="hboxCreateInputButtons">
+                    <item>
+                     <spacer name="spcCreateInputLeft">
+                      <property name="orientation"><enum>Qt::Horizontal</enum></property>
+                      <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
+                     </spacer>
+                    </item>
+                    <item>
+                     <widget class="QLabel" name="lblCreateDropArea">
+                      <property name="styleSheet"><string notr="true">color: gray;</string></property>
+                      <property name="text"><string>[Drag and drop area]</string></property>
+                     </widget>
+                    </item>
+                    <item>
+                     <spacer name="spcCreateInputRight">
+                      <property name="orientation"><enum>Qt::Horizontal</enum></property>
+                      <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
+                     </spacer>
+                    </item>
+                    <item>
+                     <widget class="QPushButton" name="btnCreateSelectFile">
+                      <property name="sizePolicy">
+                       <sizepolicy hsizetype="Fixed" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy>
+                      </property>
+                      <property name="text"><string>Select file</string></property>
+                      <property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/open-torrent.svg</iconset></property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QPushButton" name="btnCreateSelectFolder">
+                      <property name="sizePolicy">
+                       <sizepolicy hsizetype="Fixed" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy>
+                      </property>
+                      <property name="text"><string>Select folder</string></property>
+                      <property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/open-folder.svg</iconset></property>
+                     </widget>
+                    </item>
+                   </layout>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+               <item>
+                <widget class="QGroupBox" name="grpCreateOutput">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                 <property name="minimumSize">
+                  <size><width>0</width><height>92</height></size>
+                 </property>
+                 <property name="title">
+                  <string>Select path to save torrent</string>
+                 </property>
+                 <layout class="QVBoxLayout" name="vboxCreateOutput">
+                  <item>
+                   <layout class="QHBoxLayout" name="hboxCreateOutputPath">
+                    <item>
+                     <widget class="QLabel" name="lblCreateOutputPath">
+                      <property name="text"><string>Path:</string></property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QLineEdit" name="editCreateOutputPath">
+                      <property name="accessibleName"><string>Torrent output path</string></property>
+                     </widget>
+                    </item>
+                   </layout>
+                  </item>
+                  <item>
+                   <layout class="QHBoxLayout" name="hboxCreateOutputButtons">
+                    <item>
+                     <spacer name="spcCreateOutputLeft">
+                      <property name="orientation"><enum>Qt::Horizontal</enum></property>
+                      <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
+                     </spacer>
+                    </item>
+                    <item>
+                     <widget class="QPushButton" name="btnCreateSaveTo">
+                      <property name="text"><string>Save to</string></property>
+                      <property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/save-torrent.svg</iconset></property>
+                     </widget>
+                    </item>
+                   </layout>
+                  </item>
+                  <item>
+                   <layout class="QHBoxLayout" name="hboxCreateOutputOverwrite">
+                    <item>
+                     <widget class="QCheckBox" name="chkCreateOverwrite">
+                      <property name="text"><string>Allow replacing an existing torrent file</string></property>
+                     </widget>
+                    </item>
+                    <item>
+                     <spacer name="spcCreateOutputOverwrite">
+                      <property name="orientation"><enum>Qt::Horizontal</enum></property>
+                      <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
+                     </spacer>
+                    </item>
+                   </layout>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <widget class="QGroupBox" name="grpCreateSettings">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size><width>0</width><height>120</height></size>
+              </property>
+              <property name="title">
+               <string>Settings</string>
+              </property>
+              <layout class="QFormLayout" name="formCreateSettings">
+               <item row="0" column="0">
+                <widget class="QLabel" name="lblCreatePieceSize">
+                 <property name="text"><string>Piece size:</string></property>
+                </widget>
+               </item>
+               <item row="0" column="1">
+                <layout class="QHBoxLayout" name="hboxCreatePieceSize">
+                 <item>
+                  <widget class="QComboBox" name="cmbCreatePieceSize">
+                   <item><property name="text"><string>Automatic</string></property></item>
+                   <item><property name="text"><string>16 KiB</string></property></item>
+                   <item><property name="text"><string>32 KiB</string></property></item>
+                   <item><property name="text"><string>64 KiB</string></property></item>
+                   <item><property name="text"><string>128 KiB</string></property></item>
+                   <item><property name="text"><string>256 KiB</string></property></item>
+                   <item><property name="text"><string>512 KiB</string></property></item>
+                   <item><property name="text"><string>1 MiB</string></property></item>
+                   <item><property name="text"><string>2 MiB</string></property></item>
+                   <item><property name="text"><string>4 MiB</string></property></item>
+                   <item><property name="text"><string>8 MiB</string></property></item>
+                   <item><property name="text"><string>16 MiB</string></property></item>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnCreateCalcPieces">
+                   <property name="text"><string>Calculate number of pieces</string></property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="lblCreatePieces">
+                   <property name="text"><string/></property>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="spcCreatePieceSize">
+                   <property name="orientation"><enum>Qt::Horizontal</enum></property>
+                   <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
+                  </spacer>
+                 </item>
+                </layout>
+               </item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="lblCreateFormat">
+                 <property name="text"><string>Format:</string></property>
+                </widget>
+               </item>
+               <item row="1" column="1">
+                <widget class="QComboBox" name="cmbCreateFormat">
+                 <item><property name="text"><string>Hybrid</string></property></item>
+                 <item><property name="text"><string>V1</string></property></item>
+                 <item><property name="text"><string>V2</string></property></item>
+                </widget>
+               </item>
+               <item row="2" column="0">
+                <widget class="QLabel" name="lblCreateFileOrder">
+                 <property name="text"><string>File order:</string></property>
+                </widget>
+               </item>
+               <item row="2" column="1">
+                <widget class="QComboBox" name="cmbCreateFileOrder">
+                 <property name="toolTip">
+                  <string>Lexicographical: TorrentCraft default, files sorted by name. Canonical alignment: file layout matches qBittorrent/libtorrent v2 or hybrid creation. Natural: matches qBittorrent's default file order. Breadth first: folders are expanded level by level, then sorted by name.</string>
+                 </property>
+                 <item><property name="text"><string>Lexicographical (TorrentCraft default)</string></property></item>
+                 <item><property name="text"><string>Canonical alignment (qBittorrent/libtorrent)</string></property></item>
+                 <item><property name="text"><string>Natural (qBittorrent default)</string></property></item>
+                 <item><property name="text"><string>Breadth first</string></property></item>
+                </widget>
+               </item>
+               <item row="3" column="1">
+                <widget class="QCheckBox" name="chkCreatePrivate">
+                 <property name="text"><string>Private torrent (Won't distribute on DHT network)</string></property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <widget class="QGroupBox" name="grpCreateFields">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+                <horstretch>0</horstretch>
+                <verstretch>1</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size><width>0</width><height>340</height></size>
+              </property>
+              <property name="title">
+               <string>Fields</string>
+              </property>
+              <layout class="QVBoxLayout" name="vboxCreateFields" stretch="3,2,0,0,0,2">
+               <item>
+                <layout class="QHBoxLayout" name="hboxCreateTracker" stretch="0,0,0">
+                 <item>
+                  <widget class="QLabel" name="lblCreateTracker">
+                   <property name="minimumSize">
+                    <size><width>85</width><height>0</height></size>
+                   </property>
+                   <property name="text"><string>Tracker URLs:</string></property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QTableView" name="tblCreateTrackers">
+                   <property name="minimumSize">
+                    <size><width>0</width><height>132</height></size>
+                   </property>
+                   <property name="accessibleName"><string>Create tracker tiers</string></property>
+                   <property name="editTriggers">
+                    <set>QAbstractItemView::NoEditTriggers</set>
+                   </property>
+                   <property name="selectionBehavior">
+                    <enum>QAbstractItemView::SelectRows</enum>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <layout class="QVBoxLayout" name="vboxCreateTrackerBtns">
+                   <item>
+                    <spacer name="spcCreateTrackerTop">
+                     <property name="orientation"><enum>Qt::Vertical</enum></property>
+                     <property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property>
+                    </spacer>
+                   </item>
+                   <item>
+                    <widget class="QPushButton" name="btnCreateTrackerAdd">
+                     <property name="minimumSize">
+                      <size><width>0</width><height>28</height></size>
+                     </property>
+                     <property name="text"><string>Add</string></property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QPushButton" name="btnCreateTrackerRemove">
+                     <property name="minimumSize">
+                      <size><width>0</width><height>28</height></size>
+                     </property>
+                     <property name="text"><string>Remove</string></property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QPushButton" name="btnCreateTrackerEdit">
+                     <property name="minimumSize">
+                      <size><width>0</width><height>28</height></size>
+                     </property>
+                     <property name="text"><string>Edit</string></property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QPushButton" name="btnCreateTrackerUp">
+                     <property name="minimumSize">
+                      <size><width>0</width><height>28</height></size>
+                     </property>
+                     <property name="text"><string>Move Up</string></property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QPushButton" name="btnCreateTrackerDown">
+                     <property name="minimumSize">
+                      <size><width>0</width><height>28</height></size>
+                     </property>
+                     <property name="text"><string>Move Down</string></property>
+                    </widget>
+                   </item>
+                   <item>
+                    <spacer name="spcCreateTrackerBot">
+                     <property name="orientation"><enum>Qt::Vertical</enum></property>
+                     <property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property>
+                    </spacer>
+                   </item>
+                  </layout>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="hboxCreateComment" stretch="0,0">
+                 <item>
+                  <widget class="QLabel" name="lblCreateComment">
+                   <property name="minimumSize">
+                    <size><width>85</width><height>0</height></size>
+                   </property>
+                   <property name="text"><string>Comments:</string></property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPlainTextEdit" name="editCreateComment">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="minimumSize">
+                    <size><width>0</width><height>24</height></size>
+                   </property>
+                   <property name="maximumSize">
+                    <size><width>16777215</width><height>24</height></size>
+                   </property>
+                   <property name="accessibleName"><string>Torrent comment</string></property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="hboxCreateCreator">
+                 <item>
+                  <widget class="QLabel" name="lblCreateCreator">
+                   <property name="minimumSize">
+                    <size><width>85</width><height>0</height></size>
+                   </property>
+                   <property name="text"><string>Created by:</string></property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="editCreateCreator">
+                   <property name="enabled">
+                    <bool>false</bool>
+                   </property>
+                   <property name="text">
+                    <string>TorrentCraft</string>
+                   </property>
+                   <property name="accessibleName"><string>Created by text</string></property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QCheckBox" name="chkCreateCreator">
+                   <property name="text"><string>Custom</string></property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="hboxCreateSource">
+                 <item>
+                  <widget class="QLabel" name="lblCreateSource">
+                   <property name="minimumSize">
+                    <size><width>85</width><height>0</height></size>
+                   </property>
+                   <property name="text"><string>Source:</string></property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="editCreateSource">
+                   <property name="accessibleName"><string>Info source</string></property>
+                   <property name="toolTip">
+                    <string>Encoded as info["source"] and changes the torrent identity.</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="hboxCreateDate">
+                 <item>
+                  <widget class="QLabel" name="lblCreateDate">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="minimumSize">
+                    <size><width>85</width><height>0</height></size>
+                   </property>
+                   <property name="text"><string>Creation Date:</string></property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QDateTimeEdit" name="dateCreateCreation">
+                   <property name="enabled"><bool>false</bool></property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QCheckBox" name="chkCreateDate">
+                   <property name="text"><string>Custom</string></property>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="spcCreateDate">
+                   <property name="orientation"><enum>Qt::Horizontal</enum></property>
+                   <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
+                  </spacer>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="hboxCreateWebSeeds" stretch="0,0">
+                 <item>
+                  <widget class="QLabel" name="lblCreateWebSeeds">
+                   <property name="minimumSize">
+                    <size><width>85</width><height>0</height></size>
+                   </property>
+                   <property name="text"><string>Web seeds:</string></property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPlainTextEdit" name="editCreateWebSeeds">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="minimumSize">
+                    <size><width>0</width><height>24</height></size>
+                   </property>
+                   <property name="maximumSize">
+                    <size><width>16777215</width><height>24</height></size>
+                   </property>
+                   <property name="placeholderText"><string>One web seed URL per line.</string></property>
+                   <property name="accessibleName"><string>Web seed URLs</string></property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="hboxCreateProgress">
+              <item>
+               <widget class="QLabel" name="lblCreateProgress">
+                <property name="text"><string>Progress:</string></property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QProgressBar" name="progCreateTorrent">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size><width>0</width><height>24</height></size>
+                </property>
+                <property name="value"><number>0</number></property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="hboxCreateActions">
+              <item><widget class="QCheckBox" name="chkCreateDryRun"><property name="text"><string>Dry run</string></property><property name="toolTip"><string>Preview the create operation without writing a torrent.</string></property></widget></item>
+              <item>
+               <spacer name="spcCreateActions">
+                <property name="orientation"><enum>Qt::Horizontal</enum></property>
+                <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
+               </spacer>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btnCreateCancel">
+                <property name="text"><string>Cancel</string></property>
+                <property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/status-cancelled.svg</iconset></property>
+                <property name="enabled"><bool>false</bool></property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btnCreateTorrent">
+                <property name="text"><string>Create torrent</string></property>
+                <property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/torrent-create.svg</iconset></property>
+                <property name="default"><bool>true</bool></property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="Modify">
+       <attribute name="title"><string>Modify</string></attribute>
+       <layout class="QVBoxLayout" name="vboxModifyTab">
+        <item><widget class="QScrollArea" name="scrollModify"><property name="widgetResizable"><bool>true</bool></property><widget class="QWidget" name="pageModifyScroll"><property name="geometry"><rect><x>0</x><y>0</y><width>820</width><height>900</height></rect></property><layout class="QVBoxLayout" name="vboxModify">
+         <item>
+          <widget class="QGroupBox" name="grpModifyFile">
+           <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
+           <property name="title"><string>File</string></property>
+           <layout class="QVBoxLayout" name="vboxModifyFile">
+            <item>
+             <widget class="QGroupBox" name="grpModifyInput">
+              <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
+              <property name="minimumSize"><size><width>0</width><height>92</height></size></property>
+              <property name="acceptDrops"><bool>true</bool></property>
+              <property name="title"><string>Select torrent file to modify</string></property>
+              <layout class="QVBoxLayout" name="vboxModifyInput">
+               <item>
+                <layout class="QHBoxLayout" name="hboxModifyInputPath">
+                 <item><widget class="QLabel" name="lblModifyInputPath"><property name="text"><string>Path:</string></property></widget></item>
+                 <item><widget class="QLineEdit" name="editModifyTorrentPath"><property name="accessibleName"><string>Torrent file to modify</string></property></widget></item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="hboxModifyInputButtons">
+                 <item><spacer name="spcModifyInputLeft"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+                 <item><widget class="QLabel" name="lblModifyDropArea"><property name="styleSheet"><string notr="true">color: gray;</string></property><property name="text"><string>[Drag and drop area]</string></property></widget></item>
+                 <item><spacer name="spcModifyInputRight"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+                 <item><widget class="QPushButton" name="btnModifySelectFile"><property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="text"><string>Select file</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/open-torrent.svg</iconset></property></widget></item>
+                </layout>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <widget class="QGroupBox" name="grpModifyOutput">
+              <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
+              <property name="minimumSize"><size><width>0</width><height>92</height></size></property>
+              <property name="title"><string>Select path to save torrent</string></property>
+              <layout class="QVBoxLayout" name="vboxModifyOutput">
+               <item>
+                <layout class="QHBoxLayout" name="hboxModifyOutputPath">
+                 <item><widget class="QLabel" name="lblModifyOutputPath"><property name="text"><string>Path:</string></property></widget></item>
+                 <item><widget class="QLineEdit" name="editModifyOutputPath"><property name="accessibleName"><string>Modified torrent output path</string></property></widget></item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="hboxModifyOutputButtons">
+                 <item><spacer name="spcModifyOutputLeft"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+                 <item><widget class="QPushButton" name="btnModifySaveTo"><property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="text"><string>Save to</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/save-torrent.svg</iconset></property></widget></item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="hboxModifyOutputOverwrite">
+                 <item><widget class="QCheckBox" name="chkModifyOverwrite"><property name="text"><string>Allow replacing an existing torrent file</string></property></widget></item>
+                 <item><spacer name="spcModifyOutputOverwrite"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+                </layout>
+               </item>
+              </layout>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QGroupBox" name="grpModifyFields">
+           <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Expanding"><horstretch>0</horstretch><verstretch>1</verstretch></sizepolicy></property>
+           <property name="minimumSize"><size><width>0</width><height>340</height></size></property>
+           <property name="title"><string>Fields</string></property>
+           <layout class="QVBoxLayout" name="vboxModifyFields" stretch="3,2,0,0,0,2,2,0">
+            <item><layout class="QHBoxLayout" name="hboxModifyName"><item><widget class="QLabel" name="lblModifyName"><property name="minimumSize"><size><width>85</width><height>0</height></size></property><property name="text"><string>Name:</string></property></widget></item><item><widget class="QLineEdit" name="editModifyName"><property name="accessibleName"><string>Torrent name</string></property></widget></item></layout></item>
+            <item>
+             <layout class="QHBoxLayout" name="hboxModifyTracker" stretch="0,0,0">
+              <item><widget class="QLabel" name="lblModifyTracker"><property name="minimumSize"><size><width>85</width><height>0</height></size></property><property name="text"><string>Tracker URLs:</string></property></widget></item>
+              <item><widget class="QTableView" name="tblModifyTrackers"><property name="minimumSize"><size><width>0</width><height>132</height></size></property><property name="accessibleName"><string>Modify tracker tiers</string></property><property name="editTriggers"><set>QAbstractItemView::NoEditTriggers</set></property><property name="selectionBehavior"><enum>QAbstractItemView::SelectRows</enum></property></widget></item>
+              <item>
+               <layout class="QVBoxLayout" name="vboxModifyTrackerBtns">
+                <item><spacer name="spcModifyTrackerTop"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer></item>
+                <item><widget class="QPushButton" name="btnModifyTrackerAdd"><property name="minimumSize"><size><width>0</width><height>28</height></size></property><property name="text"><string>Add</string></property></widget></item>
+                <item><widget class="QPushButton" name="btnModifyTrackerRemove"><property name="minimumSize"><size><width>0</width><height>28</height></size></property><property name="text"><string>Remove</string></property></widget></item>
+                <item><widget class="QPushButton" name="btnModifyTrackerEdit"><property name="minimumSize"><size><width>0</width><height>28</height></size></property><property name="text"><string>Edit</string></property></widget></item>
+                <item><widget class="QPushButton" name="btnModifyTrackerUp"><property name="minimumSize"><size><width>0</width><height>28</height></size></property><property name="text"><string>Move Up</string></property></widget></item>
+                <item><widget class="QPushButton" name="btnModifyTrackerDown"><property name="minimumSize"><size><width>0</width><height>28</height></size></property><property name="text"><string>Move Down</string></property></widget></item>
+                <item><spacer name="spcModifyTrackerBot"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer></item>
+               </layout>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="hboxModifyComment" stretch="0,0">
+              <item><widget class="QLabel" name="lblModifyComment"><property name="minimumSize"><size><width>85</width><height>0</height></size></property><property name="text"><string>Comments:</string></property></widget></item>
+              <item><widget class="QPlainTextEdit" name="editModifyComment"><property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>0</width><height>24</height></size></property><property name="maximumSize"><size><width>16777215</width><height>24</height></size></property><property name="accessibleName"><string>Torrent comment</string></property></widget></item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="hboxModifyCreator">
+              <item><widget class="QLabel" name="lblModifyCreator"><property name="minimumSize"><size><width>85</width><height>0</height></size></property><property name="text"><string>Created by:</string></property></widget></item>
+              <item><widget class="QLineEdit" name="editModifyCreator"><property name="enabled"><bool>false</bool></property><property name="accessibleName"><string>Created by text</string></property></widget></item>
+              <item><widget class="QCheckBox" name="chkModifyCreator"><property name="text"><string>Custom</string></property></widget></item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="hboxModifySource">
+              <item><widget class="QLabel" name="lblModifySource"><property name="minimumSize"><size><width>85</width><height>0</height></size></property><property name="text"><string>Source:</string></property></widget></item>
+              <item><widget class="QLineEdit" name="editModifySource"><property name="toolTip"><string>Encoded as info[&quot;source&quot;] and changes the torrent identity.</string></property><property name="accessibleName"><string>Info source</string></property></widget></item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="hboxModifyDate">
+              <item><widget class="QLabel" name="lblModifyDate"><property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Preferred"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>85</width><height>0</height></size></property><property name="text"><string>Creation Date:</string></property></widget></item>
+              <item><widget class="QDateTimeEdit" name="dateModifyCreation"><property name="enabled"><bool>false</bool></property></widget></item>
+              <item><widget class="QCheckBox" name="chkModifyDate"><property name="text"><string>Custom</string></property></widget></item>
+              <item><spacer name="spcModifyDate"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="hboxModifyWebSeeds" stretch="0,0">
+              <item><widget class="QLabel" name="lblModifyWebSeeds"><property name="minimumSize"><size><width>85</width><height>0</height></size></property><property name="text"><string>Web seeds:</string></property></widget></item>
+              <item><widget class="QPlainTextEdit" name="editModifyWebSeeds"><property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>0</width><height>24</height></size></property><property name="maximumSize"><size><width>16777215</width><height>24</height></size></property><property name="placeholderText"><string>One web seed URL per line.</string></property><property name="accessibleName"><string>Web seed URLs</string></property></widget></item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="hboxModifyDhtNodes" stretch="0,0">
+              <item><widget class="QLabel" name="lblModifyDhtNodes"><property name="minimumSize"><size><width>85</width><height>0</height></size></property><property name="text"><string>DHT nodes:</string></property></widget></item>
+              <item><widget class="QPlainTextEdit" name="editModifyDhtNodes"><property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>0</width><height>24</height></size></property><property name="maximumSize"><size><width>16777215</width><height>24</height></size></property><property name="placeholderText"><string>One host:port per line.</string></property><property name="accessibleName"><string>DHT node list</string></property></widget></item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="hboxModifyPrivate">
+              <item><widget class="QCheckBox" name="chkModifyPrivate"><property name="toolTip"><string>Changes the private flag and the torrent info hash; content is not re-hashed.</string></property><property name="text"><string>Private torrent</string></property></widget></item>
+              <item><spacer name="spcModifyPrivate"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+         </item>
+          <item><widget class="QGroupBox" name="grpModifyClear"><property name="title"><string>Clear metadata fields</string></property><layout class="QGridLayout" name="gridModifyClear"><item row="0" column="0"><widget class="QCheckBox" name="chkModifyClearComment"><property name="text"><string>Comments</string></property></widget></item><item row="0" column="1"><widget class="QCheckBox" name="chkModifyClearCreator"><property name="text"><string>Created by</string></property></widget></item><item row="0" column="2"><widget class="QCheckBox" name="chkModifyClearSource"><property name="text"><string>Source</string></property></widget></item><item row="1" column="0"><widget class="QCheckBox" name="chkModifyClearDate"><property name="text"><string>Creation date</string></property></widget></item><item row="1" column="1"><widget class="QCheckBox" name="chkModifyClearWebSeeds"><property name="text"><string>Web seeds</string></property></widget></item><item row="1" column="2"><widget class="QCheckBox" name="chkModifyClearDhtNodes"><property name="text"><string>DHT nodes</string></property></widget></item></layout></widget></item>
+         <item><layout class="QHBoxLayout" name="hboxModifyActions"><item><widget class="QCheckBox" name="chkModifyStrict"><property name="text"><string>Reject leniently loaded torrents</string></property></widget></item><item><widget class="QCheckBox" name="chkModifyDryRun"><property name="text"><string>Dry run</string></property></widget></item><item><widget class="QCheckBox" name="chkModifyBackup"><property name="text"><string>Backup</string></property><property name="toolTip"><string>Keep a backup before replacing the output.</string></property></widget></item><item><spacer name="spcModifyActions"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item><item><widget class="QPushButton" name="btnModifyPreview"><property name="text"><string>Preview changes</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/torrent-modify.svg</iconset></property></widget></item><item><widget class="QPushButton" name="btnModifySave"><property name="text"><string>Save torrent</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/save-torrent.svg</iconset></property><property name="default"><bool>true</bool></property></widget></item></layout></item>
+        </layout></widget></widget></item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="Inspect">
+       <attribute name="title"><string>Inspect</string></attribute>
+       <layout class="QVBoxLayout" name="vboxInspectTab">
+        <item><widget class="QScrollArea" name="scrollInspect"><property name="widgetResizable"><bool>true</bool></property><widget class="QWidget" name="pageInspectScroll"><property name="geometry"><rect><x>0</x><y>0</y><width>820</width><height>980</height></rect></property><layout class="QVBoxLayout" name="vboxInspect">
+         <item><widget class="QGroupBox" name="grpInspectInput"><property name="minimumSize"><size><width>0</width><height>92</height></size></property><property name="acceptDrops"><bool>true</bool></property><property name="title"><string>Select torrent to inspect</string></property><layout class="QVBoxLayout" name="vboxInspectInput"><item><layout class="QHBoxLayout" name="hboxInspectInputPath"><item><widget class="QLabel" name="lblInspectInputPath"><property name="text"><string>Path:</string></property></widget></item><item><widget class="QLineEdit" name="editInspectTorrentPath"><property name="accessibleName"><string>Torrent file to inspect</string></property></widget></item></layout></item><item><layout class="QHBoxLayout" name="hboxInspectInputActions"><item><spacer name="spcInspectInputLeft"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item><item><widget class="QLabel" name="lblInspectDropArea"><property name="styleSheet"><string notr="true">color: gray;</string></property><property name="text"><string>[Drag and drop area]</string></property></widget></item><item><spacer name="spcInspectInputRight"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item><item><widget class="QPushButton" name="btnInspectSelectFile"><property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="text"><string>Select file</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/open-torrent.svg</iconset></property></widget></item><item><widget class="QPushButton" name="btnInspectLoad"><property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="text"><string>Inspect</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/torrent-inspect.svg</iconset></property><property name="default"><bool>true</bool></property></widget></item></layout></item></layout></widget></item>
+         <item><widget class="QGroupBox" name="grpInspectSummary"><property name="minimumSize"><size><width>0</width><height>220</height></size></property><property name="title"><string>Torrent summary</string></property><layout class="QGridLayout" name="gridInspectSummary"><item row="0" column="0"><widget class="QLabel" name="lblInspectName"><property name="text"><string>Name:</string></property></widget></item><item row="0" column="1"><widget class="QLabel" name="lblInspectNameValue"><property name="text"><string>Not loaded</string></property><property name="wordWrap"><bool>true</bool></property></widget></item><item row="0" column="2"><widget class="QLabel" name="lblInspectFormat"><property name="text"><string>Format:</string></property></widget></item><item row="0" column="3"><widget class="QLabel" name="lblInspectFormatValue"><property name="text"><string>Not loaded</string></property></widget></item><item row="1" column="0"><widget class="QLabel" name="lblInspectPrivate"><property name="text"><string>Private:</string></property></widget></item><item row="1" column="1"><widget class="QLabel" name="lblInspectPrivateValue"><property name="text"><string>Not loaded</string></property></widget></item><item row="1" column="2"><widget class="QLabel" name="lblInspectFileCount"><property name="text"><string>File count:</string></property></widget></item><item row="1" column="3"><widget class="QLabel" name="lblInspectFileCountValue"><property name="text"><string>Not loaded</string></property></widget></item><item row="2" column="0"><widget class="QLabel" name="lblInspectInfoHashV1"><property name="text"><string>Info hash v1:</string></property></widget></item><item row="2" column="1"><widget class="QLabel" name="lblInspectInfoHashV1Value"><property name="text"><string>Not loaded</string></property><property name="wordWrap"><bool>true</bool></property></widget></item><item row="3" column="0"><widget class="QLabel" name="lblInspectInfoHashV2"><property name="text"><string>Info hash v2:</string></property></widget></item><item row="3" column="1"><widget class="QLabel" name="lblInspectInfoHashV2Value"><property name="text"><string>Not loaded</string></property><property name="wordWrap"><bool>true</bool></property></widget></item><item row="4" column="0"><widget class="QLabel" name="lblInspectPieceLength"><property name="text"><string>Piece length:</string></property></widget></item><item row="4" column="1"><widget class="QLabel" name="lblInspectPieceLengthValue"><property name="text"><string>Not loaded</string></property></widget></item><item row="3" column="2"><widget class="QLabel" name="lblInspectPayloadBytes"><property name="text"><string>Payload bytes:</string></property></widget></item><item row="3" column="3"><widget class="QLabel" name="lblInspectPayloadBytesValue"><property name="text"><string>Not loaded</string></property></widget></item><item row="2" column="2"><widget class="QLabel" name="lblInspectCapability"><property name="text"><string>Verification capability:</string></property></widget></item><item row="2" column="3"><widget class="QLabel" name="lblInspectCapabilityValue"><property name="text"><string>Not loaded</string></property><property name="wordWrap"><bool>true</bool></property></widget></item><item row="4" column="2"><widget class="QLabel" name="lblInspectCreatedBy"><property name="text"><string>Created by:</string></property></widget></item><item row="4" column="3"><widget class="QLabel" name="lblInspectCreatedByValue"><property name="text"><string>Not loaded</string></property><property name="wordWrap"><bool>true</bool></property></widget></item></layout></widget></item>
+         <item><widget class="QGroupBox" name="grpInspectViews"><property name="minimumSize"><size><width>0</width><height>340</height></size></property><property name="title"><string>Inspection views</string></property><layout class="QVBoxLayout" name="vboxInspectViews"><item><widget class="QTabWidget" name="tabInspectViews"><widget class="QWidget" name="pageInspectFileTree"><attribute name="title"><string>File Tree</string></attribute><layout class="QVBoxLayout" name="vboxInspectFileTree"><item><widget class="QTreeView" name="treeInspectFileTree"><property name="editTriggers"><set>QAbstractItemView::NoEditTriggers</set></property><property name="sortingEnabled"><bool>true</bool></property><property name="accessibleName"><string>Inspected torrent file tree</string></property></widget></item></layout></widget><widget class="QWidget" name="pageInspectTrackers"><attribute name="title"><string>Tracker List</string></attribute><layout class="QVBoxLayout" name="vboxInspectTrackers"><item><widget class="QTableView" name="tblInspectTrackers"><property name="editTriggers"><set>QAbstractItemView::NoEditTriggers</set></property><property name="selectionBehavior"><enum>QAbstractItemView::SelectRows</enum></property><property name="accessibleName"><string>Inspected tracker tiers</string></property></widget></item></layout></widget><widget class="QWidget" name="pageInspectMetadataFields"><attribute name="title"><string>Metadata Fields</string></attribute><layout class="QVBoxLayout" name="vboxInspectMetadataFields"><item><widget class="QTreeWidget" name="treeInspectMetadataFields"><property name="editTriggers"><set>QAbstractItemView::NoEditTriggers</set></property><property name="accessibleName"><string>Inspected metadata fields</string></property></widget></item></layout></widget></widget></item></layout></widget></item>
+         <item><layout class="QHBoxLayout" name="hboxInspectActions"><item><widget class="QCheckBox" name="chkInspectStrict"><property name="text"><string>Reject leniently loaded torrents</string></property></widget></item><item><spacer name="spcInspectActions"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item><item><widget class="QPushButton" name="btnInspectValidate"><property name="text"><string>Validate</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/torrent-validate.svg</iconset></property></widget></item></layout></item>
+         <item><widget class="QGroupBox" name="grpInspectDiagnostics"><property name="minimumSize"><size><width>0</width><height>150</height></size></property><property name="title"><string>Diagnostics and warnings</string></property><layout class="QVBoxLayout" name="vboxInspectDiagnostics"><item><widget class="QTreeWidget" name="treeInspectDiagnostics"><property name="editTriggers"><set>QAbstractItemView::NoEditTriggers</set></property><property name="accessibleName"><string>Inspection diagnostics and warnings</string></property><column><property name="text"><string>Type</string></property></column><column><property name="text"><string>Field</string></property></column><column><property name="text"><string>Message</string></property></column></widget></item></layout></widget></item>
+        </layout></widget></widget></item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="Verify">
+       <attribute name="title"><string>Verify</string></attribute>
+       <layout class="QVBoxLayout" name="vboxVerifyTab">
+        <item><widget class="QScrollArea" name="scrollVerify"><property name="widgetResizable"><bool>true</bool></property><widget class="QWidget" name="pageVerifyScroll"><property name="geometry"><rect><x>0</x><y>0</y><width>820</width><height>900</height></rect></property><layout class="QVBoxLayout" name="vboxVerify">
+         <item>
+          <widget class="QGroupBox" name="grpVerifyFile">
+           <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
+           <property name="title"><string>File</string></property>
+           <layout class="QVBoxLayout" name="vboxVerifyFile">
+            <item>
+             <widget class="QGroupBox" name="grpVerifyTorrent">
+              <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
+              <property name="minimumSize"><size><width>0</width><height>92</height></size></property>
+              <property name="acceptDrops"><bool>true</bool></property>
+              <property name="title"><string>Select torrent file to verify</string></property>
+              <layout class="QVBoxLayout" name="vboxVerifyTorrent">
+               <item>
+                <layout class="QHBoxLayout" name="hboxVerifyTorrentPath">
+                 <item><widget class="QLabel" name="lblVerifyTorrentPath"><property name="text"><string>Path:</string></property></widget></item>
+                 <item><widget class="QLineEdit" name="editVerifyTorrentPath"><property name="accessibleName"><string>Torrent file to verify</string></property></widget></item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="hboxVerifyTorrentButtons">
+                 <item><spacer name="spcVerifyTorrentLeft"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+                 <item><widget class="QLabel" name="lblVerifyDropArea"><property name="styleSheet"><string notr="true">color: gray;</string></property><property name="text"><string>[Drag and drop area]</string></property></widget></item>
+                 <item><spacer name="spcVerifyTorrentRight"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+                 <item><widget class="QPushButton" name="btnVerifySelectFile"><property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="text"><string>Select file</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/open-torrent.svg</iconset></property></widget></item>
+                </layout>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <widget class="QGroupBox" name="grpVerifyContent">
+              <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
+              <property name="minimumSize"><size><width>0</width><height>92</height></size></property>
+              <property name="acceptDrops"><bool>true</bool></property>
+              <property name="title"><string>Select content directory to verify</string></property>
+              <layout class="QVBoxLayout" name="vboxVerifyContent">
+               <item>
+                <layout class="QHBoxLayout" name="hboxVerifyContentPath">
+                 <item><widget class="QLabel" name="lblVerifyContentPath"><property name="text"><string>Path:</string></property></widget></item>
+                 <item><widget class="QLineEdit" name="editVerifyContentPath"><property name="accessibleName"><string>Content directory to verify</string></property></widget></item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="hboxVerifyContentButtons">
+                 <item><spacer name="spcVerifyContentLeft"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+                 <item><widget class="QLabel" name="lblVerifyContentDropArea"><property name="styleSheet"><string notr="true">color: gray;</string></property><property name="text"><string>[Drag and drop area]</string></property></widget></item>
+                 <item><spacer name="spcVerifyContentRight"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+                 <item><widget class="QPushButton" name="btnVerifySelectFolder"><property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="text"><string>Select folder</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/open-folder.svg</iconset></property></widget></item>
+                </layout>
+               </item>
+              </layout>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QGroupBox" name="grpVerifyFields">
+           <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Expanding"><horstretch>0</horstretch><verstretch>1</verstretch></sizepolicy></property>
+           <property name="minimumSize"><size><width>0</width><height>300</height></size></property>
+           <property name="title"><string>File List</string></property>
+           <layout class="QVBoxLayout" name="vboxVerifyFields">
+            <item><widget class="QTreeView" name="treeVerifyFileList"><property name="editTriggers"><set>QAbstractItemView::NoEditTriggers</set></property><property name="sortingEnabled"><bool>true</bool></property><property name="accessibleName"><string>Verification file list</string></property></widget></item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <layout class="QHBoxLayout" name="hboxVerifyProgress">
+           <item><widget class="QLabel" name="lblVerifyProgress"><property name="text"><string>Progress:</string></property></widget></item>
+           <item><widget class="QProgressBar" name="progVerifyProgress"><property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>0</width><height>24</height></size></property><property name="value"><number>0</number></property></widget></item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QHBoxLayout" name="hboxVerifyActions">
+           <item><spacer name="spcVerifyActions"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+           <item><widget class="QPushButton" name="btnVerifyCancel"><property name="text"><string>Cancel</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/status-cancelled.svg</iconset></property><property name="enabled"><bool>false</bool></property></widget></item>
+           <item><widget class="QPushButton" name="btnVerifyStart"><property name="text"><string>Verify content</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/torrent-verify.svg</iconset></property><property name="default"><bool>true</bool></property></widget></item>
+          </layout>
+         </item>
+        </layout></widget></widget></item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="Tracker">
+       <attribute name="title"><string>Tracker</string></attribute>
+       <layout class="QVBoxLayout" name="vboxTrackerTab">
+        <item><widget class="QScrollArea" name="scrollTracker"><property name="widgetResizable"><bool>true</bool></property><widget class="QWidget" name="pageTrackerScroll"><property name="geometry"><rect><x>0</x><y>0</y><width>820</width><height>900</height></rect></property><layout class="QVBoxLayout" name="vboxTracker">
+         <item>
+          <widget class="QGroupBox" name="grpTrackerFile">
+           <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
+           <property name="title"><string>Torrent</string></property>
+           <layout class="QVBoxLayout" name="vboxTrackerFile">
+            <item>
+             <widget class="QGroupBox" name="grpTrackerInput">
+              <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
+              <property name="minimumSize"><size><width>0</width><height>92</height></size></property>
+              <property name="acceptDrops"><bool>true</bool></property>
+              <property name="title"><string>Select path of torrents to modify (Folder)</string></property>
+              <layout class="QVBoxLayout" name="vboxTrackerInput">
+               <item>
+                <layout class="QHBoxLayout" name="hboxTrackerInputPath">
+                 <item><widget class="QLabel" name="lblTrackerInputPath"><property name="text"><string>Path:</string></property></widget></item>
+                 <item><widget class="QLineEdit" name="editTrackerSourcePath"><property name="accessibleName"><string>Folder containing torrents to modify</string></property></widget></item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="hboxTrackerInputButtons">
+                 <item><spacer name="spcTrackerInputLeft"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+                 <item><widget class="QLabel" name="lblTrackerDropArea"><property name="styleSheet"><string notr="true">color: gray;</string></property><property name="text"><string>[Drag and drop area]</string></property></widget></item>
+                 <item><spacer name="spcTrackerInputRight"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+                 <item><widget class="QPushButton" name="btnTrackerSelectFolder"><property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="text"><string>Select folder</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/open-folder.svg</iconset></property></widget></item>
+                </layout>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <widget class="QGroupBox" name="grpTrackerOutput">
+              <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
+              <property name="minimumSize"><size><width>0</width><height>92</height></size></property>
+              <property name="title"><string>Select path to save torrent</string></property>
+              <layout class="QVBoxLayout" name="vboxTrackerOutput">
+               <item>
+                <layout class="QHBoxLayout" name="hboxTrackerOutputPath">
+                 <item><widget class="QLabel" name="lblTrackerOutputPath"><property name="text"><string>Path:</string></property></widget></item>
+                 <item><widget class="QLineEdit" name="editTrackerOutputPath"><property name="accessibleName"><string>Batch output directory for modified torrents</string></property></widget></item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="hboxTrackerOutputButtons">
+                 <item><spacer name="spcTrackerOutputLeft"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+                 <item><widget class="QPushButton" name="btnTrackerSaveTo"><property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="text"><string>Save to</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/save-torrent.svg</iconset></property></widget></item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="hboxTrackerOutputOverwrite">
+                 <item><widget class="QCheckBox" name="chkTrackerOverwrite"><property name="text"><string>Allow replacing an existing torrent file</string></property></widget></item><item><widget class="QCheckBox" name="chkTrackerDryRun"><property name="text"><string>Dry run</string></property></widget></item><item><widget class="QCheckBox" name="chkTrackerBackup"><property name="text"><string>Backup</string></property></widget></item>
+                 <item><spacer name="spcTrackerOutputOverwrite"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+                </layout>
+               </item>
+              </layout>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QGroupBox" name="grpTrackerFields">
+           <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Expanding"><horstretch>0</horstretch><verstretch>1</verstretch></sizepolicy></property>
+           <property name="minimumSize"><size><width>0</width><height>390</height></size></property>
+           <property name="title"><string>Fields</string></property>
+           <layout class="QVBoxLayout" name="vboxTrackerFields" stretch="3,2">
+            <item>
+             <layout class="QHBoxLayout" name="hboxTrackerTiers" stretch="0,0,0">
+              <item><widget class="QLabel" name="lblTrackerTiers"><property name="minimumSize"><size><width>85</width><height>0</height></size></property><property name="text"><string>Tracker URLs:</string></property></widget></item>
+              <item><widget class="QTableView" name="tblTrackerTiers"><property name="minimumSize"><size><width>0</width><height>132</height></size></property><property name="accessibleName"><string>Tracker tiers</string></property><property name="editTriggers"><set>QAbstractItemView::NoEditTriggers</set></property><property name="selectionBehavior"><enum>QAbstractItemView::SelectRows</enum></property></widget></item>
+              <item>
+               <layout class="QVBoxLayout" name="vboxTrackerBtns">
+                <item><spacer name="spcTrackerTop"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer></item>
+                <item><widget class="QPushButton" name="btnTrackerAdd"><property name="minimumSize"><size><width>0</width><height>28</height></size></property><property name="text"><string>Add</string></property></widget></item>
+                <item><widget class="QPushButton" name="btnTrackerRemove"><property name="minimumSize"><size><width>0</width><height>28</height></size></property><property name="text"><string>Remove</string></property></widget></item>
+                <item><widget class="QPushButton" name="btnTrackerEdit"><property name="minimumSize"><size><width>0</width><height>28</height></size></property><property name="text"><string>Edit</string></property></widget></item>
+                <item><widget class="QPushButton" name="btnTrackerMoveUp"><property name="minimumSize"><size><width>0</width><height>28</height></size></property><property name="text"><string>Move Up</string></property></widget></item>
+                <item><widget class="QPushButton" name="btnTrackerMoveDown"><property name="minimumSize"><size><width>0</width><height>28</height></size></property><property name="text"><string>Move Down</string></property></widget></item>
+                <item><spacer name="spcTrackerBot"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer></item>
+               </layout>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <widget class="QGroupBox" name="grpTrackerTorrents">
+              <property name="title"><string>Torrents List</string></property>
+              <layout class="QVBoxLayout" name="vboxTrackerTorrents">
+               <item>
+                <widget class="QTableView" name="tblTrackerTorrents">
+                 <property name="minimumSize"><size><width>0</width><height>132</height></size></property>
+                 <property name="accessibleName"><string>Torrents to batch modify</string></property>
+                 <property name="editTriggers"><set>QAbstractItemView::NoEditTriggers</set></property>
+                 <property name="selectionBehavior"><enum>QAbstractItemView::SelectRows</enum></property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <layout class="QHBoxLayout" name="hboxTrackerProgress">
+           <item><widget class="QLabel" name="lblTrackerProgress"><property name="text"><string>Progress:</string></property></widget></item>
+           <item><widget class="QProgressBar" name="progTrackerBatch"><property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>0</width><height>24</height></size></property><property name="value"><number>0</number></property></widget></item>
+           <item><widget class="QLabel" name="lblTrackerProgressFiles"><property name="text"><string>(0/0)</string></property></widget></item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QHBoxLayout" name="hboxTrackerActions">
+           <item><spacer name="spcTrackerActions"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+           <item><widget class="QPushButton" name="btnTrackerCancel"><property name="text"><string>Cancel</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/status-cancelled.svg</iconset></property><property name="enabled"><bool>false</bool></property></widget></item>
+           <item><widget class="QPushButton" name="btnTrackerReloadFolder"><property name="text"><string>Reload Folder</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/refresh.svg</iconset></property></widget></item>
+           <item><widget class="QPushButton" name="btnTrackerBatchConvert"><property name="text"><string>Batch Convert</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/batch-convert.svg</iconset></property><property name="default"><bool>true</bool></property></widget></item>
+          </layout>
+         </item>
+        </layout></widget></widget></item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="Advanced">
+       <attribute name="title"><string>Advanced</string></attribute>
+       <layout class="QVBoxLayout" name="vboxAdvancedTab">
+        <item><widget class="QScrollArea" name="scrollAdvanced"><property name="widgetResizable"><bool>true</bool></property><widget class="QWidget" name="pageAdvancedScroll"><property name="geometry"><rect><x>0</x><y>0</y><width>996</width><height>700</height></rect></property><layout class="QVBoxLayout" name="vboxAdvanced">
+         <item><widget class="QGroupBox" name="grpAdvancedConfigFile"><property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>0</width><height>118</height></size></property><property name="title"><string>Configuration file</string></property><layout class="QFormLayout" name="formAdvancedConfigFile"><item row="0" column="0"><widget class="QLabel" name="lblAdvancedConfigPath"><property name="text"><string>Config path:</string></property></widget></item><item row="0" column="1"><layout class="QHBoxLayout" name="hboxAdvancedConfigPath"><item><widget class="QLineEdit" name="editAdvancedConfigPath"><property name="accessibleName"><string>Canonical config path</string></property></widget></item><item><widget class="QPushButton" name="btnAdvancedBrowseConfig"><property name="text"><string>Browse...</string></property></widget></item></layout></item><item row="1" column="1"><layout class="QHBoxLayout" name="hboxAdvancedConfigActions"><item><widget class="QPushButton" name="btnAdvancedReloadConfig"><property name="text"><string>Reload</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/refresh.svg</iconset></property></widget></item><item><widget class="QPushButton" name="btnAdvancedInitConfig"><property name="text"><string>Initialize</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/config-settings.svg</iconset></property></widget></item><item><widget class="QPushButton" name="btnAdvancedShowConfig"><property name="text"><string>Show</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/metadata-fields.svg</iconset></property></widget></item></layout></item></layout></widget></item>
+         <item><widget class="QGroupBox" name="grpAdvancedDefaultSave"><property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>0</width><height>144</height></size></property><property name="title"><string>Default save location</string></property><layout class="QFormLayout" name="formAdvancedSave"><item row="0" column="0"><widget class="QLabel" name="lblAdvancedSaveMode"><property name="text"><string>Mode:</string></property></widget></item><item row="0" column="1"><widget class="QComboBox" name="cmbAdvancedSaveMode"><item><property name="text"><string>Current directory</string></property></item><item><property name="text"><string>Recent directory</string></property></item><item><property name="text"><string>Specified directory</string></property></item></widget></item><item row="1" column="0"><widget class="QLabel" name="lblAdvancedSavePath"><property name="text"><string>Directory:</string></property></widget></item><item row="1" column="1"><layout class="QHBoxLayout" name="hboxAdvancedSavePath"><item><widget class="QLineEdit" name="editAdvancedSavePath"><property name="accessibleName"><string>Specified default save directory</string></property></widget></item><item><widget class="QPushButton" name="btnAdvancedBrowseSavePath"><property name="text"><string>Browse...</string></property></widget></item></layout></item></layout></widget></item>
+         <item><widget class="QGroupBox" name="grpAdvancedDefaults"><property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>0</width><height>370</height></size></property><property name="title"><string>Creation defaults</string></property><layout class="QFormLayout" name="formAdvancedDefaults"><item row="0" column="0"><widget class="QLabel" name="lblAdvancedDefaultPreset"><property name="text"><string>Default preset:</string></property></widget></item><item row="0" column="1"><widget class="QComboBox" name="cmbAdvancedDefaultPreset"><item><property name="text"><string>Defaults</string></property></item></widget></item><item row="1" column="0"><widget class="QLabel" name="lblAdvancedDefaultFormat"><property name="text"><string>Format:</string></property></widget></item><item row="1" column="1"><widget class="QComboBox" name="cmbAdvancedDefaultFormat"><item><property name="text"><string>Hybrid</string></property></item><item><property name="text"><string>V1</string></property></item><item><property name="text"><string>V2</string></property></item></widget></item><item row="2" column="0"><widget class="QLabel" name="lblAdvancedDefaultFileOrder"><property name="text"><string>File order:</string></property></widget></item><item row="2" column="1"><widget class="QComboBox" name="cmbAdvancedDefaultFileOrder"><property name="toolTip"><string>Controls the deterministic order used when creating a torrent.</string></property><item><property name="text"><string>Lexicographical (TorrentCraft default)</string></property></item><item><property name="text"><string>Canonical alignment (qBittorrent/libtorrent)</string></property></item><item><property name="text"><string>Natural (qBittorrent default)</string></property></item><item><property name="text"><string>Breadth first</string></property></item></widget></item><item row="3" column="0"><widget class="QLabel" name="lblAdvancedDefaultPieceSize"><property name="text"><string>Piece size:</string></property></widget></item><item row="3" column="1"><widget class="QSpinBox" name="spinAdvancedDefaultPieceSize"><property name="minimum"><number>0</number></property><property name="maximum"><number>16384</number></property><property name="specialValueText"><string>Automatic</string></property><property name="suffix"><string> KiB</string></property></widget></item><item row="4" column="1"><widget class="QCheckBox" name="chkAdvancedDefaultPrivate"><property name="text"><string>Create private torrents</string></property></widget></item><item row="5" column="0"><widget class="QLabel" name="lblAdvancedDefaultTrackerTiers"><property name="text"><string>Tracker tiers:</string></property></widget></item><item row="5" column="1"><widget class="QPlainTextEdit" name="editAdvancedDefaultTrackerTiers"><property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>0</width><height>48</height></size></property><property name="maximumSize"><size><width>16777215</width><height>48</height></size></property><property name="placeholderText"><string>One tracker URL per line; blank line starts a new tier.</string></property><property name="accessibleName"><string>Default tracker tiers</string></property></widget></item><item row="6" column="0"><widget class="QLabel" name="lblAdvancedDefaultWebSeeds"><property name="text"><string>Web seeds:</string></property></widget></item><item row="6" column="1"><widget class="QPlainTextEdit" name="editAdvancedDefaultWebSeeds"><property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>0</width><height>36</height></size></property><property name="maximumSize"><size><width>16777215</width><height>36</height></size></property><property name="placeholderText"><string>One web seed URL per line.</string></property><property name="accessibleName"><string>Default web seed URLs</string></property></widget></item><item row="7" column="0"><widget class="QLabel" name="lblAdvancedDefaultComment"><property name="text"><string>Comment:</string></property></widget></item><item row="7" column="1"><widget class="QLineEdit" name="editAdvancedDefaultComment"><property name="accessibleName"><string>Default comment</string></property></widget></item><item row="8" column="0"><widget class="QLabel" name="lblAdvancedDefaultCreatedBy"><property name="text"><string>Created by:</string></property></widget></item><item row="8" column="1"><widget class="QLineEdit" name="editAdvancedDefaultCreatedBy"><property name="text"><string>TorrentCraft</string></property><property name="accessibleName"><string>Default created by text</string></property></widget></item><item row="9" column="0"><widget class="QLabel" name="lblAdvancedDefaultSource"><property name="text"><string>Info source:</string></property></widget></item><item row="9" column="1"><widget class="QLineEdit" name="editAdvancedDefaultSource"><property name="toolTip"><string>Encoded as info[&quot;source&quot;] and changes the torrent identity.</string></property><property name="accessibleName"><string>Default info source</string></property></widget></item></layout></widget></item>
+         <item><widget class="QGroupBox" name="grpAdvancedIo"><property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>0</width><height>190</height></size></property><property name="title"><string>I/O</string></property><layout class="QFormLayout" name="formAdvancedIo"><item row="0" column="0"><widget class="QLabel" name="lblAdvancedDiskIo"><property name="text"><string>Disk mode:</string></property></widget></item><item row="0" column="1"><widget class="QComboBox" name="cmbAdvancedDiskIo"><item><property name="text"><string>Memory mapped</string></property></item><item><property name="text"><string>POSIX</string></property></item></widget></item><item row="1" column="0"><widget class="QLabel" name="lblAdvancedVerifyWorkers"><property name="text"><string>Verification workers:</string></property></widget></item><item row="1" column="1"><widget class="QSpinBox" name="spinAdvancedVerifyWorkers"><property name="minimum"><number>1</number></property><property name="maximum"><number>2147483647</number></property><property name="value"><number>1</number></property></widget></item><item row="2" column="0"><widget class="QLabel" name="lblAdvancedVerifyMemory"><property name="text"><string>Verification memory (MiB):</string></property></widget></item><item row="2" column="1"><widget class="QSpinBox" name="spinAdvancedVerifyMemory"><property name="minimum"><number>1</number></property><property name="maximum"><number>2147483647</number></property><property name="value"><number>32</number></property><property name="suffix"><string> MiB</string></property><property name="accessibleName"><string>Verification memory limit</string></property></widget></item><item row="3" column="0"><widget class="QLabel" name="lblAdvancedMemoryWorkingSetLimit"><property name="text"><string>Physical memory (RAM) usage limit:</string></property></widget></item><item row="3" column="1"><widget class="QSpinBox" name="spinAdvancedMemoryWorkingSetLimit"><property name="minimum"><number>1</number></property><property name="maximum"><number>2147483647</number></property><property name="value"><number>512</number></property><property name="suffix"><string> MiB</string></property><property name="toolTip"><string>Windows process working-set hard maximum. Other platforms retain the setting without applying it.</string></property><property name="accessibleName"><string>Physical memory working set limit</string></property></widget></item></layout></widget></item>
+         <item><widget class="QGroupBox" name="grpAdvancedDisplay"><property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>0</width><height>142</height></size></property><property name="title"><string>Display</string></property><layout class="QFormLayout" name="formAdvancedDisplay"><item row="0" column="0"><widget class="QLabel" name="lblAdvancedStyle"><property name="text"><string>Style:</string></property></widget></item><item row="0" column="1"><widget class="QComboBox" name="cmbAdvancedStyle"><property name="accessibleName"><string>Interface style</string></property></widget></item><item row="1" column="0"><widget class="QLabel" name="lblAdvancedFont"><property name="text"><string>Font:</string></property></widget></item><item row="1" column="1"><widget class="QComboBox" name="cmbAdvancedFont"><property name="accessibleName"><string>Interface font</string></property></widget></item><item row="2" column="1"><widget class="QCheckBox" name="chkAdvancedShowPaddingFiles"><property name="text"><string>Show BEP 52 padding files in file trees and summaries</string></property><property name="toolTip"><string>Padding-file visibility does not affect torrent creation or verification.</string></property></widget></item></layout></widget></item>
+         <item><widget class="QGroupBox" name="grpAdvancedLogging"><property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>0</width><height>184</height></size></property><property name="title"><string>Logging</string></property><layout class="QFormLayout" name="formAdvancedLogging"><item row="0" column="1"><widget class="QCheckBox" name="chkAdvancedLogging"><property name="text"><string>Write application log to file</string></property></widget></item><item row="1" column="0"><widget class="QLabel" name="lblAdvancedLogLevel"><property name="text"><string>Level:</string></property></widget></item><item row="1" column="1"><widget class="QComboBox" name="cmbAdvancedLogLevel"><item><property name="text"><string>Debug</string></property></item><item><property name="text"><string>Info</string></property></item><item><property name="text"><string>Warning</string></property></item><item><property name="text"><string>Error</string></property></item></widget></item><item row="2" column="0"><widget class="QLabel" name="lblAdvancedLogPath"><property name="text"><string>Log file:</string></property></widget></item><item row="2" column="1"><layout class="QHBoxLayout" name="hboxAdvancedLogPath"><item><widget class="QLineEdit" name="editAdvancedLogPath"><property name="placeholderText"><string>Default: beside torrentcraft.json</string></property><property name="accessibleName"><string>Log file path</string></property></widget></item><item><widget class="QPushButton" name="btnAdvancedBrowseLogPath"><property name="text"><string>Browse...</string></property></widget></item></layout></item><item row="3" column="1"><layout class="QHBoxLayout" name="hboxAdvancedLogActions"><item><widget class="QPushButton" name="btnAdvancedOpenLog"><property name="text"><string>Open log</string></property></widget></item><item><widget class="QPushButton" name="btnAdvancedCopyDiagnostics"><property name="text"><string>Copy diagnostic context</string></property></widget></item></layout></item></layout></widget></item>
+         <item><layout class="QHBoxLayout" name="hboxAdvancedActions"><item><spacer name="spcAdvancedActions"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item><item><widget class="QPushButton" name="btnAdvancedReset"><property name="text"><string>Reset</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/clear.svg</iconset></property></widget></item><item><widget class="QPushButton" name="btnAdvancedApply"><property name="text"><string>Apply</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/config-settings.svg</iconset></property><property name="default"><bool>true</bool></property></widget></item></layout></item>
+         <item><spacer name="spcAdvancedBottom"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>20</height></size></property></spacer></item>
+        </layout></widget></widget></item>
+       </layout>
+      </widget>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menuBar">
+   <property name="geometry"><rect><x>0</x><y>0</y><width>1040</width><height>22</height></rect></property>
+   <widget class="QMenu" name="menuPreset">
+    <property name="title">
+     <string>Preset</string>
+    </property>
+    <addaction name="actionImportFromFile"/>
+    <addaction name="menuLoadPreset"/>
+    <addaction name="actionSavePreset"/>
+    <addaction name="actionRemovePreset"/>
+    <addaction name="separator"/>
+    <addaction name="actionClearAll"/>
+   </widget>
+   <widget class="QMenu" name="menuLoadPreset">
+    <property name="title">
+     <string>Load Preset</string>
+    </property>
+    <addaction name="actionNoPresetsAvailable"/>
+   </widget>
+   <widget class="QMenu" name="menuLanguage">
+    <property name="title">
+     <string>Language</string>
+    </property>
+    <addaction name="actionLanguageEnglish"/>
+    <addaction name="actionLanguageChinese"/>
+   </widget>
+   <widget class="QMenu" name="menuHelp">
+    <property name="title">
+     <string>Help</string>
+    </property>
+    <addaction name="actionAbout"/>
+   </widget>
+   <addaction name="menuPreset"/>
+   <addaction name="menuLanguage"/>
+   <addaction name="menuHelp"/>
+  </widget>
+  <widget class="QStatusBar" name="statusBar"/>
+  <action name="actionImportFromFile">
+   <property name="text"><string>Import From File</string></property>
+   <property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/import-preset.svg</iconset></property>
+  </action>
+  <action name="actionSavePreset">
+   <property name="text"><string>Save Preset</string></property>
+   <property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/preset.svg</iconset></property>
+  </action>
+  <action name="actionRemovePreset">
+   <property name="text"><string>Delete Preset</string></property>
+   <property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/remove.svg</iconset></property>
+  </action>
+  <action name="actionClearAll">
+   <property name="text"><string>Clear Current Form</string></property>
+   <property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/clear.svg</iconset></property>
+  </action>
+  <action name="actionNoPresetsAvailable">
+   <property name="enabled"><bool>false</bool></property>
+   <property name="text"><string>No presets available</string></property>
+  </action>
+
+  <action name="actionLanguageEnglish">
+   <property name="checkable"><bool>true</bool></property>
+   <property name="checked"><bool>true</bool></property>
+   <property name="text"><string>English</string></property>
+  </action>
+  <action name="actionLanguageChinese">
+   <property name="checkable"><bool>true</bool></property>
+   <property name="text"><string>简体中文</string></property>
+  </action>
+  <action name="actionAbout">
+   <property name="text"><string>About TorrentCraft...</string></property>
+  </action>
+ </widget>
+ <resources>
+  <include location="resources/TorrentCraft.qrc"/>
+ </resources>
+ <connections/>
+</ui>
