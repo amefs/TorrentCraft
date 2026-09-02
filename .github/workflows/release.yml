@@ -46,10 +46,41 @@ jobs:
             --env GITHUB_SHA \
             --env RELEASE_VERSION \
             --env VCPKG_COMMIT \
+            --env HOST_UID="$(id -u)" \
+            --env HOST_GID="$(id -g)" \
             --volume "$GITHUB_WORKSPACE:/workspace" \
             --workdir /workspace \
             alpine:3.22.5@sha256:7c8cb692ae09657cbc4a3f3cbd0e8d5a2690ba38386aaaf252dbb060bf5eb2e6 \
             sh -euxc '
+              host_uid="${HOST_UID:-$(stat -c "%u" /workspace)}"
+              host_gid="${HOST_GID:-$(stat -c "%g" /workspace)}"
+              collect_linux_diagnostics() {
+                status=$?
+                if [ "$status" -ne 0 ]; then
+                  diagnostics=/workspace/out/vcpkg-diagnostics
+                  mkdir -p "$diagnostics"
+                  if [ -d /workspace/.vcpkg-musl/buildtrees ]; then
+                    find /workspace/.vcpkg-musl/buildtrees -type f \
+                      \( -name "package-*-out.log" -o -name "package-*-err.log" \
+                      -o -name "config-*.log" -o -name "*CMakeConfigureLog.yaml.log" \
+                      -o -name "config.summary" -o -name "meson-log.txt" \) \
+                      -print 2>/dev/null |
+                    while IFS= read -r path; do
+                      relative="${path#/workspace/.vcpkg-musl/buildtrees/}"
+                      target="$diagnostics/buildtrees/$relative"
+                      mkdir -p "$(dirname "$target")"
+                      cp "$path" "$target" || true
+                    done
+                  fi
+                  cp /workspace/out/build/linux-musl-static-gui/vcpkg-manifest-install.log \
+                    "$diagnostics/vcpkg-manifest-install.log" 2>/dev/null || true
+                fi
+                if [ -d /workspace/out ]; then
+                  chown -R "$host_uid:$host_gid" /workspace/out 2>/dev/null || true
+                fi
+                exit "$status"
+              }
+              trap collect_linux_diagnostics EXIT
               apk add --no-cache \
                 autoconf autoconf-archive automake bash binutils bison build-base \
                 ca-certificates cmake curl file flex fontconfig font-dejavu font-wqy-zenhei \
@@ -59,6 +90,7 @@ jobs:
                 libxkbcommon-dev libxkbcommon-static xcb-util-cursor-dev xcb-util-dev \
                 xcb-util-image-dev xcb-util-keysyms-dev xcb-util-renderutil-dev xcb-util-wm-dev \
                 xorgproto xvfb-run
+              git config --global --add safe.directory /workspace
               export VCPKG_ROOT=/workspace/.vcpkg-musl
               export VCPKG_DOWNLOADS=/workspace/.vcpkg-downloads
               export VCPKG_BINARY_SOURCES=clear
@@ -106,9 +138,6 @@ jobs:
         shell: bash
         run: |
           mkdir -p out/vcpkg-diagnostics
-          if [ -d .vcpkg-musl/buildtrees ]; then
-            find .vcpkg-musl/buildtrees -type f -name 'package-*-out.log' -exec cp --parents {} out/vcpkg-diagnostics/ \;
-          fi
           cp out/build/linux-musl-static-gui/vcpkg-manifest-install.log out/vcpkg-diagnostics/ 2>/dev/null || true
       - uses: actions/upload-artifact@v4
         if: always()
