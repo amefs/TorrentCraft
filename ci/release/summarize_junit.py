@@ -46,9 +46,11 @@ EXPECTED_SKIP_REASON_PREFIXES = (
     ),
 )
 # CTest's --output-junit conversion replaces Catch2's skip message with this
-# marker. These exact test names are the capability probes that can return it;
+# marker. Some CTest versions omit the message attribute entirely. These exact
+# test names are the capability probes that can return either representation;
 # an unregistered test name remains an unexpected skip.
 CTEST_SKIP_RETURN_CODE_MESSAGE = "SKIP_RETURN_CODE=4"
+CTEST_EMPTY_SKIP_MESSAGE = ""
 EXPECTED_CTEST_SKIP_TEST_CATEGORIES = (
     (
         "given_unreadable_create_payload_when_hashed_then_access_denied_leaves_no_output",
@@ -121,7 +123,7 @@ def classify_skip(testcase: ET.Element) -> str | None:
     category = classify_skip_reason(message)
     if category is not None:
         return category
-    if message != CTEST_SKIP_RETURN_CODE_MESSAGE:
+    if message not in (CTEST_SKIP_RETURN_CODE_MESSAGE, CTEST_EMPTY_SKIP_MESSAGE):
         return None
     name = normalized_text(testcase.attrib.get("name", ""))
     for test_name, expected_category in EXPECTED_CTEST_SKIP_TEST_CATEGORIES:

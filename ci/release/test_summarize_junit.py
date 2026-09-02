@@ -93,6 +93,36 @@ class JUnitSummaryTests(unittest.TestCase):
         self.assertEqual(details[0]["category"], "unreadable_file_permissions_unenforced")
         self.assertEqual(details[1]["category"], "unexpected")
 
+    def test_ctest_empty_skip_is_expected_for_registered_capability_tests(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = self.write_report(
+                Path(temporary),
+                "report.xml",
+                """
+                <testsuite>
+                  <testcase classname="TorrentUtils.Core" name="given_unreadable_create_payload_when_hashed_then_access_denied_leaves_no_output">
+                    <skipped />
+                  </testcase>
+                  <testcase classname="TorrentUtils.Core" name="given_unreadable_regular_file_when_verified_then_access_denied_is_a_result_error">
+                    <skipped />
+                  </testcase>
+                  <testcase classname="TorrentUtils.Core" name="new_capability_test">
+                    <skipped />
+                  </testcase>
+                </testsuite>
+                """,
+            )
+
+            summary = summarize_reports([path], "commit")
+
+        self.assertEqual(summary["expected_skipped"], 2)
+        self.assertEqual(summary["unexpected_skipped"], 1)
+        self.assertEqual(summary["status"], "failed")
+        details = summary["reports"][0]["skip_details"]
+        self.assertEqual(details[0]["category"], "unreadable_file_permissions_unenforced")
+        self.assertEqual(details[1]["category"], "unreadable_file_permissions_unenforced")
+        self.assertEqual(details[2]["category"], "unexpected")
+
     def test_counts_failure_and_error_cases_across_reports(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
