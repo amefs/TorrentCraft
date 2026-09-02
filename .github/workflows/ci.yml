@@ -17,7 +17,7 @@ jobs:
     name: clang-format-18
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install formatter
         run: |
           sudo apt-get update
@@ -44,9 +44,9 @@ jobs:
             os: windows-2022
             preset: windows-msvc-release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Cache vcpkg downloads
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.VCPKG_DOWNLOADS }}
           key: vcpkg-downloads-${{ runner.os }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json', 'cmake/vcpkg-ports/**', 'cmake/vcpkg-triplets/**', 'cmake/vcpkg-patches/**', 'ci/patch-vcpkg-qtbase-glib.sh') }}
@@ -82,13 +82,13 @@ jobs:
     name: clang-tidy-18
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install analyzer
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y clang-18 clang-tidy-18 cmake ninja-build
       - name: Cache vcpkg downloads
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.VCPKG_DOWNLOADS }}
           key: vcpkg-downloads-${{ runner.os }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json', 'cmake/vcpkg-ports/**', 'cmake/vcpkg-triplets/**', 'cmake/vcpkg-patches/**', 'ci/patch-vcpkg-qtbase-glib.sh') }}

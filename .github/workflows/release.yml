@@ -25,12 +25,12 @@ jobs:
     env:
       RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Prepare Linux release directories
         shell: bash
         run: mkdir -p out/vcpkg-diagnostics
       - name: Cache Alpine dependency downloads
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             .vcpkg-downloads
@@ -139,7 +139,7 @@ jobs:
         run: |
           mkdir -p out/vcpkg-diagnostics
           cp out/build/linux-musl-static-gui/vcpkg-manifest-install.log out/vcpkg-diagnostics/ 2>/dev/null || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: linux-static-release
@@ -156,13 +156,13 @@ jobs:
     env:
       RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Cache vcpkg downloads
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .vcpkg-downloads
           key: vcpkg-windows-release-${{ runner.os }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json', 'CMakePresets.json', 'cmake/vcpkg-ports/**', 'cmake/vcpkg-triplets/**', 'cmake/vcpkg-patches/**', 'ci/patch-vcpkg-qtbase-glib.sh') }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - name: Prepare vcpkg
@@ -223,7 +223,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path out\release\windows | Out-Null
           python ci/release/static_release.py --build-dir out\build\windows-msvc-static-gui --output-dir out\release\windows --vcpkg-root $env:VCPKG_ROOT --version $version --triplet x64-windows-static --platform windows-x86_64 --config Release --include-source
           python ci/release/check_static_release.py --directory out\release\windows --platform windows-x86_64 --include-source --version $version
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: windows-static-release
@@ -241,11 +241,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: linux-static-release
           path: out/release/linux
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: windows-static-release
           path: out/release/windows
