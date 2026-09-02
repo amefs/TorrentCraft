@@ -120,7 +120,7 @@
        <item>
         <widget class="QLabel" name="projectLinks">
          <property name="text">
-          <string>&lt;a href="https://github.com/amefs/TorrentCraft"&gt;[Git Repository]&lt;/a&gt;&lt;br/&gt;&lt;a href="https://github.com/amefs/TorrentCraft#readme"&gt;[Documentation]&lt;/a&gt;&lt;br/&gt;&lt;a href="https://github.com/amefs/TorrentCraft/issues"&gt;[Report an Issue]&lt;/a&gt;</string>
+          <string>&lt;a href="https://github.com/amefs/TorrentCraft"&gt;[Git Repository]&lt;/a&gt;&lt;br/&gt;&lt;a href="https://amefs.github.io/TorrentCraft/"&gt;[Documentation]&lt;/a&gt;&lt;br/&gt;&lt;a href="https://github.com/amefs/TorrentCraft/issues"&gt;[Report an Issue]&lt;/a&gt;</string>
          </property>
          <property name="openExternalLinks">
           <bool>true</bool>
