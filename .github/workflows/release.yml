@@ -26,6 +26,9 @@ jobs:
       RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
+      - name: Prepare Linux release directories
+        shell: bash
+        run: mkdir -p out/vcpkg-diagnostics
       - name: Cache Alpine dependency downloads
         uses: actions/cache@v4
         with:
@@ -151,8 +154,23 @@ jobs:
           cmake --preset windows-msvc-static-gui
           cmake --build --preset windows-msvc-static-gui --config Release
           New-Item -ItemType Directory -Force -Path out | Out-Null
-          ctest --preset windows-msvc-static-gui --output-junit out\test-windows-msvc-static-gui.xml --output-on-failure
-          python ci/release/summarize_junit.py --output out\phase8-test-summary.json --source-commit $env:GITHUB_SHA out\test-windows-msvc-static-gui.xml
+          $junitReport = Join-Path $env:GITHUB_WORKSPACE 'out\test-windows-msvc-static-gui.xml'
+          $previousErrorActionPreference = $ErrorActionPreference
+          $ErrorActionPreference = 'Continue'
+          ctest --preset windows-msvc-static-gui --output-junit $junitReport --output-on-failure
+          $ctestExitCode = $LASTEXITCODE
+          $ErrorActionPreference = $previousErrorActionPreference
+          if (-not (Test-Path -LiteralPath $junitReport)) {
+            throw "ctest did not produce JUnit report: $junitReport (exit code $ctestExitCode)"
+          }
+          python ci/release/summarize_junit.py --output out\phase8-test-summary.json --source-commit $env:GITHUB_SHA $junitReport
+          $summaryExitCode = $LASTEXITCODE
+          if ($summaryExitCode -ne 0) {
+            exit $summaryExitCode
+          }
+          if ($ctestExitCode -ne 0) {
+            exit $ctestExitCode
+          }
       - name: Prepare MSVC inspection tools
         shell: pwsh
         run: |
