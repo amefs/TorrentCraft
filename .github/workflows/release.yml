@@ -110,7 +110,7 @@ jobs:
               mkdir -p out
               xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
                 ctest --preset linux-musl-static-gui \
-                --output-junit out/test-linux-musl-static-gui.xml \
+                --output-junit /workspace/out/test-linux-musl-static-gui.xml \
                 --output-on-failure
               python3 ci/release/summarize_junit.py \
                 --output out/phase8-test-summary.json \
