@@ -98,6 +98,15 @@ jobs:
                 --version "$release_version"
               (cd out/release/linux && sha256sum -c SHA256SUMS)
             '
+      - name: Collect Linux release diagnostics
+        if: failure()
+        shell: bash
+        run: |
+          mkdir -p out/vcpkg-diagnostics
+          if [ -d .vcpkg-musl/buildtrees ]; then
+            find .vcpkg-musl/buildtrees -type f -name 'package-*-out.log' -exec cp --parents {} out/vcpkg-diagnostics/ \;
+          fi
+          cp out/build/linux-musl-static-gui/vcpkg-manifest-install.log out/vcpkg-diagnostics/ 2>/dev/null || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -106,6 +115,7 @@ jobs:
             out/release/linux
             out/phase8-test-summary.json
             out/test-linux-musl-static-gui.xml
+            out/vcpkg-diagnostics
           if-no-files-found: warn
 
   windows-static:
@@ -141,7 +151,7 @@ jobs:
           cmake --preset windows-msvc-static-gui
           cmake --build --preset windows-msvc-static-gui --config Release
           New-Item -ItemType Directory -Force -Path out | Out-Null
-          ctest --preset windows-msvc-static-gui --config Release --output-junit out\test-windows-msvc-static-gui.xml --output-on-failure
+          ctest --preset windows-msvc-static-gui --output-junit out\test-windows-msvc-static-gui.xml --output-on-failure
           python ci/release/summarize_junit.py --output out\phase8-test-summary.json --source-commit $env:GITHUB_SHA out\test-windows-msvc-static-gui.xml
       - name: Prepare MSVC inspection tools
         shell: pwsh
