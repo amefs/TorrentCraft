@@ -157,6 +157,11 @@ jobs:
       RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
+      - name: Cache vcpkg downloads
+        uses: actions/cache@v4
+        with:
+          path: .vcpkg-downloads
+          key: vcpkg-windows-release-${{ runner.os }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json', 'CMakePresets.json', 'cmake/vcpkg-ports/**', 'cmake/vcpkg-triplets/**', 'cmake/vcpkg-patches/**', 'ci/patch-vcpkg-qtbase-glib.sh') }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
