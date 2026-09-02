@@ -72,6 +72,7 @@
         "CMAKE_EXE_LINKER_FLAGS": "-static -static-libstdc++ -static-libgcc",
         "CMAKE_PROJECT_INCLUDE": "${sourceDir}/cmake/vcpkg-toolchains/linux-musl-static.cmake",
         "VCPKG_INSTALL_OPTIONS": "--allow-unsupported",
+        "VCPKG_OVERLAY_PORTS": "${sourceDir}/cmake/vcpkg-ports;$env{VCPKG_ROOT}/overlays",
         "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake/vcpkg-triplets",
         "VCPKG_TARGET_TRIPLET": "x64-linux-musl-static"
       }
