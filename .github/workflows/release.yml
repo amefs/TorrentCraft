@@ -275,8 +275,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mapfile -d '' files < <(find out/release -type f -print0)
-          gh release create "$GITHUB_REF_NAME" \
-            --verify-tag \
-            --title "TorrentCraft ${GITHUB_REF_NAME#v}" \
-            --generate-notes \
-            "${files[@]}"
+          mkdir -p out/assets
+          assets=()
+          for file in "${files[@]}"; do
+            relative="${file#out/release/}"
+            asset_name="${relative//\//-}"
+            asset_path="out/assets/$asset_name"
+            mv "$file" "$asset_path"
+            assets+=("$asset_path")
+          done
+
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" --clobber "${assets[@]}"
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --verify-tag \
+              --title "TorrentCraft ${GITHUB_REF_NAME#v}" \
+              --generate-notes \
+              "${assets[@]}"
+          fi
