@@ -7,9 +7,14 @@ TorrentCraft 为 Linux (x86_64) 和 Windows (x86_64) 平台提供了免安装、
 - **命令行程序（CLI）**：`torrentcraft`（Linux） / `torrentcraft.exe`（Windows）
 - **桌面图形界面（GUI）**：`torrentcraft-gui`（Linux） / `torrentcraft-gui.exe`（Windows）
 
-请前往 GitHub 仓库的 Releases 页面下载最新发行版。
+请前往 GitHub 仓库的 Releases 页面下载最新发行版。CLI 和 GUI 可执行文件会
+直接平铺显示；同时下载对应平台的补充包，并将其解压到可执行文件旁边。
 
-> **完整性校验**：每个版本均附带 `SHA256SUMS` 校验和文件，以及详尽的 SBOM（软件物料清单）和安全审计报告。你可以通过 `sha256sum -c SHA256SUMS`（Linux）或 `Get-FileHash`（PowerShell）核对下载文件的完整性。*（注：1.0.0 正式版本的二进制文件暂未签署代码数字签名，签名支持将在后续版本中推出）*。
+> **完整性校验**：平台补充包中包含 `SHA256SUMS` 校验和文件，以及详尽的
+> SBOM（软件物料清单）、provenance 和安全审计报告。将补充包解压到可执行
+> 文件旁边后，可在 Linux 中运行 `sha256sum -c SHA256SUMS`，或在 PowerShell
+> 中使用 `Get-FileHash` 核对完整性。*（注：1.0.0 正式版本的二进制文件暂未
+> 签署代码数字签名，签名支持将在后续版本中推出）*。
 
 ## 验证安装
 

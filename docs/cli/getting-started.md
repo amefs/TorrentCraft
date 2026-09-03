@@ -7,9 +7,16 @@ TorrentCraft is distributed as standalone, self-contained binaries for Linux (x8
 - **CLI executable**: `torrentcraft` (Linux) / `torrentcraft.exe` (Windows)
 - **GUI executable**: `torrentcraft-gui` (Linux) / `torrentcraft-gui.exe` (Windows)
 
-Download the latest release from the repository's Releases page.
+Download the latest release from the repository's Releases page. The CLI and GUI
+executables are listed directly; also download the matching platform support
+bundle and extract it beside the executables.
 
-> **Verification & Integrity**: Each release includes a `SHA256SUMS` file alongside detailed SBOM (Software Bill of Materials) and security audit reports. You can verify your downloaded archive using `sha256sum -c SHA256SUMS` (Linux) or `Get-FileHash` (PowerShell). *(Note: 1.0.0 release binaries are currently unsigned; code signing is planned for a future release).*
+> **Verification & Integrity**: The platform support bundle contains `SHA256SUMS`,
+> detailed SBOM (Software Bill of Materials), provenance, and security audit
+> reports. After extracting it beside the downloaded executables, verify the
+> release with `sha256sum -c SHA256SUMS` on Linux or `Get-FileHash` on PowerShell.
+> *(Note: 1.0.0 release binaries are currently unsigned; code signing is planned
+> for a future release).*
 
 ## Quick Verification
 

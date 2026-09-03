@@ -90,8 +90,13 @@ security reports, and Qt LGPL relinking materials. Release helpers are kept unde
 [ci/release](ci/release), while the public workflow definitions are under
 [.github/workflows](.github/workflows).
 
-Static release archives are published on the repository's Releases page. Verify the
-published SHA-256 manifest and provenance files before installing a release.
+Static releases are published on the repository's Releases page. The Linux and
+Windows CLI/GUI executables are the only flat assets. Each platform also has one
+support bundle containing its compliance materials, test results, source archive,
+provenance, SBOM, security reports, and `SHA256SUMS`. Download the two executables
+and the matching platform bundle, extract the bundle beside them, and run
+`sha256sum -c SHA256SUMS` (or the equivalent PowerShell hash check) before
+installing a release.
 
 ## Project vocabulary
 

@@ -94,6 +94,20 @@ not a second persistent configuration store.
 **Qt-free CLI** is the independent command-line artifact. It does not include or
 link Qt and uses the same configuration frontend as the GUI.
 
+## Release distribution
+
+**Flat executable asset** is a Linux or Windows CLI/GUI binary published directly
+on the GitHub Releases page. It is the only release material intentionally kept
+outside an archive for direct download.
+
+**Platform support bundle** is the platform-specific archive containing release
+metadata, compliance and relinking materials, test results, source artifacts, and
+the SHA-256 manifest for the flat executables and bundle contents.
+
+**Release SHA-256 manifest** is the `SHA256SUMS` file inside a platform support
+bundle. It verifies the matching flat executables and the files inside that bundle;
+the outer bundle is not listed because that would create a self-referential hash.
+
 ## Verification
 
 **Verification outcome** is \`Verified\`, \`Mismatched\`, or \`Incomplete\`, with
