@@ -274,15 +274,86 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mapfile -d '' files < <(find out/release -type f -print0)
-          mkdir -p out/assets
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p out/assets out/packages
           assets=()
-          for file in "${files[@]}"; do
-            relative="${file#out/release/}"
-            asset_name="${relative//\//-}"
-            asset_path="out/assets/$asset_name"
-            mv "$file" "$asset_path"
-            assets+=("$asset_path")
+
+          package_platform() {
+            local artifact_root="$1"
+            local platform="$2"
+            local extension="$3"
+            local asset_dir="out/assets/$platform"
+            local package_dir="out/packages/$platform"
+            local compliance_dir="$package_dir/compliance"
+            local tests_dir="$package_dir/tests"
+            local compliance_asset="TorrentCraft-${version}-${platform}-compliance.tar.gz"
+            local tests_asset="TorrentCraft-${version}-${platform}-test-results.tar.gz"
+
+            mkdir -p "$asset_dir" "$compliance_dir" "$tests_dir"
+
+            copy_release_file() {
+              local name="$1"
+              local source
+              source="$(find "$artifact_root" -type f -name "$name" -print -quit)"
+              if [ -z "$source" ]; then
+                echo "missing release file: $name" >&2
+                return 1
+              fi
+              cp "$source" "$asset_dir/$name"
+            }
+
+            copy_release_file "TorrentCraft-${version}-${platform}-cli${extension}"
+            copy_release_file "TorrentCraft-${version}-${platform}-gui${extension}"
+
+            while IFS= read -r -d '' file; do
+              cp "$file" "$compliance_dir/$(basename "$file")"
+            done < <(
+              find "$artifact_root" -type f \
+                \( -name '*.SBOM.spdx.json' -o \
+                   -name '*.SECURITY-AUDIT.json' -o \
+                   -name '*.PROVENANCE.json' -o \
+                   -name '*Qt-LGPL-compliance.tar.gz' -o \
+                   -name '*Qt-LGPL-compliance.zip' \) -print0
+            )
+
+            while IFS= read -r -d '' file; do
+              relative="${file#"$artifact_root"/}"
+              target="$tests_dir/$relative"
+              mkdir -p "$(dirname "$target")"
+              cp "$file" "$target"
+            done < <(
+              find "$artifact_root" -type f \
+                \( -name 'test-*.xml' -o \
+                   -name 'phase8-test-summary.json' -o \
+                   -path '*/vcpkg-diagnostics/*' \) -print0
+            )
+
+            tar -czf "$asset_dir/$compliance_asset" -C "$compliance_dir" .
+            tar -czf "$asset_dir/$tests_asset" -C "$tests_dir" .
+            assets+=("$asset_dir/$compliance_asset" "$asset_dir/$tests_asset")
+          }
+
+          package_platform out/release/linux linux-musl-x86_64 ""
+          package_platform out/release/windows windows-x86_64 ".exe"
+
+          source_asset="out/assets/TorrentCraft-${version}-source.tar.gz"
+          source_file="$(find out/release/linux -type f -name "$(basename "$source_asset")" -print -quit)"
+          if [ -z "$source_file" ]; then
+            echo "missing source release file: $(basename "$source_asset")" >&2
+            exit 1
+          fi
+          cp "$source_file" "$source_asset"
+          assets+=("$source_asset")
+
+          for platform in linux-musl-x86_64 windows-x86_64; do
+            asset_dir="out/assets/$platform"
+            manifest="out/assets/TorrentCraft-${version}-${platform}-SHA256SUMS"
+            source_digest="$(sha256sum "$source_asset" | cut -d ' ' -f1)"
+            {
+              printf '%s  %s\n' "$source_digest" "$(basename "$source_asset")"
+              (cd "$asset_dir" && sha256sum ./* | sed 's#  \\./#  #')
+            } > "$manifest"
+            assets+=("$manifest")
           done
 
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
