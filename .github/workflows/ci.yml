@@ -9,6 +9,7 @@ permissions:
 
 env:
   VCPKG_COMMIT: d92484ed3c5020c6679d095ad3e5add907887b62
+  VCPKG_BINARY_CACHE_VERSION: 1
   VCPKG_ROOT: ${{ github.workspace }}/.vcpkg
   VCPKG_DOWNLOADS: ${{ github.workspace }}/.vcpkg-downloads
 
@@ -43,6 +44,8 @@ jobs:
           - name: Windows MSVC Release
             os: windows-2022
             preset: windows-msvc-release
+    env:
+      VCPKG_BINARY_SOURCES: 'clear;files,${{ github.workspace }}/.vcpkg-cache/${{ matrix.preset }},readwrite'
     steps:
       - uses: actions/checkout@v5
       - name: Cache vcpkg downloads
@@ -50,6 +53,11 @@ jobs:
         with:
           path: ${{ env.VCPKG_DOWNLOADS }}
           key: vcpkg-downloads-${{ runner.os }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json', 'cmake/vcpkg-ports/**', 'cmake/vcpkg-triplets/**', 'cmake/vcpkg-patches/**', 'ci/patch-vcpkg-qtbase-glib.sh') }}
+      - name: Cache vcpkg binary packages
+        uses: actions/cache@v5
+        with:
+          path: .vcpkg-cache/${{ matrix.preset }}
+          key: vcpkg-binaries-v${{ env.VCPKG_BINARY_CACHE_VERSION }}-${{ runner.os }}-${{ matrix.preset }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('CMakePresets.json', 'vcpkg.json', 'cmake/vcpkg-ports/**', 'cmake/vcpkg-triplets/**', 'cmake/vcpkg-patches/**', 'ci/patch-vcpkg-qtbase-glib.sh') }}
       - name: Prepare vcpkg on Linux
         if: runner.os != 'Windows'
         shell: bash
@@ -81,6 +89,8 @@ jobs:
   clang-tidy:
     name: clang-tidy-18
     runs-on: ubuntu-24.04
+    env:
+      VCPKG_BINARY_SOURCES: 'clear;files,${{ github.workspace }}/.vcpkg-cache/linux-clang-debug,readwrite'
     steps:
       - uses: actions/checkout@v5
       - name: Install analyzer
@@ -92,6 +102,11 @@ jobs:
         with:
           path: ${{ env.VCPKG_DOWNLOADS }}
           key: vcpkg-downloads-${{ runner.os }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json', 'cmake/vcpkg-ports/**', 'cmake/vcpkg-triplets/**', 'cmake/vcpkg-patches/**', 'ci/patch-vcpkg-qtbase-glib.sh') }}
+      - name: Cache vcpkg binary packages
+        uses: actions/cache@v5
+        with:
+          path: .vcpkg-cache/linux-clang-debug
+          key: vcpkg-binaries-v${{ env.VCPKG_BINARY_CACHE_VERSION }}-${{ runner.os }}-linux-clang-debug-${{ env.VCPKG_COMMIT }}-${{ hashFiles('CMakePresets.json', 'vcpkg.json', 'cmake/vcpkg-ports/**', 'cmake/vcpkg-triplets/**', 'cmake/vcpkg-patches/**', 'ci/patch-vcpkg-qtbase-glib.sh') }}
       - name: Prepare vcpkg
         shell: bash
         run: |

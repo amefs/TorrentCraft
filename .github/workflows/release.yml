@@ -17,6 +17,7 @@ permissions:
 
 env:
   VCPKG_COMMIT: d92484ed3c5020c6679d095ad3e5add907887b62
+  VCPKG_BINARY_CACHE_VERSION: 1
 
 jobs:
   linux-static:
@@ -35,6 +36,11 @@ jobs:
           path: |
             .vcpkg-downloads
           key: vcpkg-musl-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json', 'cmake/vcpkg-ports/**', 'cmake/vcpkg-triplets/**', 'cmake/vcpkg-patches/**', 'ci/patch-vcpkg-qtbase-glib.sh', 'ci/release/install_alpine_static_xcb_deps.sh', 'ci/vcpkg-asset-download.sh') }}
+      - name: Cache vcpkg binary packages
+        uses: actions/cache@v5
+        with:
+          path: .vcpkg-cache-musl
+          key: vcpkg-binaries-v${{ env.VCPKG_BINARY_CACHE_VERSION }}-linux-musl-static-${{ env.VCPKG_COMMIT }}-${{ hashFiles('CMakePresets.json', 'vcpkg.json', 'cmake/vcpkg-ports/**', 'cmake/vcpkg-triplets/**', 'cmake/vcpkg-patches/**', 'ci/patch-vcpkg-qtbase-glib.sh', 'ci/release/install_alpine_static_xcb_deps.sh', 'ci/vcpkg-asset-download.sh') }}
       - name: Build and validate
         env:
           GITHUB_REF_NAME: ${{ github.ref_name }}
@@ -78,6 +84,11 @@ jobs:
                 if [ -d /workspace/out ]; then
                   chown -R "$host_uid:$host_gid" /workspace/out 2>/dev/null || true
                 fi
+                for cache_path in /workspace/.vcpkg-cache-musl /workspace/.vcpkg-downloads; do
+                  if [ -d "$cache_path" ]; then
+                    chown -R "$host_uid:$host_gid" "$cache_path" 2>/dev/null || true
+                  fi
+                done
                 exit "$status"
               }
               trap collect_linux_diagnostics EXIT
@@ -93,9 +104,9 @@ jobs:
               git config --global --add safe.directory /workspace
               export VCPKG_ROOT=/workspace/.vcpkg-musl
               export VCPKG_DOWNLOADS=/workspace/.vcpkg-downloads
-              export VCPKG_BINARY_SOURCES=clear
+              export VCPKG_BINARY_SOURCES="clear;files,/workspace/.vcpkg-cache-musl,readwrite"
               export X_VCPKG_ASSET_SOURCES="clear;x-script,/workspace/ci/vcpkg-asset-download.sh {url} {sha512} {dst}"
-              mkdir -p "$VCPKG_DOWNLOADS"
+              mkdir -p "$VCPKG_DOWNLOADS" /workspace/.vcpkg-cache-musl
               ci/release/install_alpine_static_xcb_deps.sh
               export CMAKE_LIBRARY_PATH="/usr/local/lib${CMAKE_LIBRARY_PATH:+:$CMAKE_LIBRARY_PATH}"
               git clone --filter=blob:none https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
@@ -155,6 +166,7 @@ jobs:
     runs-on: windows-2022
     env:
       RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
+      VCPKG_BINARY_SOURCES: 'clear;files,${{ github.workspace }}/.vcpkg-cache-windows,readwrite'
     steps:
       - uses: actions/checkout@v5
       - name: Cache vcpkg downloads
@@ -162,6 +174,11 @@ jobs:
         with:
           path: .vcpkg-downloads
           key: vcpkg-windows-release-${{ runner.os }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json', 'CMakePresets.json', 'cmake/vcpkg-ports/**', 'cmake/vcpkg-triplets/**', 'cmake/vcpkg-patches/**', 'ci/patch-vcpkg-qtbase-glib.sh') }}
+      - name: Cache vcpkg binary packages
+        uses: actions/cache@v5
+        with:
+          path: .vcpkg-cache-windows
+          key: vcpkg-binaries-v${{ env.VCPKG_BINARY_CACHE_VERSION }}-windows-msvc-static-${{ runner.os }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('CMakePresets.json', 'vcpkg.json', 'cmake/vcpkg-ports/**', 'cmake/vcpkg-triplets/**', 'cmake/vcpkg-patches/**', 'ci/patch-vcpkg-qtbase-glib.sh') }}
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
@@ -172,6 +189,7 @@ jobs:
           VCPKG_DOWNLOADS: ${{ github.workspace }}\.vcpkg-downloads
         run: |
           New-Item -ItemType Directory -Force -Path $env:VCPKG_DOWNLOADS | Out-Null
+          New-Item -ItemType Directory -Force -Path "$env:GITHUB_WORKSPACE/.vcpkg-cache-windows" | Out-Null
           if (Test-Path -LiteralPath $env:VCPKG_ROOT) {
             Remove-Item -LiteralPath $env:VCPKG_ROOT -Recurse -Force
           }
