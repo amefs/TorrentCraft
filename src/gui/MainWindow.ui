@@ -146,7 +146,7 @@
                   </sizepolicy>
                  </property>
                  <property name="minimumSize">
-                  <size><width>0</width><height>92</height></size>
+                  <size><width>0</width><height>72</height></size>
                  </property>
                  <property name="title">
                   <string>Select path to save torrent</string>
@@ -167,9 +167,14 @@
                    </layout>
                   </item>
                   <item>
-                   <layout class="QHBoxLayout" name="hboxCreateOutputButtons">
+                   <layout class="QHBoxLayout" name="hboxCreateOutputActions">
                     <item>
-                     <spacer name="spcCreateOutputLeft">
+                     <widget class="QCheckBox" name="chkCreateOverwrite">
+                      <property name="text"><string>Allow replacing an existing torrent file</string></property>
+                     </widget>
+                    </item>
+                    <item>
+                     <spacer name="spcCreateOutputActions">
                       <property name="orientation"><enum>Qt::Horizontal</enum></property>
                       <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
                      </spacer>
@@ -179,21 +184,6 @@
                       <property name="text"><string>Save to</string></property>
                       <property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/save-torrent.svg</iconset></property>
                      </widget>
-                    </item>
-                   </layout>
-                  </item>
-                  <item>
-                   <layout class="QHBoxLayout" name="hboxCreateOutputOverwrite">
-                    <item>
-                     <widget class="QCheckBox" name="chkCreateOverwrite">
-                      <property name="text"><string>Allow replacing an existing torrent file</string></property>
-                     </widget>
-                    </item>
-                    <item>
-                     <spacer name="spcCreateOutputOverwrite">
-                      <property name="orientation"><enum>Qt::Horizontal</enum></property>
-                      <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
-                     </spacer>
                     </item>
                    </layout>
                   </item>
@@ -217,14 +207,26 @@
               <property name="title">
                <string>Settings</string>
               </property>
-              <layout class="QFormLayout" name="formCreateSettings">
-               <item row="0" column="0">
-                <widget class="QLabel" name="lblCreatePieceSize">
-                 <property name="text"><string>Piece size:</string></property>
-                </widget>
-               </item>
-               <item row="0" column="1">
-                <layout class="QHBoxLayout" name="hboxCreatePieceSize">
+              <layout class="QVBoxLayout" name="vboxCreateSettings">
+               <property name="spacing">
+                <number>6</number>
+               </property>
+               <item>
+                <layout class="QHBoxLayout" name="hboxCreatePieceSize" stretch="0,0,0,0,1">
+                 <property name="spacing">
+                  <number>8</number>
+                 </property>
+                 <item>
+                  <widget class="QLabel" name="lblCreatePieceSize">
+                   <property name="minimumSize">
+                    <size><width>65</width><height>0</height></size>
+                   </property>
+                   <property name="maximumSize">
+                    <size><width>65</width><height>16777215</height></size>
+                   </property>
+                   <property name="text"><string>Piece size:</string></property>
+                  </widget>
+                 </item>
                  <item>
                   <widget class="QComboBox" name="cmbCreatePieceSize">
                    <item><property name="text"><string>Automatic</string></property></item>
@@ -248,8 +250,7 @@
                  </item>
                  <item>
                   <widget class="QLabel" name="lblCreatePieces">
-                   <property name="text"><string/></property>
-                  </widget>
+                   <property name="text"><string/></property></widget>
                  </item>
                  <item>
                   <spacer name="spcCreatePieceSize">
@@ -259,38 +260,127 @@
                  </item>
                 </layout>
                </item>
-               <item row="1" column="0">
-                <widget class="QLabel" name="lblCreateFormat">
-                 <property name="text"><string>Format:</string></property>
-                </widget>
+               <item>
+                <layout class="QHBoxLayout" name="hboxCreateFormat" stretch="0,0,1">
+                   <property name="spacing">
+                    <number>8</number>
+                   </property>
+                   <item>
+                    <widget class="QLabel" name="lblCreateFormat">
+                     <property name="minimumSize">
+                      <size><width>65</width><height>0</height></size>
+                     </property>
+                     <property name="maximumSize">
+                      <size><width>65</width><height>16777215</height></size>
+                     </property>
+                     <property name="text"><string>Format:</string></property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QComboBox" name="cmbCreateFormat">
+                     <item><property name="text"><string>Hybrid</string></property></item>
+                     <item><property name="text"><string>V1</string></property></item>
+                     <item><property name="text"><string>V2</string></property></item>
+                    </widget>
+                   </item>
+                   <item>
+                    <spacer name="spcCreateFormat">
+                     <property name="orientation"><enum>Qt::Horizontal</enum></property>
+                     <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
+                    </spacer>
+                   </item>
+                </layout>
                </item>
-               <item row="1" column="1">
-                <widget class="QComboBox" name="cmbCreateFormat">
-                 <item><property name="text"><string>Hybrid</string></property></item>
-                 <item><property name="text"><string>V1</string></property></item>
-                 <item><property name="text"><string>V2</string></property></item>
-                </widget>
+               <item>
+                <layout class="QHBoxLayout" name="hboxCreateFileOrder" stretch="0,0,1">
+                   <property name="spacing">
+                    <number>8</number>
+                   </property>
+                   <item>
+                    <widget class="QLabel" name="lblCreateFileOrder">
+                     <property name="minimumSize">
+                      <size><width>65</width><height>0</height></size>
+                     </property>
+                     <property name="maximumSize">
+                      <size><width>65</width><height>16777215</height></size>
+                     </property>
+                     <property name="text"><string>File order:</string></property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QComboBox" name="cmbCreateFileOrder">
+                     <property name="toolTip">
+                      <string>Lexicographical: TorrentCraft default, files sorted by name. Canonical alignment: file layout matches qBittorrent/libtorrent v2 or hybrid creation. Natural: matches qBittorrent's default file order. Breadth first: folders are expanded level by level, then sorted by name.</string>
+                     </property>
+                     <item><property name="text"><string>Lexicographical (TorrentCraft default)</string></property></item>
+                     <item><property name="text"><string>Canonical alignment (qBittorrent/libtorrent)</string></property></item>
+                     <item><property name="text"><string>Natural (qBittorrent default)</string></property></item>
+                     <item><property name="text"><string>Breadth first</string></property></item>
+                    </widget>
+                   </item>
+                   <item>
+                    <spacer name="spcCreateFileOrder">
+                     <property name="orientation"><enum>Qt::Horizontal</enum></property>
+                     <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
+                    </spacer>
+                   </item>
+                </layout>
                </item>
-               <item row="2" column="0">
-                <widget class="QLabel" name="lblCreateFileOrder">
-                 <property name="text"><string>File order:</string></property>
-                </widget>
-               </item>
-               <item row="2" column="1">
-                <widget class="QComboBox" name="cmbCreateFileOrder">
-                 <property name="toolTip">
-                  <string>Lexicographical: TorrentCraft default, files sorted by name. Canonical alignment: file layout matches qBittorrent/libtorrent v2 or hybrid creation. Natural: matches qBittorrent's default file order. Breadth first: folders are expanded level by level, then sorted by name.</string>
+               <item>
+                <layout class="QHBoxLayout" name="hboxCreateFilter" stretch="0,0,0,0,1">
+                 <property name="spacing">
+                  <number>8</number>
                  </property>
-                 <item><property name="text"><string>Lexicographical (TorrentCraft default)</string></property></item>
-                 <item><property name="text"><string>Canonical alignment (qBittorrent/libtorrent)</string></property></item>
-                 <item><property name="text"><string>Natural (qBittorrent default)</string></property></item>
-                 <item><property name="text"><string>Breadth first</string></property></item>
-                </widget>
+                 <item>
+                  <widget class="QLabel" name="lblCreateFilterMode">
+                   <property name="minimumSize">
+                    <size><width>65</width><height>0</height></size>
+                   </property>
+                   <property name="maximumSize">
+                    <size><width>65</width><height>16777215</height></size>
+                   </property>
+                   <property name="text"><string>File Filter:</string></property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QComboBox" name="cmbCreateFilterMode">
+                   <item><property name="text"><string>Disabled</string></property></item>
+                   <item><property name="text"><string>Common system artifacts</string></property></item>
+                   <item><property name="text"><string>Custom exclusion rules</string></property></item>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnCreateEditFilterRules">
+                   <property name="text"><string>Edit custom rules...</string></property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QCheckBox" name="chkCreateFilterCaseSensitive">
+                   <property name="text"><string>Case-sensitive</string></property>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="spcCreateFilter">
+                   <property name="orientation"><enum>Qt::Horizontal</enum></property>
+                   <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
+                  </spacer>
+                 </item>
+                </layout>
                </item>
-               <item row="3" column="1">
-                <widget class="QCheckBox" name="chkCreatePrivate">
-                 <property name="text"><string>Private torrent (Won't distribute on DHT network)</string></property>
-                </widget>
+               <item>
+                <layout class="QHBoxLayout" name="hboxCreatePrivate" stretch="0,1">
+                 <item>
+                  <widget class="QCheckBox" name="chkCreatePrivate">
+                   <property name="text"><string>Private torrent (Won't distribute on DHT network)</string></property>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="spcCreatePrivate">
+                   <property name="orientation"><enum>Qt::Horizontal</enum></property>
+                   <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
+                  </spacer>
+                 </item>
+                </layout>
                </item>
               </layout>
              </widget>
@@ -626,7 +716,7 @@
             <item>
              <widget class="QGroupBox" name="grpModifyOutput">
               <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
-              <property name="minimumSize"><size><width>0</width><height>92</height></size></property>
+              <property name="minimumSize"><size><width>0</width><height>72</height></size></property>
               <property name="title"><string>Select path to save torrent</string></property>
               <layout class="QVBoxLayout" name="vboxModifyOutput">
                <item>
@@ -636,15 +726,10 @@
                 </layout>
                </item>
                <item>
-                <layout class="QHBoxLayout" name="hboxModifyOutputButtons">
-                 <item><spacer name="spcModifyOutputLeft"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
-                 <item><widget class="QPushButton" name="btnModifySaveTo"><property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="text"><string>Save to</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/save-torrent.svg</iconset></property></widget></item>
-                </layout>
-               </item>
-               <item>
-                <layout class="QHBoxLayout" name="hboxModifyOutputOverwrite">
+                <layout class="QHBoxLayout" name="hboxModifyOutputActions">
                  <item><widget class="QCheckBox" name="chkModifyOverwrite"><property name="text"><string>Allow replacing an existing torrent file</string></property></widget></item>
-                 <item><spacer name="spcModifyOutputOverwrite"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+                 <item><spacer name="spcModifyOutputActions"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+                 <item><widget class="QPushButton" name="btnModifySaveTo"><property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="text"><string>Save to</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/save-torrent.svg</iconset></property></widget></item>
                 </layout>
                </item>
               </layout>
@@ -956,7 +1041,7 @@
         <item><widget class="QScrollArea" name="scrollAdvanced"><property name="widgetResizable"><bool>true</bool></property><widget class="QWidget" name="pageAdvancedScroll"><property name="geometry"><rect><x>0</x><y>0</y><width>996</width><height>700</height></rect></property><layout class="QVBoxLayout" name="vboxAdvanced">
          <item><widget class="QGroupBox" name="grpAdvancedConfigFile"><property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>0</width><height>118</height></size></property><property name="title"><string>Configuration file</string></property><layout class="QFormLayout" name="formAdvancedConfigFile"><item row="0" column="0"><widget class="QLabel" name="lblAdvancedConfigPath"><property name="text"><string>Config path:</string></property></widget></item><item row="0" column="1"><layout class="QHBoxLayout" name="hboxAdvancedConfigPath"><item><widget class="QLineEdit" name="editAdvancedConfigPath"><property name="accessibleName"><string>Canonical config path</string></property></widget></item><item><widget class="QPushButton" name="btnAdvancedBrowseConfig"><property name="text"><string>Browse...</string></property></widget></item></layout></item><item row="1" column="1"><layout class="QHBoxLayout" name="hboxAdvancedConfigActions"><item><widget class="QPushButton" name="btnAdvancedReloadConfig"><property name="text"><string>Reload</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/refresh.svg</iconset></property></widget></item><item><widget class="QPushButton" name="btnAdvancedInitConfig"><property name="text"><string>Initialize</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/config-settings.svg</iconset></property></widget></item><item><widget class="QPushButton" name="btnAdvancedShowConfig"><property name="text"><string>Show</string></property><property name="icon"><iconset resource="resources/TorrentCraft.qrc">:/torrentcraft/icons/metadata-fields.svg</iconset></property></widget></item></layout></item></layout></widget></item>
          <item><widget class="QGroupBox" name="grpAdvancedDefaultSave"><property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>0</width><height>144</height></size></property><property name="title"><string>Default save location</string></property><layout class="QFormLayout" name="formAdvancedSave"><item row="0" column="0"><widget class="QLabel" name="lblAdvancedSaveMode"><property name="text"><string>Mode:</string></property></widget></item><item row="0" column="1"><widget class="QComboBox" name="cmbAdvancedSaveMode"><item><property name="text"><string>Current directory</string></property></item><item><property name="text"><string>Recent directory</string></property></item><item><property name="text"><string>Specified directory</string></property></item></widget></item><item row="1" column="0"><widget class="QLabel" name="lblAdvancedSavePath"><property name="text"><string>Directory:</string></property></widget></item><item row="1" column="1"><layout class="QHBoxLayout" name="hboxAdvancedSavePath"><item><widget class="QLineEdit" name="editAdvancedSavePath"><property name="accessibleName"><string>Specified default save directory</string></property></widget></item><item><widget class="QPushButton" name="btnAdvancedBrowseSavePath"><property name="text"><string>Browse...</string></property></widget></item></layout></item></layout></widget></item>
-         <item><widget class="QGroupBox" name="grpAdvancedDefaults"><property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>0</width><height>370</height></size></property><property name="title"><string>Creation defaults</string></property><layout class="QFormLayout" name="formAdvancedDefaults"><item row="0" column="0"><widget class="QLabel" name="lblAdvancedDefaultPreset"><property name="text"><string>Default preset:</string></property></widget></item><item row="0" column="1"><widget class="QComboBox" name="cmbAdvancedDefaultPreset"><item><property name="text"><string>Defaults</string></property></item></widget></item><item row="1" column="0"><widget class="QLabel" name="lblAdvancedDefaultFormat"><property name="text"><string>Format:</string></property></widget></item><item row="1" column="1"><widget class="QComboBox" name="cmbAdvancedDefaultFormat"><item><property name="text"><string>Hybrid</string></property></item><item><property name="text"><string>V1</string></property></item><item><property name="text"><string>V2</string></property></item></widget></item><item row="2" column="0"><widget class="QLabel" name="lblAdvancedDefaultFileOrder"><property name="text"><string>File order:</string></property></widget></item><item row="2" column="1"><widget class="QComboBox" name="cmbAdvancedDefaultFileOrder"><property name="toolTip"><string>Controls the deterministic order used when creating a torrent.</string></property><item><property name="text"><string>Lexicographical (TorrentCraft default)</string></property></item><item><property name="text"><string>Canonical alignment (qBittorrent/libtorrent)</string></property></item><item><property name="text"><string>Natural (qBittorrent default)</string></property></item><item><property name="text"><string>Breadth first</string></property></item></widget></item><item row="3" column="0"><widget class="QLabel" name="lblAdvancedDefaultPieceSize"><property name="text"><string>Piece size:</string></property></widget></item><item row="3" column="1"><widget class="QSpinBox" name="spinAdvancedDefaultPieceSize"><property name="minimum"><number>0</number></property><property name="maximum"><number>16384</number></property><property name="specialValueText"><string>Automatic</string></property><property name="suffix"><string> KiB</string></property></widget></item><item row="4" column="1"><widget class="QCheckBox" name="chkAdvancedDefaultPrivate"><property name="text"><string>Create private torrents</string></property></widget></item><item row="5" column="0"><widget class="QLabel" name="lblAdvancedDefaultTrackerTiers"><property name="text"><string>Tracker tiers:</string></property></widget></item><item row="5" column="1"><widget class="QPlainTextEdit" name="editAdvancedDefaultTrackerTiers"><property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>0</width><height>48</height></size></property><property name="maximumSize"><size><width>16777215</width><height>48</height></size></property><property name="placeholderText"><string>One tracker URL per line; blank line starts a new tier.</string></property><property name="accessibleName"><string>Default tracker tiers</string></property></widget></item><item row="6" column="0"><widget class="QLabel" name="lblAdvancedDefaultWebSeeds"><property name="text"><string>Web seeds:</string></property></widget></item><item row="6" column="1"><widget class="QPlainTextEdit" name="editAdvancedDefaultWebSeeds"><property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>0</width><height>36</height></size></property><property name="maximumSize"><size><width>16777215</width><height>36</height></size></property><property name="placeholderText"><string>One web seed URL per line.</string></property><property name="accessibleName"><string>Default web seed URLs</string></property></widget></item><item row="7" column="0"><widget class="QLabel" name="lblAdvancedDefaultComment"><property name="text"><string>Comment:</string></property></widget></item><item row="7" column="1"><widget class="QLineEdit" name="editAdvancedDefaultComment"><property name="accessibleName"><string>Default comment</string></property></widget></item><item row="8" column="0"><widget class="QLabel" name="lblAdvancedDefaultCreatedBy"><property name="text"><string>Created by:</string></property></widget></item><item row="8" column="1"><widget class="QLineEdit" name="editAdvancedDefaultCreatedBy"><property name="text"><string>TorrentCraft</string></property><property name="accessibleName"><string>Default created by text</string></property></widget></item><item row="9" column="0"><widget class="QLabel" name="lblAdvancedDefaultSource"><property name="text"><string>Info source:</string></property></widget></item><item row="9" column="1"><widget class="QLineEdit" name="editAdvancedDefaultSource"><property name="toolTip"><string>Encoded as info[&quot;source&quot;] and changes the torrent identity.</string></property><property name="accessibleName"><string>Default info source</string></property></widget></item></layout></widget></item>
+         <item><widget class="QGroupBox" name="grpAdvancedDefaults"><property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>0</width><height>410</height></size></property><property name="title"><string>Creation defaults</string></property><layout class="QFormLayout" name="formAdvancedDefaults"><item row="0" column="0"><widget class="QLabel" name="lblAdvancedDefaultPreset"><property name="text"><string>Default preset:</string></property></widget></item><item row="0" column="1"><widget class="QComboBox" name="cmbAdvancedDefaultPreset"><item><property name="text"><string>Defaults</string></property></item></widget></item><item row="1" column="0"><widget class="QLabel" name="lblAdvancedDefaultFormat"><property name="text"><string>Format:</string></property></widget></item><item row="1" column="1"><widget class="QComboBox" name="cmbAdvancedDefaultFormat"><item><property name="text"><string>Hybrid</string></property></item><item><property name="text"><string>V1</string></property></item><item><property name="text"><string>V2</string></property></item></widget></item><item row="2" column="0"><widget class="QLabel" name="lblAdvancedDefaultFileOrder"><property name="text"><string>File order:</string></property></widget></item><item row="2" column="1"><widget class="QComboBox" name="cmbAdvancedDefaultFileOrder"><property name="toolTip"><string>Controls the deterministic order used when creating a torrent.</string></property><item><property name="text"><string>Lexicographical (TorrentCraft default)</string></property></item><item><property name="text"><string>Canonical alignment (qBittorrent/libtorrent)</string></property></item><item><property name="text"><string>Natural (qBittorrent default)</string></property></item><item><property name="text"><string>Breadth first</string></property></item></widget></item><item row="3" column="0"><widget class="QLabel" name="lblAdvancedDefaultFilterMode"><property name="text"><string>File Filter:</string></property></widget></item><item row="3" column="1"><layout class="QHBoxLayout" name="hboxAdvancedDefaultFilter"><item><widget class="QComboBox" name="cmbAdvancedDefaultFilterMode"><item><property name="text"><string>Disabled</string></property></item><item><property name="text"><string>Common system artifacts</string></property></item><item><property name="text"><string>Custom exclusion rules</string></property></item></widget></item><item><widget class="QPushButton" name="btnAdvancedDefaultEditFilterRules"><property name="text"><string>Edit custom rules...</string></property></widget></item><item><widget class="QCheckBox" name="chkAdvancedDefaultFilterCaseSensitive"><property name="text"><string>Case-sensitive</string></property></widget></item></layout></item><item row="4" column="0"><widget class="QLabel" name="lblAdvancedDefaultPieceSize"><property name="text"><string>Piece size:</string></property></widget></item><item row="4" column="1"><widget class="QSpinBox" name="spinAdvancedDefaultPieceSize"><property name="minimum"><number>0</number></property><property name="maximum"><number>16384</number></property><property name="specialValueText"><string>Automatic</string></property><property name="suffix"><string> KiB</string></property></widget></item><item row="5" column="1"><widget class="QCheckBox" name="chkAdvancedDefaultPrivate"><property name="text"><string>Create private torrents</string></property></widget></item><item row="6" column="0"><widget class="QLabel" name="lblAdvancedDefaultTrackerTiers"><property name="text"><string>Tracker tiers:</string></property></widget></item><item row="6" column="1"><widget class="QPlainTextEdit" name="editAdvancedDefaultTrackerTiers"><property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>0</width><height>48</height></size></property><property name="maximumSize"><size><width>16777215</width><height>48</height></size></property><property name="placeholderText"><string>One tracker URL per line; blank line starts a new tier.</string></property><property name="accessibleName"><string>Default tracker tiers</string></property></widget></item><item row="7" column="0"><widget class="QLabel" name="lblAdvancedDefaultWebSeeds"><property name="text"><string>Web seeds:</string></property></widget></item><item row="7" column="1"><widget class="QPlainTextEdit" name="editAdvancedDefaultWebSeeds"><property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>0</width><height>36</height></size></property><property name="maximumSize"><size><width>16777215</width><height>36</height></size></property><property name="placeholderText"><string>One web seed URL per line.</string></property><property name="accessibleName"><string>Default web seed URLs</string></property></widget></item><item row="8" column="0"><widget class="QLabel" name="lblAdvancedDefaultComment"><property name="text"><string>Comment:</string></property></widget></item><item row="8" column="1"><widget class="QLineEdit" name="editAdvancedDefaultComment"><property name="accessibleName"><string>Default comment</string></property></widget></item><item row="9" column="0"><widget class="QLabel" name="lblAdvancedDefaultCreatedBy"><property name="text"><string>Created by:</string></property></widget></item><item row="9" column="1"><widget class="QLineEdit" name="editAdvancedDefaultCreatedBy"><property name="text"><string>TorrentCraft</string></property><property name="accessibleName"><string>Default created by text</string></property></widget></item><item row="10" column="0"><widget class="QLabel" name="lblAdvancedDefaultSource"><property name="text"><string>Info source:</string></property></widget></item><item row="10" column="1"><widget class="QLineEdit" name="editAdvancedDefaultSource"><property name="toolTip"><string>Encoded as info[&quot;source&quot;] and changes the torrent identity.</string></property><property name="accessibleName"><string>Default info source</string></property></widget></item></layout></widget></item>
          <item><widget class="QGroupBox" name="grpAdvancedIo"><property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>0</width><height>190</height></size></property><property name="title"><string>I/O</string></property><layout class="QFormLayout" name="formAdvancedIo"><item row="0" column="0"><widget class="QLabel" name="lblAdvancedDiskIo"><property name="text"><string>Disk mode:</string></property></widget></item><item row="0" column="1"><widget class="QComboBox" name="cmbAdvancedDiskIo"><item><property name="text"><string>Memory mapped</string></property></item><item><property name="text"><string>POSIX</string></property></item></widget></item><item row="1" column="0"><widget class="QLabel" name="lblAdvancedVerifyWorkers"><property name="text"><string>Verification workers:</string></property></widget></item><item row="1" column="1"><widget class="QSpinBox" name="spinAdvancedVerifyWorkers"><property name="minimum"><number>1</number></property><property name="maximum"><number>2147483647</number></property><property name="value"><number>1</number></property></widget></item><item row="2" column="0"><widget class="QLabel" name="lblAdvancedVerifyMemory"><property name="text"><string>Verification memory (MiB):</string></property></widget></item><item row="2" column="1"><widget class="QSpinBox" name="spinAdvancedVerifyMemory"><property name="minimum"><number>1</number></property><property name="maximum"><number>2147483647</number></property><property name="value"><number>32</number></property><property name="suffix"><string> MiB</string></property><property name="accessibleName"><string>Verification memory limit</string></property></widget></item><item row="3" column="0"><widget class="QLabel" name="lblAdvancedMemoryWorkingSetLimit"><property name="text"><string>Physical memory (RAM) usage limit:</string></property></widget></item><item row="3" column="1"><widget class="QSpinBox" name="spinAdvancedMemoryWorkingSetLimit"><property name="minimum"><number>1</number></property><property name="maximum"><number>2147483647</number></property><property name="value"><number>512</number></property><property name="suffix"><string> MiB</string></property><property name="toolTip"><string>Windows process working-set hard maximum. Other platforms retain the setting without applying it.</string></property><property name="accessibleName"><string>Physical memory working set limit</string></property></widget></item></layout></widget></item>
          <item><widget class="QGroupBox" name="grpAdvancedDisplay"><property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>0</width><height>142</height></size></property><property name="title"><string>Display</string></property><layout class="QFormLayout" name="formAdvancedDisplay"><item row="0" column="0"><widget class="QLabel" name="lblAdvancedStyle"><property name="text"><string>Style:</string></property></widget></item><item row="0" column="1"><widget class="QComboBox" name="cmbAdvancedStyle"><property name="accessibleName"><string>Interface style</string></property></widget></item><item row="1" column="0"><widget class="QLabel" name="lblAdvancedFont"><property name="text"><string>Font:</string></property></widget></item><item row="1" column="1"><widget class="QComboBox" name="cmbAdvancedFont"><property name="accessibleName"><string>Interface font</string></property></widget></item><item row="2" column="1"><widget class="QCheckBox" name="chkAdvancedShowPaddingFiles"><property name="text"><string>Show BEP 52 padding files in file trees and summaries</string></property><property name="toolTip"><string>Padding-file visibility does not affect torrent creation or verification.</string></property></widget></item></layout></widget></item>
          <item><widget class="QGroupBox" name="grpAdvancedLogging"><property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>0</width><height>184</height></size></property><property name="title"><string>Logging</string></property><layout class="QFormLayout" name="formAdvancedLogging"><item row="0" column="1"><widget class="QCheckBox" name="chkAdvancedLogging"><property name="text"><string>Write application log to file</string></property></widget></item><item row="1" column="0"><widget class="QLabel" name="lblAdvancedLogLevel"><property name="text"><string>Level:</string></property></widget></item><item row="1" column="1"><widget class="QComboBox" name="cmbAdvancedLogLevel"><item><property name="text"><string>Debug</string></property></item><item><property name="text"><string>Info</string></property></item><item><property name="text"><string>Warning</string></property></item><item><property name="text"><string>Error</string></property></item></widget></item><item row="2" column="0"><widget class="QLabel" name="lblAdvancedLogPath"><property name="text"><string>Log file:</string></property></widget></item><item row="2" column="1"><layout class="QHBoxLayout" name="hboxAdvancedLogPath"><item><widget class="QLineEdit" name="editAdvancedLogPath"><property name="placeholderText"><string>Default: beside torrentcraft.json</string></property><property name="accessibleName"><string>Log file path</string></property></widget></item><item><widget class="QPushButton" name="btnAdvancedBrowseLogPath"><property name="text"><string>Browse...</string></property></widget></item></layout></item><item row="3" column="1"><layout class="QHBoxLayout" name="hboxAdvancedLogActions"><item><widget class="QPushButton" name="btnAdvancedOpenLog"><property name="text"><string>Open log</string></property></widget></item><item><widget class="QPushButton" name="btnAdvancedCopyDiagnostics"><property name="text"><string>Copy diagnostic context</string></property></widget></item></layout></item></layout></widget></item>

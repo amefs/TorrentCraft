@@ -62,6 +62,11 @@ torrentcraft config set defaults.comment null
     "private": false,
     "created_by": "TorrentCraft",
     "file_order": "lexicographical",
+    "file_filter": {
+      "mode": "common-artifacts",
+      "case_sensitive": false,
+      "patterns": []
+    },
     "tracker_list": [],
     "web_seeds": []
   },
@@ -83,6 +88,48 @@ torrentcraft config set defaults.comment null
 - **`defaults`**: Global fallback creation settings for new torrents.
 - **`presets`**: Named templates that can be applied with `--preset <name>`.
 - **`verify` / `disk_io` / `memory_working_set_limit`**: Control hashing threads, caching buffers, and disk I/O modes.
+
+## File filter defaults and preset overrides
+
+The optional `defaults.file_filter` object controls filtering for directory creates that do not
+provide another filter policy:
+
+~~~json
+{
+  "file_filter": {
+    "mode": "common-artifacts",
+    "case_sensitive": false,
+    "patterns": []
+  }
+}
+~~~
+
+The supported modes are `disabled`, `common-artifacts`, and `custom-rules`. Custom rules use only
+the listed Glob patterns; they do not extend the built-in common-artifact set. Matching is
+case-insensitive unless `case_sensitive` is `true`. See [Create Torrents](./create#file-filtering)
+for the complete pattern language and built-in rule list.
+
+A named preset may declare its own complete `file_filter` object. A preset without that member
+inherits the complete global default. A preset with the member atomically replaces the complete
+default, so its `mode`, `case_sensitive`, and `patterns` do not merge independently:
+
+~~~json
+{
+  "presets": {
+    "archive": {
+      "file_filter": {
+        "mode": "custom-rules",
+        "case_sensitive": true,
+        "patterns": ["*.tmp", "cache/"]
+      }
+    }
+  }
+}
+~~~
+
+Use `mode: "disabled"` in a preset to explicitly turn filtering off. Existing configurations
+without `file_filter` retain the disabled behavior. The Advanced GUI page edits the global
+default, while the Create page displays the effective policy after preset resolution.
 
 ## Option Reference
 

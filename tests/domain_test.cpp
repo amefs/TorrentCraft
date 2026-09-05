@@ -542,3 +542,47 @@ TEST_CASE("given_invalid_utf8_url_when_parsed_then_public_url_types_reject_it",
     REQUIRE_FALSE(web_seed.has_value());
     REQUIRE(web_seed.error().issues.front().field == "metadata.web_seed");
 }
+
+TEST_CASE("given_custom_file_filter_when_matching_then_glob_and_case_policy_are_applied",
+          "[unit][domain][file-filter]")
+{
+    FileFilterInput input;
+    input.mode = FileFilterMode::CustomRules;
+    input.patterns = {"*.tmp", "cache/", "build/**"};
+    auto filter = FileFilter::create(std::move(input));
+
+    REQUIRE(filter);
+    REQUIRE(filter.value().matches("nested/file.tmp", false));
+    REQUIRE(filter.value().matches("nested/cache", true));
+    REQUIRE(filter.value().matches("build/deep/file.bin", false));
+    REQUIRE_FALSE(filter.value().matches("nested/file.bin", false));
+    REQUIRE(filter.value().matched_rule("nested/file.tmp", false) == "*.tmp");
+}
+
+TEST_CASE("given_file_filter_when_case_sensitive_then_case_variants_are_distinct",
+          "[unit][domain][file-filter]")
+{
+    FileFilterInput input;
+    input.mode = FileFilterMode::CustomRules;
+    input.case_sensitive = true;
+    input.patterns = {"Thumbs.db"};
+    auto filter = FileFilter::create(std::move(input));
+
+    REQUIRE(filter);
+    REQUIRE(filter.value().matches("Thumbs.db", false));
+    REQUIRE_FALSE(filter.value().matches("thumbs.db", false));
+}
+
+TEST_CASE("given_common_file_filter_when_created_then_known_system_artifacts_are_enabled",
+          "[unit][domain][file-filter]")
+{
+    FileFilterInput input;
+    input.mode = FileFilterMode::CommonArtifacts;
+    auto filter = FileFilter::create(std::move(input));
+
+    REQUIRE(filter);
+    REQUIRE(filter.value().matches("nested/.DS_Store", false));
+    REQUIRE(filter.value().matches("nested/Thumbs.db", false));
+    REQUIRE(filter.value().matches("nested/__MACOSX", true));
+    REQUIRE_FALSE(filter.value().matches("nested/.gitignore", false));
+}

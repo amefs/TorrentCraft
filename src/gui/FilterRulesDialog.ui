@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>FilterRulesDialog</class>
+ <widget class="QDialog" name="FilterRulesDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>560</width>
+    <height>340</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Custom exclusion rules</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QLabel" name="lblPrompt">
+     <property name="text">
+      <string>Enter one Glob pattern per line:</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="LineNumberPlainTextEdit" name="rules">
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>220</height>
+      </size>
+     </property>
+     <property name="lineWrapMode">
+      <enum>QPlainTextEdit::NoWrap</enum>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources>
+ </resources>
+ <connections>
+ </connections>
+ <customwidgets>
+  <customwidget>
+   <class>LineNumberPlainTextEdit</class>
+   <extends>QPlainTextEdit</extends>
+   <header>LineNumberPlainTextEdit.hpp</header>
+  </customwidget>
+ </customwidgets>
+</ui>

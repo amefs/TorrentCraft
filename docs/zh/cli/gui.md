@@ -25,8 +25,12 @@ torrentcraft-gui
   - **格式（Format）**：支持选择 **V1**（兼容所有旧款客户端）、**V2**（新一代 BitTorrent v2 规范，基于 SHA-256 哈希树）或 **Hybrid**（混合格式，推荐选用，兼顾所有新老客户端）。
   - **分块大小（Piece Size）**：支持**自动计算（Auto）**（根据数据总量自动匹配最合适的分块大小），也可以手动指定 16 KiB 到 16 MiB 之间的固定大小。
   - **文件排序（File Order）**：支持字典序（Lexicographical）、自然排序（Natural）、规范对齐（Canonical Alignment）或广度优先（Breadth-First）。
+  - **文件过滤（File Filter）**：支持**关闭**（Disabled）、**常见系统垃圾**（Common system artifacts）或
+    **自定义排除规则**（Custom exclusion rules）。自定义规则每行使用一个 Glob 模式，并替换内置常见垃圾规则；
+    **区分大小写**（Case-sensitive）复选框控制匹配策略。
   - **私有种子（Private）**：勾选后生成私有种子（Private Torrent），自动禁用公网 DHT、PEX 及本地节点发现，专为 PT 站点设计。
 - **元数据与 Tracker（Fields）**：支持配置分层 Tracker 服务器列表、HTTP/HTTPS Web Seed（网络做种源）、种子注释、制作者签名以及自定义来源标识（Source）。
+- **过滤报告（Filter report）**：目录制作或试运行完成后，可查看最终生效过滤器排除的相对路径和字节摘要。
 - **试运行与进度监控（Dry Run）**：支持仅预检配置而不实际生成文件；开始制作后支持实时进度条显示与一键取消操作。
 
 > **预设自动填充**：页面上的各项参数会自动读取当前生效的预设模板和全局默认值。在页面上手动修改的参数仅对当前制作生效，不会意外覆盖已保存的预设模板。
@@ -109,7 +113,8 @@ torrentcraft-gui
 - **默认保存路径（Default Save Location）**：
   - 可设定新制作种子时的默认保存位置：*当前工作目录*、*最近使用目录* 或 *指定固定目录*。
 - **制作默认值（Creation Defaults）**：
-  - 设置制作种子时的全局默认选项（如默认协议格式、自动分块大小、私有标记、默认 Tracker 列表、默认制作者签名等）。
+  - 设置制作种子时的全局默认选项（如默认协议格式、自动分块大小、文件排序、私有标记、文件过滤、默认 Tracker 列表、默认制作者签名等）。
+  - 全局**文件过滤（File Filter）**默认值会在当前预设没有声明过滤对象时生效。
   - 可指定 GUI 启动时默认加载的**预设模板（Default Preset）**。
 - **性能与资源控制（Performance & I/O）**：
   - 调整 **磁盘 I/O 模式**（`mmap` 内存映射或标准 I/O）、**校验工作线程数**、**校验内存缓存（MiB）** 以及 **Windows 进程工作集内存上限**。

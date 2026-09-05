@@ -47,6 +47,13 @@ using torrentutils::frontend::VerifyResourceSettings;
     return std::filesystem::u8path(value);
 }
 
+struct CliFileFilterOverrides
+{
+    std::optional<torrentutils::core::FileFilterMode> mode;
+    std::optional<bool> case_sensitive;
+    std::optional<std::vector<std::string>> patterns;
+};
+
 struct CreateArguments
 {
     std::filesystem::path content;
@@ -55,6 +62,7 @@ struct CreateArguments
     std::optional<std::string> preset_name;
     std::optional<std::filesystem::path> preset_file;
     CreationSettingsPatch cli_settings;
+    CliFileFilterOverrides cli_filter;
     std::vector<std::pair<std::size_t, std::string>> trackers;
     bool tracker_specified{};
     bool overwrite{};
@@ -105,6 +113,10 @@ Options:
   --piece-size KIB|auto     Select fixed or automatic piece size
   --file-order POLICY       Select file ordering policy (lexicographical,
                             canonical_alignment, natural, breadth_first)
+  --filter-mode MODE        Select disabled, common-artifacts, or custom-rules
+  --exclude PATTERN         Exclude a custom Glob pattern; repeatable
+  --filter-case-sensitive   Match filter patterns case-sensitively
+  --filter-case-insensitive Match filter patterns case-insensitively
   --private | --no-private | --public  Set or clear the private flag
   --tracker URL             Replace lower-layer trackers; repeatable
   --tier N                  Assign the preceding tracker to tier N
@@ -382,6 +394,29 @@ constexpr std::size_t kVerifyFileSummaryThreshold = 50U;
     return true;
 }
 
+[[nodiscard]] bool parse_filter_mode(std::string_view value, CliFileFilterOverrides& settings,
+                                     std::string& error)
+{
+    if (value == "disabled")
+    {
+        settings.mode = torrentutils::core::FileFilterMode::Disabled;
+    }
+    else if (value == "common-artifacts")
+    {
+        settings.mode = torrentutils::core::FileFilterMode::CommonArtifacts;
+    }
+    else if (value == "custom-rules")
+    {
+        settings.mode = torrentutils::core::FileFilterMode::CustomRules;
+    }
+    else
+    {
+        error = "--filter-mode must be disabled, common-artifacts, or custom-rules";
+        return false;
+    }
+    return true;
+}
+
 [[nodiscard]] bool require_value(int& index, int argc, const char* const argv[],
                                  std::string_view option, std::string& value, std::string& error)
 {
@@ -500,9 +535,9 @@ constexpr std::size_t kVerifyFileSummaryThreshold = 50U;
         }
         if (argument == "--config" || argument == "--preset" || argument == "--preset-file" ||
             argument == "--format" || argument == "--piece-size" || argument == "--file-order" ||
-            argument == "--tracker" || argument == "--tier" || argument == "--web-seed" ||
-            argument == "--comment" || argument == "--created-by" || argument == "--source" ||
-            argument == "--creation-date")
+            argument == "--filter-mode" || argument == "--exclude" || argument == "--tracker" ||
+            argument == "--tier" || argument == "--web-seed" || argument == "--comment" ||
+            argument == "--created-by" || argument == "--source" || argument == "--creation-date")
         {
             std::string value;
             if (!require_value(index, argc, argv, argument, value, error))
@@ -554,6 +589,22 @@ constexpr std::size_t kVerifyFileSummaryThreshold = 50U;
                 {
                     return false;
                 }
+            }
+            else if (argument == "--filter-mode")
+            {
+                if (!parse_filter_mode(value, arguments.cli_filter, error))
+                {
+                    return false;
+                }
+            }
+            else if (argument == "--exclude")
+            {
+                if (!arguments.cli_filter.patterns)
+                {
+                    arguments.cli_filter.patterns = std::vector<std::string>{};
+                }
+                arguments.cli_filter.patterns->push_back(std::move(value));
+                arguments.cli_filter.mode = torrentutils::core::FileFilterMode::CustomRules;
             }
             else if (argument == "--tracker")
             {
@@ -613,6 +664,16 @@ constexpr std::size_t kVerifyFileSummaryThreshold = 50U;
             {
                 arguments.cli_settings.info_source = std::move(value);
             }
+            continue;
+        }
+        if (argument == "--filter-case-sensitive")
+        {
+            arguments.cli_filter.case_sensitive = true;
+            continue;
+        }
+        if (argument == "--filter-case-insensitive")
+        {
+            arguments.cli_filter.case_sensitive = false;
             continue;
         }
         if (argument == "--private")
@@ -766,9 +827,56 @@ void print_error(const Error& error, const bool json, std::ostream& diagnostics)
     }
 }
 
+[[nodiscard]] std::string file_filter_mode_name(const torrentutils::core::FileFilterMode mode)
+{
+    switch (mode)
+    {
+    case torrentutils::core::FileFilterMode::Disabled:
+        return "disabled";
+    case torrentutils::core::FileFilterMode::CommonArtifacts:
+        return "common-artifacts";
+    case torrentutils::core::FileFilterMode::CustomRules:
+        return "custom-rules";
+    }
+    return "disabled";
+}
+
+[[nodiscard]] std::string filtered_entry_kind_name(const torrentutils::core::FilteredEntryKind kind)
+{
+    switch (kind)
+    {
+    case torrentutils::core::FilteredEntryKind::File:
+        return "file";
+    case torrentutils::core::FilteredEntryKind::Directory:
+        return "directory";
+    case torrentutils::core::FilteredEntryKind::Symlink:
+        return "symlink";
+    case torrentutils::core::FilteredEntryKind::Other:
+        return "other";
+    }
+    return "other";
+}
+
+void add_filter_report(Json& data, const torrentutils::core::FilterReport& report)
+{
+    data["filtered"]["count"] = report.entries.size();
+    data["filtered"]["bytes"] = report.total_bytes();
+    data["filtered"]["entries"] = Json::array();
+    for (const auto& entry : report.entries)
+    {
+        data["filtered"]["entries"].push_back({{"path", entry.relative_path},
+                                               {"kind", filtered_entry_kind_name(entry.kind)},
+                                               {"bytes", entry.bytes},
+                                               {"descendant_count", entry.descendant_count},
+                                               {"descendant_bytes", entry.descendant_bytes},
+                                               {"rule", entry.matched_rule}});
+    }
+}
+
 void print_success(const CreateArguments& arguments, const ResolvedCreationSettings& settings,
                    const std::optional<torrentutils::core::CreateResult>& result,
-                   std::ostream& output)
+                   std::ostream& output,
+                   const torrentutils::core::FilterReport* planned_filter_report = nullptr)
 {
     if (arguments.json)
     {
@@ -779,12 +887,17 @@ void print_success(const CreateArguments& arguments, const ResolvedCreationSetti
         value["data"]["format"] = format_name(settings.options.format());
         value["data"]["file_order"] = file_order_name(settings.options.file_order_policy());
         value["data"]["private"] = settings.options.is_private();
+        value["data"]["file_filter"]["mode"] =
+            file_filter_mode_name(settings.options.file_filter().mode());
+        value["data"]["file_filter"]["case_sensitive"] =
+            settings.options.file_filter().case_sensitive();
         if (settings.creation_metadata.creation_time_unix_seconds)
         {
             value["data"]["creation_date"] = *settings.creation_metadata.creation_time_unix_seconds;
         }
         if (result)
         {
+            add_filter_report(value["data"], result->filter_report);
             value["data"]["payload_bytes"] = result->payload_bytes;
             value["data"]["piece_length"] = result->piece_length;
             const auto& v1 = result->info_hashes.v1();
@@ -798,6 +911,10 @@ void print_success(const CreateArguments& arguments, const ResolvedCreationSetti
                 value["data"]["info_hash_v2"] = v2->to_hex();
             }
         }
+        else if (planned_filter_report)
+        {
+            add_filter_report(value["data"], *planned_filter_report);
+        }
         output << value.dump() << '\n';
         return;
     }
@@ -806,7 +923,43 @@ void print_success(const CreateArguments& arguments, const ResolvedCreationSetti
         output << (arguments.dry_run ? "create dry-run valid: " : "created: ");
         write_human_text(output, arguments.target.u8string());
         output << "\n";
+        const auto* filter_report = result ? &result->filter_report : planned_filter_report;
+        if (filter_report && !filter_report->entries.empty())
+        {
+            output << "filtered " << filter_report->entries.size() << " entries ("
+                   << filter_report->total_bytes() << " bytes):\n";
+            for (const auto& entry : filter_report->entries)
+            {
+                output << "  " << entry.relative_path << " ["
+                       << filtered_entry_kind_name(entry.kind) << "] rule=" << entry.matched_rule
+                       << "\n";
+            }
+        }
     }
+}
+
+void apply_cli_file_filter_overrides(CreationSettingsPatch& settings,
+                                     const CliFileFilterOverrides& overrides)
+{
+    if (!overrides.mode && !overrides.case_sensitive && !overrides.patterns)
+    {
+        return;
+    }
+
+    auto filter = settings.file_filter.value_or(torrentutils::core::FileFilterInput{});
+    if (overrides.mode)
+    {
+        filter.mode = *overrides.mode;
+    }
+    if (overrides.case_sensitive)
+    {
+        filter.case_sensitive = *overrides.case_sensitive;
+    }
+    if (overrides.patterns)
+    {
+        filter.patterns = *overrides.patterns;
+    }
+    settings.file_filter = std::move(filter);
 }
 
 [[nodiscard]] Result<ResolvedCreationSettings>
@@ -879,6 +1032,7 @@ resolve_create_settings(const CreateArguments& arguments,
         effective = torrentutils::frontend::overlay_settings(effective, preset.value().settings);
     }
     effective = torrentutils::frontend::overlay_settings(effective, arguments.cli_settings);
+    apply_cli_file_filter_overrides(effective, arguments.cli_filter);
     auto resolved = torrentutils::frontend::resolve_settings(effective);
     if (resolved)
     {
@@ -2618,8 +2772,27 @@ void print_field_table(const Json& entries, std::ostream& output)
                 std::chrono::system_clock::now().time_since_epoch())
                 .count();
     }
+    torrentutils::core::FileTorrentRepository repository;
+    torrentutils::core::SystemClock clock;
+    torrentutils::core::TorrentService service(repository, clock);
+
     if (parsed.create.dry_run)
     {
+        std::error_code content_status_error;
+        if (std::filesystem::is_directory(parsed.create.content, content_status_error))
+        {
+            const torrentutils::core::CreatePlanRequest plan_request{parsed.create.content,
+                                                                     settings.value().options};
+            auto planned = service.plan_create(plan_request);
+            if (!planned)
+            {
+                print_error(planned.error(), parsed.create.json, diagnostics);
+                return error_exit_code(planned.error().code);
+            }
+            print_success(parsed.create, settings.value(), std::nullopt, output,
+                          &planned.value().filter_report);
+            return 0;
+        }
         print_success(parsed.create, settings.value(), std::nullopt, output);
         return 0;
     }
@@ -2631,45 +2804,10 @@ void print_field_table(const Json& entries, std::ostream& output)
                                               settings.value().creation_metadata,
                                               settings.value().create_info,
                                               settings.value().disk_io};
-    torrentutils::core::FileTorrentRepository repository;
-    torrentutils::core::SystemClock clock;
-    torrentutils::core::TorrentService service(repository, clock);
-
     const auto stderr_is_tty = diagnostics_is_tty(diagnostics);
     const auto effective_progress =
         parsed.create.progress.value_or(stderr_is_tty ? ProgressMode::Tty : ProgressMode::None);
-    std::uint64_t total_bytes = 0;
-    {
-        std::error_code error;
-        if (std::filesystem::is_regular_file(parsed.create.content, error))
-        {
-            total_bytes = std::filesystem::file_size(parsed.create.content, error);
-            if (error)
-            {
-                total_bytes = 0;
-            }
-        }
-        else
-        {
-            error.clear();
-            std::filesystem::recursive_directory_iterator iterator(
-                parsed.create.content, std::filesystem::directory_options::skip_permission_denied,
-                error);
-            const std::filesystem::recursive_directory_iterator end;
-            while (!error && iterator != end)
-            {
-                if (iterator->is_regular_file())
-                {
-                    const auto size = iterator->file_size();
-                    if (!error)
-                    {
-                        total_bytes += size;
-                    }
-                }
-                iterator.increment(error);
-            }
-        }
-    }
+    const std::uint64_t total_bytes = 0;
     ProgressWriter writer(effective_progress, stderr_is_tty, parsed.create.quiet, diagnostics);
     writer.create_start(total_bytes);
     torrentutils::core::TaskContext context;

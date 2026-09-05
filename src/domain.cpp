@@ -401,12 +401,13 @@ bool operator!=(const Sha256Digest& lhs, const Sha256Digest& rhs) noexcept
 }
 
 CreateOptions::CreateOptions(TorrentFormat format, PieceLengthStrategy piece_length_strategy,
-                             FileOrderPolicy file_order_policy,
+                             FileOrderPolicy file_order_policy, FileFilter file_filter,
                              std::optional<std::uint32_t> fixed_piece_length, bool is_private,
                              TrackerList trackers, std::vector<WebSeedUrl> web_seeds)
     : format_(format), piece_length_strategy_(piece_length_strategy),
-      file_order_policy_(file_order_policy), fixed_piece_length_(fixed_piece_length),
-      is_private_(is_private), trackers_(std::move(trackers)), web_seeds_(std::move(web_seeds))
+      file_order_policy_(file_order_policy), file_filter_(std::move(file_filter)),
+      fixed_piece_length_(fixed_piece_length), is_private_(is_private),
+      trackers_(std::move(trackers)), web_seeds_(std::move(web_seeds))
 {
 }
 
@@ -459,6 +460,12 @@ Result<CreateOptions> CreateOptions::create(CreateOptionsInput input)
         }
     }
 
+    auto file_filter = FileFilter::create(std::move(input.file_filter));
+    if (!file_filter)
+    {
+        return Result<CreateOptions>::failure(file_filter.error());
+    }
+
     auto trackers = TrackerList::create(std::move(input.tracker_tiers));
     if (!trackers)
     {
@@ -467,8 +474,8 @@ Result<CreateOptions> CreateOptions::create(CreateOptionsInput input)
 
     return Result<CreateOptions>::success(
         CreateOptions(input.format, input.piece_length_strategy, input.file_order_policy,
-                      input.fixed_piece_length, input.is_private, std::move(trackers).value(),
-                      std::move(input.web_seeds)));
+                      std::move(file_filter).value(), input.fixed_piece_length, input.is_private,
+                      std::move(trackers).value(), std::move(input.web_seeds)));
 }
 
 TorrentFormat CreateOptions::format() const noexcept
@@ -504,6 +511,11 @@ const TrackerList& CreateOptions::trackers() const noexcept
 const std::vector<WebSeedUrl>& CreateOptions::web_seeds() const noexcept
 {
     return web_seeds_;
+}
+
+const FileFilter& CreateOptions::file_filter() const noexcept
+{
+    return file_filter_;
 }
 
 std::uint32_t CreateOptions::piece_length_for(std::uint64_t regular_payload_size) const noexcept

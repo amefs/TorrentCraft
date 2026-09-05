@@ -1,7 +1,9 @@
 #include "AboutDialog.hpp"
 #include "FileTreeModel.hpp"
+#include "FilterRulesDialog.hpp"
 #include "GuiLogController.hpp"
 #include "GuiTaskRunner.hpp"
+#include "LineNumberPlainTextEdit.hpp"
 #include "Logo.hpp"
 #include "MainWindow.hpp"
 #include "TrackerEditDialog.hpp"
@@ -560,6 +562,104 @@ class GuiLogoTest final : public QObject
         QCOMPARE(default_combo->itemText(0), QStringLiteral("Defaults"));
     }
 
+    void advancedFilterDefaultsRemainSeparateFromPresetEffectiveValues()
+    {
+        QTemporaryDir config_directory;
+        QVERIFY(config_directory.isValid());
+        const auto config_path = config_directory.filePath(QStringLiteral("torrentcraft.json"));
+        QFile config(config_path);
+        QVERIFY(config.open(QIODevice::WriteOnly | QIODevice::Text));
+        QVERIFY(config.write(R"({
+            "schema": "torrentcraft.config/v1",
+            "defaults": {
+                "file_filter": {
+                    "mode": "common-artifacts",
+                    "case_sensitive": false,
+                    "patterns": ["*.tmp"]
+                }
+            },
+            "presets": {
+                "Custom": {
+                    "file_filter": {
+                        "mode": "custom-rules",
+                        "case_sensitive": true,
+                        "patterns": ["cache/"]
+                    }
+                }
+            },
+            "gui": {"default_preset": "Custom"}
+        })") > 0);
+        config.close();
+
+        MainWindow window;
+        auto* config_edit = window.findChild<QLineEdit*>(QStringLiteral("editAdvancedConfigPath"));
+        auto* reload = window.findChild<QPushButton*>(QStringLiteral("btnAdvancedReloadConfig"));
+        auto* advanced_mode =
+            window.findChild<QComboBox*>(QStringLiteral("cmbAdvancedDefaultFilterMode"));
+        auto* advanced_case =
+            window.findChild<QCheckBox*>(QStringLiteral("chkAdvancedDefaultFilterCaseSensitive"));
+        auto* create_mode = window.findChild<QComboBox*>(QStringLiteral("cmbCreateFilterMode"));
+        auto* create_case =
+            window.findChild<QCheckBox*>(QStringLiteral("chkCreateFilterCaseSensitive"));
+        auto* advanced_edit =
+            window.findChild<QPushButton*>(QStringLiteral("btnAdvancedDefaultEditFilterRules"));
+        QVERIFY(config_edit != nullptr);
+        QVERIFY(reload != nullptr);
+        QVERIFY(advanced_mode != nullptr);
+        QVERIFY(advanced_case != nullptr);
+        QVERIFY(create_mode != nullptr);
+        QVERIFY(create_case != nullptr);
+        QVERIFY(advanced_edit != nullptr);
+
+        config_edit->setText(config_path);
+        reload->click();
+
+        QCOMPARE(advanced_mode->currentIndex(), 1);
+        QVERIFY(!advanced_case->isChecked());
+        QCOMPARE(create_mode->currentIndex(), 2);
+        QVERIFY(create_case->isChecked());
+        QVERIFY(!advanced_edit->isEnabled());
+    }
+
+    void advancedFilterDefaultsPersistAsCompleteObject()
+    {
+        QTemporaryDir config_directory;
+        QVERIFY(config_directory.isValid());
+        const auto config_path = config_directory.filePath(QStringLiteral("torrentcraft.json"));
+        QFile config(config_path);
+        QVERIFY(config.open(QIODevice::WriteOnly | QIODevice::Text));
+        QVERIFY(config.write(R"({"schema":"torrentcraft.config/v1"})") > 0);
+        config.close();
+
+        MainWindow window;
+        auto* config_edit = window.findChild<QLineEdit*>(QStringLiteral("editAdvancedConfigPath"));
+        auto* reload = window.findChild<QPushButton*>(QStringLiteral("btnAdvancedReloadConfig"));
+        auto* advanced_mode =
+            window.findChild<QComboBox*>(QStringLiteral("cmbAdvancedDefaultFilterMode"));
+        auto* advanced_case =
+            window.findChild<QCheckBox*>(QStringLiteral("chkAdvancedDefaultFilterCaseSensitive"));
+        auto* apply = window.findChild<QPushButton*>(QStringLiteral("btnAdvancedApply"));
+        QVERIFY(config_edit != nullptr);
+        QVERIFY(reload != nullptr);
+        QVERIFY(advanced_mode != nullptr);
+        QVERIFY(advanced_case != nullptr);
+        QVERIFY(apply != nullptr);
+
+        config_edit->setText(config_path);
+        reload->click();
+        advanced_mode->setCurrentIndex(1);
+        advanced_case->setChecked(true);
+        apply->click();
+
+        auto persisted = torrentutils::frontend::ConfigFile::load(
+            std::filesystem::u8path(config_path.toUtf8().toStdString()));
+        QVERIFY(persisted);
+        const auto& filter = *persisted.value().parsed().defaults.file_filter;
+        QCOMPARE(static_cast<int>(filter.mode), static_cast<int>(FileFilterMode::CommonArtifacts));
+        QVERIFY(filter.case_sensitive);
+        QVERIFY(filter.patterns.empty());
+    }
+
     void presetTitleTracksActivePresetAndModifiedState()
     {
         QTemporaryDir config_directory;
@@ -825,6 +925,46 @@ class GuiLogoTest final : public QObject
                                  .join(QStringLiteral("\n")));
         dialog.accept();
         QCOMPARE(dialog.result(), QDialog::Accepted);
+    }
+
+    void addTrackerDialogShowsLineNumbersForMultiLineInput()
+    {
+        TrackerEditDialog dialog(1, {}, QStringLiteral("Add tracker"), nullptr, true);
+        auto* editor = dialog.findChild<QPlainTextEdit*>(QStringLiteral("trackers"));
+        QVERIFY(editor != nullptr);
+        QVERIFY(dynamic_cast<LineNumberPlainTextEdit*>(editor) != nullptr);
+
+        editor->setPlainText(QStringList{QStringLiteral("http://one.example/announce"), QString(),
+                                         QStringLiteral("http://two.example/announce")}
+                                 .join(QStringLiteral("\n")));
+        QCoreApplication::processEvents();
+        auto* line_number_area = editor->findChild<QWidget*>(QStringLiteral("lineNumberArea"));
+        QVERIFY(line_number_area != nullptr);
+        QVERIFY(line_number_area->width() > 0);
+    }
+
+    void filterRulesDialogShowsLineNumbersForMultiLineInput()
+    {
+        FilterRulesDialog dialog(
+            QStringList{QStringLiteral("*.tmp"), QString(), QStringLiteral("cache/")}.join(
+                QStringLiteral("\n")));
+        auto* editor = dialog.findChild<QPlainTextEdit*>(QStringLiteral("rules"));
+        QVERIFY(editor != nullptr);
+        QVERIFY(dynamic_cast<LineNumberPlainTextEdit*>(editor) != nullptr);
+
+        QCoreApplication::processEvents();
+        auto* line_number_area = editor->findChild<QWidget*>(QStringLiteral("lineNumberArea"));
+        QVERIFY(line_number_area != nullptr);
+        QVERIFY(line_number_area->width() > 0);
+        QCOMPARE(dialog.rules(), QStringLiteral("*.tmp\n\ncache/"));
+    }
+
+    void editTrackerDialogAdaptsToSingleLinePage()
+    {
+        TrackerEditDialog edit_dialog(1, QStringLiteral("http://tracker.example/announce"),
+                                      QStringLiteral("Edit tracker"));
+        TrackerEditDialog add_dialog(1, {}, QStringLiteral("Add tracker"), nullptr, true);
+        QVERIFY(edit_dialog.height() < add_dialog.height());
     }
 
     void closeWhileTaskRunningConfirmsCancellation()

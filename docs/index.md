@@ -11,7 +11,7 @@ Both applications share the same underlying core engine and canonical configurat
 
 ## Core Capabilities
 
-- **Create Torrents** — Build V1, V2, and hybrid torrents from files or directories, with automatic or customized piece sizing and flexible file ordering.
+- **Create Torrents** — Build V1, V2, and hybrid torrents from files or directories, with automatic or customized piece sizing, flexible file ordering, and opt-in filtering for common operating-system artifacts or custom Glob rules.
 - **Inspect & Explore** — View torrent metadata, info hashes (SHA-1 / SHA-256), piece specs, and browse the logical file tree without needing the original data files.
 - **Verify Content** — Check local files and folders against a torrent to ensure data integrity, with multi-threaded hashing and configurable memory limits.
 - **Validate Structure** — Check torrent files for syntax correctness and BitTorrent specification compliance.

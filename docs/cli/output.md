@@ -41,6 +41,17 @@ Adding `--json` produces structured JSON envelopes:
 }
 ```
 
+## File-filter reports
+
+For a directory create, both a successful write and `--dry-run` expose the entries excluded
+by the effective file filter. Human-readable output lists the relative path, entry kind, matched
+rule, and byte summary. A matched directory is one aggregate record with descendant counts and
+bytes; its descendants are not repeated.
+
+In `--json` output, the create result includes `data.filtered.count`,
+`data.filtered.bytes`, and `data.filtered.entries`. An empty report means no entries were
+filtered. The report is informational and never deletes or modifies source files.
+
 > **Note on Verification**: In [`verify`](./verify), detecting mismatched or missing files is considered a successfully completed report (`ok: true`), but the process exits with code `6` so shell scripts can instantly detect integrity failures.
 
 ## Progress Modes (`--progress`)

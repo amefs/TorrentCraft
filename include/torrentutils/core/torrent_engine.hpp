@@ -251,6 +251,7 @@ struct CreateResult
     InfoHashes info_hashes;
     std::uint64_t payload_bytes;
     std::uint32_t piece_length;
+    FilterReport filter_report{};
 };
 
 /** Input for a side-effect-free creation estimate. */
@@ -271,6 +272,7 @@ struct CreatePlan
     std::uint64_t payload_bytes{};
     std::uint32_t piece_length{};
     std::uint64_t piece_count{};
+    FilterReport filter_report{};
 };
 
 /** Stateless synchronous torrent creation, inspection, and verification service. */

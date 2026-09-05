@@ -308,6 +308,85 @@ parse_string_array(const Json& object, const char* key, std::vector<core::FieldI
     return values;
 }
 
+void parse_file_filter(const Json& object, CreationSettingsPatch& output,
+                       std::vector<core::FieldIssue>& issues, const std::string& prefix)
+{
+    const auto value = object.find("file_filter");
+    if (value == object.end())
+    {
+        return;
+    }
+    if (!value->is_object())
+    {
+        issues.push_back({prefix + ".file_filter", "must be an object"});
+        return;
+    }
+    const auto filter_prefix = prefix + ".file_filter";
+    core::FileFilterInput filter;
+    if (const auto mode = value->find("mode"); mode != value->end())
+    {
+        if (!mode->is_string())
+        {
+            issues.push_back({filter_prefix + ".mode", "must be a string"});
+        }
+        else if (mode->get<std::string>() == "disabled")
+        {
+            filter.mode = core::FileFilterMode::Disabled;
+        }
+        else if (mode->get<std::string>() == "common-artifacts")
+        {
+            filter.mode = core::FileFilterMode::CommonArtifacts;
+        }
+        else if (mode->get<std::string>() == "custom-rules")
+        {
+            filter.mode = core::FileFilterMode::CustomRules;
+        }
+        else
+        {
+            issues.push_back(
+                {filter_prefix + ".mode", "must be disabled, common-artifacts, or custom-rules"});
+        }
+    }
+    if (const auto sensitive = value->find("case_sensitive"); sensitive != value->end())
+    {
+        if (!sensitive->is_boolean())
+        {
+            issues.push_back({filter_prefix + ".case_sensitive", "must be a boolean"});
+        }
+        else
+        {
+            filter.case_sensitive = sensitive->get<bool>();
+        }
+    }
+    if (const auto patterns = value->find("patterns"); patterns != value->end())
+    {
+        if (!patterns->is_array())
+        {
+            issues.push_back({filter_prefix + ".patterns", "must be an array"});
+        }
+        else
+        {
+            std::vector<std::string> values;
+            values.reserve(patterns->size());
+            for (std::size_t index = 0; index < patterns->size(); ++index)
+            {
+                const auto& pattern = (*patterns)[index];
+                if (!pattern.is_string())
+                {
+                    issues.push_back({filter_prefix + ".patterns[" + std::to_string(index) + "]",
+                                      "must be a string"});
+                }
+                else
+                {
+                    values.push_back(pattern.get<std::string>());
+                }
+            }
+            filter.patterns = std::move(values);
+        }
+    }
+    output.file_filter = std::move(filter);
+}
+
 void parse_trackers(const Json& object, CreationSettingsPatch& output,
                     std::vector<core::FieldIssue>& issues, const std::string& prefix,
                     const bool canonical)
@@ -447,6 +526,7 @@ void parse_verify_object(const Json& object, const std::string& prefix,
         parse_file_order(object, output, issues, prefix);
     }
     parse_piece_size(object, output, issues, prefix);
+    parse_file_filter(object, output, issues, prefix);
     parse_private(object, output, issues, prefix);
     parse_trackers(object, output, issues, prefix, canonical);
     if (canonical)
@@ -783,6 +863,7 @@ CreationSettingsPatch overlay_settings(CreationSettingsPatch lower,
     };
     overlay(lower.format, higher.format);
     overlay(lower.file_order, higher.file_order);
+    overlay(lower.file_filter, higher.file_filter);
     overlay(lower.piece_size, higher.piece_size);
     overlay(lower.is_private, higher.is_private);
     overlay(lower.tracker_tiers, higher.tracker_tiers);
@@ -803,6 +884,10 @@ core::Result<ResolvedCreationSettings> resolve_settings(const CreationSettingsPa
     if (settings.file_order)
     {
         input.file_order_policy = *settings.file_order;
+    }
+    if (settings.file_filter)
+    {
+        input.file_filter = *settings.file_filter;
     }
     if (settings.piece_size && settings.piece_size->fixed_kib)
     {

@@ -64,7 +64,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QPlainTextEdit" name="trackers">
+        <widget class="LineNumberPlainTextEdit" name="trackers">
          <property name="minimumSize">
           <size>
            <width>0</width>
@@ -98,4 +98,11 @@
  </widget>
  <resources/>
  <connections/>
+ <customwidgets>
+  <customwidget>
+   <class>LineNumberPlainTextEdit</class>
+   <extends>QPlainTextEdit</extends>
+   <header>LineNumberPlainTextEdit.hpp</header>
+  </customwidget>
+ </customwidgets>
 </ui>

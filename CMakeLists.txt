@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(TorrentUtilsCore VERSION 1.0.0 LANGUAGES CXX)
+project(TorrentUtilsCore VERSION 1.1.0 LANGUAGES CXX)
 
 if(WIN32)
     file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/generated")
@@ -107,7 +107,7 @@ target_include_directories(
 )
 torrentutils_set_project_warnings(torrentutils_foundation)
 
-add_library(torrentutils_domain STATIC src/domain.cpp)
+add_library(torrentutils_domain STATIC src/domain.cpp src/file_filter.cpp)
 add_library(TorrentUtils::Domain ALIAS torrentutils_domain)
 
 set_target_properties(
@@ -424,6 +424,8 @@ if(TORRENTUTILS_BUILD_GUI)
         src/gui/GuiLogController.cpp src/gui/GuiLogController.hpp
         src/gui/GuiTaskRunner.cpp src/gui/GuiTaskRunner.hpp
         src/gui/FileTreeModel.cpp src/gui/FileTreeModel.hpp
+        src/gui/FilterRulesDialog.cpp src/gui/FilterRulesDialog.hpp
+        src/gui/LineNumberPlainTextEdit.cpp src/gui/LineNumberPlainTextEdit.hpp
         src/gui/MainWindow.cpp src/gui/MainWindow.hpp
         src/gui/OperationCloseDialog.cpp src/gui/OperationCloseDialog.hpp
         src/gui/TrackerEditDialog.cpp src/gui/TrackerEditDialog.hpp
@@ -431,6 +433,7 @@ if(TORRENTUTILS_BUILD_GUI)
         src/gui/PresetPreviewDialog.cpp src/gui/PresetPreviewDialog.hpp
         src/gui/MainWindow.ui src/gui/AboutDialog.ui src/gui/LicenseDialog.ui
         src/gui/NotificationDialog.ui src/gui/OperationCloseDialog.ui
+        src/gui/FilterRulesDialog.ui
         src/gui/TrackerEditDialog.ui
         src/gui/PresetPreviewDialog.ui
         src/gui/resources/TorrentCraft.qrc)

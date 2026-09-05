@@ -16,6 +16,10 @@ from pathlib import Path
 FORBIDDEN_PUBLIC_HEADERS = re.compile(
     r"#\s*include\s*[<\"](?:boost/|libtorrent/|Qt|nlohmann/|bencode)"
 )
+PROJECT_VERSION_PATTERN = re.compile(
+    r"project\(TorrentUtilsCore\s+VERSION\s+(?P<version>[0-9]+\.[0-9]+\.[0-9]+)",
+    re.IGNORECASE,
+)
 
 
 def source_commit(source: Path) -> str:
@@ -40,6 +44,14 @@ def source_epoch(source: Path) -> int:
             ["git", "show", "-s", "--format=%ct", "HEAD"], cwd=source, text=True
         ).strip()
     )
+
+
+def source_version(source: Path) -> str:
+    cmake = source / "CMakeLists.txt"
+    match = PROJECT_VERSION_PATTERN.search(cmake.read_text(encoding="utf-8"))
+    if not match:
+        raise RuntimeError(f"could not find TorrentUtilsCore project version in {cmake}")
+    return match.group("version")
 
 
 def public_header_findings(source: Path) -> list[dict[str, object]]:
@@ -79,7 +91,9 @@ def manifest_components(source: Path) -> list[dict[str, str]]:
     return sorted(components, key=lambda component: component["name"])
 
 
-def spdx_document(source: Path, components: list[dict[str, str]]) -> dict[str, object]:
+def spdx_document(
+    source: Path, components: list[dict[str, str]], version: str
+) -> dict[str, object]:
     document_namespace = (
         "https://torrentcraft.invalid/spdx/"
         + hashlib.sha256(source_commit(source).encode()).hexdigest()
@@ -101,7 +115,7 @@ def spdx_document(source: Path, components: list[dict[str, str]]) -> dict[str, o
         {
             "SPDXID": "SPDXRef-TorrentCraft",
             "name": "TorrentCraft",
-            "versionInfo": "1.0.0",
+            "versionInfo": version,
             "licenseConcluded": "MIT",
             "licenseDeclared": "MIT",
             "filesAnalyzed": False,
@@ -145,6 +159,7 @@ def main() -> int:
     source = args.source_dir.resolve()
     findings = public_header_findings(source)
     components = manifest_components(source)
+    version = source_version(source)
     license_file = source / "LICENSE"
     if not license_file.is_file():
         raise RuntimeError(f"missing project license: {license_file}")
@@ -161,7 +176,7 @@ def main() -> int:
     args.sbom.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     args.sbom.write_text(
-        json.dumps(spdx_document(source, components), indent=2, sort_keys=True) + "\n",
+        json.dumps(spdx_document(source, components, version), indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
     if findings:

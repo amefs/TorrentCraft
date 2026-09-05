@@ -189,6 +189,20 @@ class PendingFile
     return "lexicographical";
 }
 
+[[nodiscard]] std::string file_filter_mode_name(const core::FileFilterMode mode)
+{
+    switch (mode)
+    {
+    case core::FileFilterMode::Disabled:
+        return "disabled";
+    case core::FileFilterMode::CommonArtifacts:
+        return "common-artifacts";
+    case core::FileFilterMode::CustomRules:
+        return "custom-rules";
+    }
+    return "disabled";
+}
+
 void apply_patch(Json& object, const CreationSettingsPatch& patch)
 {
     if (patch.format)
@@ -198,6 +212,12 @@ void apply_patch(Json& object, const CreationSettingsPatch& patch)
     if (patch.file_order)
     {
         object["file_order"] = file_order_name(*patch.file_order);
+    }
+    if (patch.file_filter)
+    {
+        object["file_filter"] = {{"mode", file_filter_mode_name(patch.file_filter->mode)},
+                                 {"case_sensitive", patch.file_filter->case_sensitive},
+                                 {"patterns", patch.file_filter->patterns}};
     }
     if (patch.piece_size)
     {
@@ -292,15 +312,15 @@ void apply_patch(Json& object, const CreationSettingsPatch& patch)
 [[nodiscard]] bool is_known_setting(const std::string& setting) noexcept
 {
     static const std::unordered_set<std::string> known = {
-        "format",        "file_order", "piece_size", "private",    "tracker_list",
-        "tracker_tiers", "web_seeds",  "comment",    "created_by", "source"};
+        "format",        "file_order", "file_filter", "piece_size", "private", "tracker_list",
+        "tracker_tiers", "web_seeds",  "comment",     "created_by", "source"};
     return known.count(setting) != 0;
 }
 
 [[nodiscard]] bool setting_requires_canonical(const std::string& setting) noexcept
 {
-    return setting == "format" || setting == "file_order" || setting == "tracker_tiers" ||
-           setting == "web_seeds" || setting == "source";
+    return setting == "format" || setting == "file_order" || setting == "file_filter" ||
+           setting == "tracker_tiers" || setting == "web_seeds" || setting == "source";
 }
 
 #ifdef _WIN32

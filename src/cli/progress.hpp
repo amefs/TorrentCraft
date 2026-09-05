@@ -309,6 +309,7 @@ class ProgressWriter
             return;
         }
         create_stage_ = progress.stage;
+        create_total_bytes_ = progress.total_bytes;
         create_completed_ = progress.completed;
         create_total_ = progress.total;
         emitted_any_ = true;

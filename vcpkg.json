@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "name": "torrentutils-core",
-  "version-string": "1.0.0",
+  "version-string": "1.1.0",
   "license": "MIT",
   "builtin-baseline": "d92484ed3c5020c6679d095ad3e5add907887b62",
   "dependencies": [

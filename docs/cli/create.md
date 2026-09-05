@@ -47,6 +47,94 @@ torrentcraft create ./series -o ./series.torrent \
   --format hybrid --piece-size auto --file-order natural
 ```
 
+## File Filtering
+
+File filtering is opt-in and applies only while creating a torrent from a directory.
+Creating a torrent from one explicitly selected file is unchanged.
+
+### Filter modes
+
+- `disabled` — include every directory entry; this is the backward-compatible default.
+- `common-artifacts` — exclude the built-in operating-system artifact set.
+- `custom-rules` — use only the patterns supplied with `--exclude`; custom rules replace
+  the common set rather than extending it.
+
+The built-in common-artifact patterns are:
+
+~~~text
+.DS_Store
+._*
+Icon\r
+__MACOSX/
+.Spotlight-V100/
+.Trashes/
+.fseventsd/
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+System Volume Information/
+~~~
+
+This list does not blanket-ignore hidden files, `.git`, `.gitignore`, `.env`, or build
+directories. Such files may be meaningful content and require an explicit custom rule.
+
+### Custom Glob rules
+
+Patterns use the shared TorrentCraft Glob dialect:
+
+- `/` separates path components; `\` is normalized to `/`.
+- A pattern without `/` matches a basename at any directory depth.
+- `*` and `?` match within one path component; `**` crosses path components.
+- A trailing `/` matches directories only, such as `cache/`.
+- Negation, gitignore anchoring, and rsync transfer syntax are not supported.
+- Matching is case-insensitive by default. Use `--filter-case-sensitive` when exact case is
+  required; `--filter-case-insensitive` explicitly selects the default policy.
+- Empty, whitespace-only, and NUL-containing patterns are rejected before any output is written.
+
+For example, this excludes temporary files and cache directories while preserving all other
+files:
+
+~~~bash
+torrentcraft create ./payload -o ./payload.torrent \
+  --filter-mode custom-rules \
+  --exclude '*.tmp' --exclude 'cache/' \
+  --filter-case-sensitive
+~~~
+
+### Filter reports
+
+A successful directory create and a `--dry-run` both report excluded entries. Human-readable
+output lists each matched relative path, its entry kind, the matched rule, and byte summary.
+A matched directory is reported once with its descendant count and descendant regular-file
+bytes.
+
+With `--json`, the result contains:
+
+~~~json
+{
+  "data": {
+    "filtered": {
+      "count": 1,
+      "bytes": 4096,
+      "entries": [
+        {
+          "path": "cache",
+          "kind": "directory",
+          "rule": "cache/",
+          "bytes": 4096,
+          "descendant_count": 3,
+          "descendant_bytes": 4096
+        }
+      ]
+    }
+  }
+}
+~~~
+
+The report describes what was excluded from the torrent; it does not delete or modify the
+source filesystem.
+
 ## Trackers and Web Seeds
 
 Add announce URLs and arrange them into failover tiers:
@@ -119,6 +207,10 @@ CLI flags > Selected Preset > Config Defaults > Built-in Engine Defaults
 | `--format v1\|v2\|hybrid` | Select protocol format (default: `hybrid`). |
 | `--piece-size KIB\|auto` | Select piece size in KiB or `auto` (default: `auto`). |
 | `--file-order POLICY` | File sort policy: `lexicographical`, `natural`, `canonical_alignment`, `breadth_first`. |
+| `--filter-mode MODE` | File filter mode: `disabled`, `common-artifacts`, or `custom-rules`. |
+| `--exclude PATTERN` | Add a custom Glob exclusion rule; repeatable and selects `custom-rules`. |
+| `--filter-case-sensitive` | Match filter rules with case sensitivity enabled. |
+| `--filter-case-insensitive` | Match filter rules without case sensitivity (the default). |
 | `--private`, `--no-private`, `--public` | Set or clear the private torrent flag. |
 | `--tracker URL` | Add a tracker URL (optionally followed by `--tier N`; repeatable). |
 | `--web-seed URL` | Add an HTTP/HTTPS web seed URL (repeatable). |

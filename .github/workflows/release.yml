@@ -20,7 +20,31 @@ env:
   VCPKG_BINARY_CACHE_VERSION: 1
 
 jobs:
+  release-contract:
+    name: release-version-contract
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Validate source and tag version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            python3 ci/check_semver.py --tag "$GITHUB_REF_NAME"
+          else
+            python3 ci/check_semver.py
+          fi
+      - name: Test semantic version helper
+        run: python3 -m unittest ci.test_check_semver
+      - name: Test GitHub release helpers
+        run: |
+          python3 ci/release/test_package_github_release.py
+          python3 ci/release/test_summarize_junit.py
+
   linux-static:
+    needs: release-contract
     name: Linux musl static release
     runs-on: ubuntu-24.04
     env:
@@ -162,6 +186,7 @@ jobs:
           if-no-files-found: warn
 
   windows-static:
+    needs: release-contract
     name: Windows static release
     runs-on: windows-2022
     env:
@@ -253,7 +278,7 @@ jobs:
 
   publish:
     name: Publish GitHub release
-    needs: [linux-static, windows-static]
+    needs: [release-contract, linux-static, windows-static]
     if: startsWith(github.ref, 'refs/tags/v') && needs.linux-static.result == 'success' && needs.windows-static.result == 'success'
     runs-on: ubuntu-24.04
     permissions:
