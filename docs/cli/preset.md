@@ -1,6 +1,6 @@
 # Manage Presets
 
-Presets are reusable creation configuration templates stored under `presets.<name>` inside `torrentcraft.json`. They allow you to apply complex sets of creation options (format, piece size, private flag, sorting) with a single `--preset` flag.
+Presets are reusable creation configuration templates stored under `presets.<name>` inside `torrentcraft.json`. They allow you to apply complex sets of creation options (format, piece size, private flag, sorting, and file filtering) with a single `--preset` flag.
 
 ```text
 torrentcraft preset list|show <name>|add <file>|remove <name> [options]
@@ -26,7 +26,12 @@ Create a JSON file with your desired settings (e.g. `preset_release.json`):
   "format": "hybrid",
   "piece_size": 4096,
   "private": true,
-  "file_order": "natural"
+  "file_order": "natural",
+  "file_filter": {
+    "mode": "custom-rules",
+    "case_sensitive": false,
+    "patterns": ["*.tmp", "cache/"]
+  }
 }
 ```
 
@@ -57,6 +62,17 @@ torrentcraft create ./payload -o ./payload.torrent --preset release
 ```text
 CLI options > Selected Preset > Config Defaults > Built-in Engine Defaults
 ```
+
+## File-filter override semantics
+
+A preset `file_filter` member is one complete policy. If it is absent, the preset inherits
+`defaults.file_filter`. If it is present, it replaces the complete global policy, including
+the mode, case policy, and pattern list. Use `mode: "disabled"` to explicitly disable filtering
+for that preset.
+
+CLI filter flags are applied after the selected preset and remain field-level overrides. For
+example, `--filter-case-sensitive` changes only case matching and preserves the effective
+mode and patterns.
 
 ## Option Reference
 

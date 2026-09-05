@@ -340,7 +340,7 @@ def main() -> int:
     parser.add_argument("--vcpkg-root", type=Path, required=True)
     parser.add_argument("--triplet", required=True)
     parser.add_argument("--platform", required=True)
-    parser.add_argument("--version", default="1.0.0")
+    parser.add_argument("--version", default="1.1.0")
     parser.add_argument("--config", default="")
     parser.add_argument("--include-source", action="store_true")
     args = parser.parse_args()

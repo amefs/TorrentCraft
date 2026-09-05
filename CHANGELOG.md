@@ -2,6 +2,20 @@
 
 All notable user-visible changes are recorded here.
 
+## [1.1.0] - 2026-09-05
+
+### Added
+
+- Opt-in directory file filtering for common operating-system artifacts or custom Glob rules.
+- Shared file-filter defaults, atomic preset overrides, case-sensitivity controls, and CLI/GUI
+  filter reports for create and dry-run operations.
+
+### Verification and release policy
+
+- The GitHub Actions `v1.1.0` tag workflow publishes the release after the build, install-consumer checks, SBOM generation, security audit, and checksum validation pass.
+- Binary signing remains deferred for 1.1.0. SHA-256, provenance, SBOM, security, and LGPL
+  sidecars remain part of the release evidence.
+
 ## [1.0.0]
 
 ### Added

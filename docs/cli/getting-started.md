@@ -15,7 +15,7 @@ bundle and extract it beside the executables.
 > detailed SBOM (Software Bill of Materials), provenance, and security audit
 > reports. After extracting it beside the downloaded executables, verify the
 > release with `sha256sum -c SHA256SUMS` on Linux or `Get-FileHash` on PowerShell.
-> *(Note: 1.0.0 release binaries are currently unsigned; code signing is planned
+> *(Note: 1.1.0 release binaries are currently unsigned; code signing is planned
 > for a future release).*
 
 ## Quick Verification

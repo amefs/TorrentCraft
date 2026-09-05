@@ -35,6 +35,7 @@ struct CreationSettingsPatch
 {
     std::optional<core::TorrentFormat> format;
     std::optional<core::FileOrderPolicy> file_order;
+    std::optional<core::FileFilterInput> file_filter;
     std::optional<PieceSizeSetting> piece_size;
     std::optional<bool> is_private;
     std::optional<std::vector<std::vector<std::string>>> tracker_tiers;

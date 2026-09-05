@@ -3,7 +3,7 @@ project(TorrentUtilsCoreInstallConsumer LANGUAGES CXX)
 
 enable_testing()
 
-find_package(TorrentUtilsCore 1.0.0 EXACT CONFIG REQUIRED)
+find_package(TorrentUtilsCore 1.1.0 EXACT CONFIG REQUIRED)
 
 add_executable(torrentutils_foundation_install_consumer foundation_main.cpp)
 target_link_libraries(

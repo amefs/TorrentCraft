@@ -47,6 +47,91 @@ torrentcraft create ./电视剧合集 -o ./电视剧合集.torrent \
   --format hybrid --piece-size auto --file-order natural
 ```
 
+## 文件过滤
+
+文件过滤是可选功能，仅在从目录制作种子时生效。明确选择单个文件制作种子时，
+行为保持不变。
+
+### 过滤模式
+
+- `disabled`：包含目录中的所有条目；这是保持兼容性的默认模式。
+- `common-artifacts`：排除内置的跨平台操作系统垃圾文件集合。
+- `custom-rules`：只使用通过 `--exclude` 提供的规则；自定义规则会替换常见垃圾文件
+  集合，而不是在其上追加。
+
+内置的常见操作系统垃圾文件规则如下：
+
+~~~text
+.DS_Store
+._*
+Icon\r
+__MACOSX/
+.Spotlight-V100/
+.Trashes/
+.fseventsd/
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+System Volume Information/
+~~~
+
+该列表不会笼统排除所有隐藏文件、`.git`、`.gitignore`、`.env` 或构建目录。这些文件
+可能是有意义的内容，如需排除必须添加明确的自定义规则。
+
+### 自定义 Glob 规则
+
+规则使用 TorrentCraft CLI、GUI、配置和 Core 共享的简化 Glob 语法：
+
+- `/` 分隔路径组件；反斜杠 `\` 会规范化为 `/`。
+- 不含 `/` 的模式会匹配任意目录层级中的同名文件或目录。
+- `*` 和 `?` 在单个路径组件内匹配；`**` 可以跨越多个路径组件。
+- 以 `/` 结尾的规则只匹配目录，例如 `cache/`。
+- 不支持 gitignore 的否定、锚定语义，也不支持 rsync 的传输过滤语法。
+- 默认不区分大小写；需要精确大小写时使用 `--filter-case-sensitive`，也可以用
+  `--filter-case-insensitive` 显式指定默认策略。
+- 空规则、只含空白的规则以及含 NUL 字节的规则会在规划和写入前被拒绝。
+
+例如，以下命令会排除临时文件和缓存目录，同时保留其他内容：
+
+~~~bash
+torrentcraft create ./payload -o ./payload.torrent \
+  --filter-mode custom-rules \
+  --exclude '*.tmp' --exclude 'cache/' \
+  --filter-case-sensitive
+~~~
+
+### 过滤报告
+
+目录制作成功后以及 `--dry-run` 试运行中，都会报告被排除的条目。普通文本输出会列出
+每条记录的相对路径、条目类型、匹配规则和字节摘要。匹配到的目录只报告一次，并附带
+其后代条目数和后代普通文件字节数。
+
+使用 `--json` 时，结果包含：
+
+~~~json
+{
+  "data": {
+    "filtered": {
+      "count": 1,
+      "bytes": 4096,
+      "entries": [
+        {
+          "path": "cache",
+          "kind": "directory",
+          "rule": "cache/",
+          "bytes": 4096,
+          "descendant_count": 3,
+          "descendant_bytes": 4096
+        }
+      ]
+    }
+  }
+}
+~~~
+
+报告只说明哪些内容没有写入种子，不会删除或修改源文件系统。
+
 ## Tracker 服务器与 Web Seed
 
 添加 Tracker 服务器并按主备层级分组：
@@ -117,6 +202,10 @@ torrentcraft create ./payload -o ./payload.torrent \
 | `--format v1\|v2\|hybrid` | 选择协议格式（默认：`hybrid`）。 |
 | `--piece-size KIB\|auto` | 选择分块大小（KiB）或 `auto` 自动计算（默认：`auto`）。 |
 | `--file-order POLICY` | 文件排序策略：`lexicographical`、`natural`、`canonical_alignment`、`breadth_first`。 |
+| `--filter-mode MODE` | 文件过滤模式：`disabled`、`common-artifacts` 或 `custom-rules`。 |
+| `--exclude PATTERN` | 添加自定义 Glob 排除规则；可重复传入，并选择 `custom-rules` 模式。 |
+| `--filter-case-sensitive` | 启用区分大小写的过滤规则匹配。 |
+| `--filter-case-insensitive` | 关闭大小写区分（默认行为）。 |
 | `--private`, `--no-private`, `--public` | 设置或清除私有种子标记。 |
 | `--tracker URL` | 添加 Tracker 地址（可后接 `--tier N`，可重复传入）。 |
 | `--web-seed URL` | 添加 Web Seed 做种源（可重复传入）。 |

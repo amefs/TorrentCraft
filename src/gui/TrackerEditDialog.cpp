@@ -19,6 +19,8 @@ TrackerEditDialog::TrackerEditDialog(const int tier, QString tracker, const QStr
     ui_->tier->setValue(tier);
     ui_->tracker->setText(std::move(tracker));
     ui_->stackedWidget->setCurrentWidget(multi_tier_ ? ui_->pageMulti : ui_->pageSingle);
+    ui_->stackedWidget->setFixedHeight(ui_->stackedWidget->currentWidget()->sizeHint().height());
+    adjustSize();
 
     connect(ui_->buttonBox, &QDialogButtonBox::accepted, this, &TrackerEditDialog::accept);
     connect(ui_->buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);

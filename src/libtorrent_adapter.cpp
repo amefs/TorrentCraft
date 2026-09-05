@@ -775,7 +775,8 @@ std::vector<PieceVerificationState> verification_piece_states(const lt::torrent_
 }
 
 Result<CreateResult> create_from_storage(const CreateRequest& request, const TaskContext& context,
-                                         lt::file_storage files, std::uint64_t payload_bytes)
+                                         lt::file_storage files, std::uint64_t payload_bytes,
+                                         FilterReport&& filter_report)
 {
     if (payload_bytes > static_cast<std::uint64_t>(lt::file_storage::max_file_size))
     {
@@ -908,7 +909,8 @@ Result<CreateResult> create_from_storage(const CreateRequest& request, const Tas
     pending.committed();
 
     return Result<CreateResult>::success({request.target_path, request.options.format(),
-                                          std::move(hashes).value(), payload_bytes, piece_length});
+                                          std::move(hashes).value(), payload_bytes, piece_length,
+                                          std::move(filter_report)});
 }
 
 } // namespace
@@ -919,7 +921,7 @@ Result<CreateResult> create_regular_file(const CreateRequest& request, const Tas
     lt::file_storage files;
     files.add_file(request.content_root.filename().generic_u8string(),
                    static_cast<std::int64_t>(payload_bytes));
-    return create_from_storage(request, context, std::move(files), payload_bytes);
+    return create_from_storage(request, context, std::move(files), payload_bytes, {});
 }
 
 bool path_is_within(const std::filesystem::path& root, const std::filesystem::path& candidate)
@@ -1013,12 +1015,67 @@ struct PreparedDirectory
 {
     lt::file_storage files;
     std::uint64_t payload_bytes{};
+    FilterReport filter_report;
 };
+
+struct DirectorySummary
+{
+    std::uint64_t entries{};
+    std::uint64_t bytes{};
+};
+
+Result<DirectorySummary> summarize_directory(const std::filesystem::path& root)
+{
+    std::error_code error;
+    DirectorySummary summary;
+    std::filesystem::recursive_directory_iterator iterator(root, error);
+    const std::filesystem::recursive_directory_iterator end;
+    if (error)
+    {
+        return Result<DirectorySummary>::failure(
+            filesystem_error("could not inspect filtered directory", error));
+    }
+    for (; iterator != end; iterator.increment(error))
+    {
+        if (error)
+        {
+            return Result<DirectorySummary>::failure(
+                filesystem_error("could not inspect filtered directory", error));
+        }
+        ++summary.entries;
+        const auto status = iterator->symlink_status(error);
+        if (error)
+        {
+            return Result<DirectorySummary>::failure(
+                filesystem_error("could not inspect filtered directory entry", error));
+        }
+        if (std::filesystem::is_regular_file(status))
+        {
+            const auto size = iterator->file_size(error);
+            if (error)
+            {
+                return Result<DirectorySummary>::failure(
+                    filesystem_error("could not read filtered file length", error));
+            }
+            if (size > (std::numeric_limits<std::uint64_t>::max)() - summary.bytes)
+            {
+                return Result<DirectorySummary>::failure(
+                    {ErrorCode::ValidationFailed,
+                     "create request validation failed",
+                     {{"create.content_root", "filtered payload size exceeds supported limits"}}});
+            }
+            summary.bytes += size;
+        }
+    }
+    return Result<DirectorySummary>::success(summary);
+}
 
 Result<PreparedDirectory> prepare_regular_directory(const CreateRequest& request)
 {
     std::error_code error;
     std::uint64_t payload_bytes{};
+    FilterReport filter_report;
+    const auto& file_filter = request.options.file_filter();
     std::unordered_map<std::string, std::string> symlink_targets;
     std::filesystem::recursive_directory_iterator entry(request.content_root, error);
     const std::filesystem::recursive_directory_iterator end;
@@ -1042,25 +1099,53 @@ Result<PreparedDirectory> prepare_regular_directory(const CreateRequest& request
             return Result<PreparedDirectory>::failure(
                 filesystem_error("could not inspect create content entry", error));
         }
+        const auto relative_path = entry->path().lexically_relative(request.content_root);
+        const auto relative_name = relative_path.generic_u8string();
+        if (std::filesystem::is_directory(status))
+        {
+            const auto rule = file_filter.matched_rule(relative_name, true);
+            if (!rule.empty())
+            {
+                auto summary = summarize_directory(entry->path());
+                if (!summary)
+                {
+                    return Result<PreparedDirectory>::failure(std::move(summary).error());
+                }
+                filter_report.entries.push_back({relative_name, FilteredEntryKind::Directory, 0,
+                                                 summary.value().entries, summary.value().bytes,
+                                                 rule});
+                entry.disable_recursion_pending();
+            }
+            continue;
+        }
         if (std::filesystem::is_symlink(status))
         {
+            const auto rule = file_filter.matched_rule(relative_name, false);
+            if (!rule.empty())
+            {
+                filter_report.entries.push_back(
+                    {relative_name, FilteredEntryKind::Symlink, 0, 0, 0, rule});
+                continue;
+            }
             auto link_target = validate_bep47_symlink(request.content_root, entry->path());
             if (!link_target)
             {
                 return Result<PreparedDirectory>::failure(link_target.error());
             }
-            const auto relative_path = entry->path().lexically_relative(request.content_root);
             const auto torrent_path =
                 (request.content_root.filename() / relative_path).generic_u8string();
             symlink_targets.emplace(torrent_path, std::move(link_target).value());
             continue;
         }
-        if (std::filesystem::is_directory(status))
-        {
-            continue;
-        }
         if (!std::filesystem::is_regular_file(status))
         {
+            const auto rule = file_filter.matched_rule(relative_name, false);
+            if (!rule.empty())
+            {
+                filter_report.entries.push_back(
+                    {relative_name, FilteredEntryKind::Other, 0, 0, 0, rule});
+                continue;
+            }
             return Result<PreparedDirectory>::failure(
                 {ErrorCode::ValidationFailed,
                  "create request validation failed",
@@ -1072,6 +1157,13 @@ Result<PreparedDirectory> prepare_regular_directory(const CreateRequest& request
         {
             return Result<PreparedDirectory>::failure(
                 filesystem_error("could not read create content length", error));
+        }
+        const auto rule = file_filter.matched_rule(relative_name, false);
+        if (!rule.empty())
+        {
+            filter_report.entries.push_back(
+                {relative_name, FilteredEntryKind::File, size, 0, 0, rule});
+            continue;
         }
         if (size > (std::numeric_limits<std::uint64_t>::max)() - payload_bytes)
         {
@@ -1095,7 +1187,25 @@ Result<PreparedDirectory> prepare_regular_directory(const CreateRequest& request
     try
     {
         const auto flags = creation_flags(request.options.format()) | lt::create_torrent::symlinks;
-        lt::add_files(files, request.content_root.u8string(), flags);
+        lt::add_files(
+            files, request.content_root.u8string(),
+            [&request](const std::string& path) {
+                std::error_code predicate_error;
+                const auto candidate = std::filesystem::u8path(path);
+                const auto relative = candidate.lexically_relative(request.content_root);
+                if (relative.empty())
+                {
+                    return true;
+                }
+                const auto status = std::filesystem::symlink_status(candidate, predicate_error);
+                if (predicate_error)
+                {
+                    return true;
+                }
+                return !request.options.file_filter().matches(
+                    relative.generic_u8string(), std::filesystem::is_directory(status));
+            },
+            flags);
 
         std::vector<lt::file_index_t> sorted_indices;
         sorted_indices.reserve(static_cast<std::size_t>(files.num_files()));
@@ -1164,7 +1274,12 @@ Result<PreparedDirectory> prepare_regular_directory(const CreateRequest& request
              "could not enumerate create content: " + exception.code().message(),
              {}});
     }
-    return Result<PreparedDirectory>::success({std::move(files), payload_bytes});
+    std::sort(filter_report.entries.begin(), filter_report.entries.end(),
+              [](const auto& left, const auto& right) {
+                  return left.relative_path < right.relative_path;
+              });
+    return Result<PreparedDirectory>::success(
+        {std::move(files), payload_bytes, std::move(filter_report)});
 }
 
 Result<CreateResult> create_regular_directory(const CreateRequest& request,
@@ -1177,7 +1292,7 @@ Result<CreateResult> create_regular_directory(const CreateRequest& request,
     }
     auto directory = std::move(prepared).value();
     return create_from_storage(request, context, std::move(directory.files),
-                               directory.payload_bytes);
+                               directory.payload_bytes, std::move(directory.filter_report));
 }
 
 Result<CreatePlan> LibtorrentAdapter::plan_create(const CreatePlanRequest& request,
@@ -1207,6 +1322,7 @@ Result<CreatePlan> LibtorrentAdapter::plan_create(const CreatePlanRequest& reque
     }
 
     std::uint64_t payload_bytes{};
+    FilterReport filter_report;
     lt::file_storage files;
     if (std::filesystem::is_regular_file(status))
     {
@@ -1230,6 +1346,7 @@ Result<CreatePlan> LibtorrentAdapter::plan_create(const CreatePlanRequest& reque
         auto directory = std::move(prepared).value();
         payload_bytes = directory.payload_bytes;
         files = std::move(directory.files);
+        filter_report = std::move(directory.filter_report);
     }
     else
     {
@@ -1255,8 +1372,9 @@ Result<CreatePlan> LibtorrentAdapter::plan_create(const CreatePlanRequest& reque
     {
         const auto flags = creation_flags(request.options.format()) | lt::create_torrent::symlinks;
         const lt::create_torrent creator(files, static_cast<int>(piece_length), flags);
-        return Result<CreatePlan>::success(
-            {payload_bytes, piece_length, static_cast<std::uint64_t>(creator.num_pieces())});
+        return Result<CreatePlan>::success({payload_bytes, piece_length,
+                                            static_cast<std::uint64_t>(creator.num_pieces()),
+                                            std::move(filter_report)});
     }
     catch (const std::system_error& exception)
     {

@@ -127,3 +127,40 @@ for transient progress display. It is not a retained report of every piece.
 
 **Shared piece mismatch** is a mismatched piece overlapping multiple logical files.
 Each affected file records its overlap; no single file is assigned exclusive blame.
+
+## File filtering
+
+**File filter mode**:
+The explicit creation policy `disabled`, `common-artifacts`, or `custom-rules`; absent configuration
+resolves to `disabled`, and custom rules replace rather than extend the common artifact set.
+_Avoid_: implicit hidden-file filtering, merged custom/common rules
+
+**File filter Glob**:
+The shared relative-path matcher supporting `*`, `?`, `**`, basename-at-any-depth patterns, and
+trailing-slash directory-only rules. It is intentionally not gitignore or rsync syntax.
+_Avoid_: gitignore compatibility, rsync filter
+
+**Filter report**:
+The Core-owned list of excluded relative entries, matched rules, entry kinds, and byte summaries
+returned by both create and create-plan operations; matched directories aggregate descendants.
+_Avoid_: source deletion, GUI-only exclusion list, per-descendant expansion
+
+**Global creation filter default**:
+The complete `defaults.file_filter` policy edited on Advanced and used when a selected preset
+has no explicit filter object.
+_Avoid_: treating Advanced as the selected preset, independent field defaults
+
+**Effective creation filter**:
+The complete filter policy shown on Create after global defaults, preset replacement, and any
+CLI field-level overrides have been resolved.
+_Avoid_: showing raw defaults as the Create value
+
+**Atomic preset filter override**:
+A preset `file_filter` object that replaces the complete global filter policy; an absent object
+inherits the global policy, while `mode: disabled` explicitly disables it.
+_Avoid_: field-by-field preset merging, implicit disablement
+
+**CLI file-filter override**:
+A field-level command-line adjustment applied after config and preset resolution, preserving
+unspecified filter fields.
+_Avoid_: treating one CLI flag as a complete filter replacement

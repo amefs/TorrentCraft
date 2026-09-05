@@ -137,6 +137,8 @@ class MainWindow final : public QMainWindow
     bool applying_creation_settings_{};
     bool preset_modified_{};
     QString active_preset_name_;
+    std::vector<std::string> create_filter_patterns_;
+    std::vector<std::string> advanced_default_filter_patterns_;
     struct ActiveOperation
     {
         std::string id;

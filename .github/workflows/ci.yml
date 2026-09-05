@@ -2,6 +2,8 @@ name: CI
 
 on:
   push:
+    branches:
+      - main
   pull_request:
 
 permissions:
@@ -19,6 +21,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - name: Install formatter
         run: |
           sudo apt-get update
@@ -27,6 +31,29 @@ jobs:
         run: |
           git ls-files -z '*.cpp' '*.hpp' |
             xargs -0 --no-run-if-empty clang-format-18 --dry-run --Werror
+      - name: Check changed-file whitespace
+        shell: bash
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            range="${{ github.event.pull_request.base.sha }}...${{ github.sha }}"
+          else
+            range="${{ github.event.before }}...${{ github.sha }}"
+          fi
+          git diff --check "$range" -- \
+            ':(exclude)cmake/vcpkg-patches/qtbase-glib-static-linkage.patch'
+  semver-contract:
+    name: semantic-version-contract
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Validate semantic version
+        run: python3 ci/check_semver.py
+      - name: Test semantic version helper
+        run: python3 -m unittest ci.test_check_semver
+
 
   build:
     name: build (${{ matrix.name }})

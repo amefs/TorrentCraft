@@ -1,6 +1,6 @@
 # 管理预设模板 (preset)
 
-预设（Preset）是将常用的种子制作参数（如协议格式、分块大小、私有标记、文件排序策略等）保存为命名模板，存放在 `torrentcraft.json` 中，方便在制作种子时一键复用。
+预设（Preset）是将常用的种子制作参数（如协议格式、分块大小、私有标记、文件排序策略和文件过滤等）保存为命名模板，存放在 `torrentcraft.json` 中，方便在制作种子时一键复用。
 
 ```text
 torrentcraft preset list|show <name>|add <file>|remove <name> [options]
@@ -26,7 +26,12 @@ torrentcraft preset show release
   "format": "hybrid",
   "piece_size": 4096,
   "private": true,
-  "file_order": "natural"
+  "file_order": "natural",
+  "file_filter": {
+    "mode": "custom-rules",
+    "case_sensitive": false,
+    "patterns": ["*.tmp", "cache/"]
+  }
 }
 ```
 
@@ -57,6 +62,15 @@ torrentcraft create ./payload -o ./payload.torrent --preset release
 ```text
 命令行参数 > 选中的预设模板 > 全局配置默认值 > 内置引擎默认值
 ```
+
+## 文件过滤覆盖规则
+
+预设中的 `file_filter` 是一个完整策略对象。预设未声明它时，继承
+`defaults.file_filter`；声明后会替换完整的全局策略，包括模式、大小写策略和规则列表。
+如需让该预设明确关闭过滤，请使用 `mode: "disabled"`。
+
+命令行过滤参数在选中预设后生效，并且仍然是按字段覆盖。例如，`--filter-case-sensitive`
+只改变大小写匹配策略，不会改变最终模式和规则列表。
 
 ## 参数速查表
 

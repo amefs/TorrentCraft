@@ -41,6 +41,15 @@ torrentcraft create ./payload -o ./payload.torrent --progress=plain 2> progress.
 }
 ```
 
+## 文件过滤报告
+
+从目录制作种子时，无论成功写入还是使用 `--dry-run` 试运行，都会提供有效文件过滤器
+排除的条目。普通文本输出包含相对路径、条目类型、匹配规则和字节摘要。匹配到的目录会合并为
+一条记录，并附带后代条目数和字节数，不会重复列出后代。
+
+使用 `--json` 时，创建结果包含 `data.filtered.count`、`data.filtered.bytes`
+和 `data.filtered.entries`。空报告表示没有条目被过滤。报告只提供信息，不会删除或修改源文件。
+
 > **关于完整性校验的说明**：在 [`verify`](./verify) 内容校验中，发现文件损坏或不匹配属于正常生成的比对报告，因此 JSON 响应中仍为 `ok: true`，但命令行退出码会设为 `6`，便于脚本和 CI 流水线精确判断。
 
 ## 进度显示模式 (`--progress`)

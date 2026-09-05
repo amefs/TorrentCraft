@@ -34,8 +34,8 @@
     </message>
     <message>
         <location filename="../src/gui/AboutDialog.ui" line="87"/>
-        <source>Version 1.0.0</source>
-        <translation>版本 1.0.0</translation>
+        <source>Version 1.1.0</source>
+        <translation>版本 1.1.0</translation>
     </message>
     <message>
         <location filename="../src/gui/AboutDialog.ui" line="93"/>
@@ -210,8 +210,8 @@
     </message>
     <message>
         <location filename="../src/gui/AboutDialog.ui" line="291"/>
-        <source>1.0.0</source>
-        <translation>1.0.0</translation>
+        <source>1.1.0</source>
+        <translation>1.1.0</translation>
     </message>
     <message>
         <location filename="../src/gui/AboutDialog.ui" line="296"/>
@@ -387,6 +387,11 @@
         <location filename="../src/gui/AboutDialog.cpp" line="79"/>
         <source>License: %1</source>
         <translation>许可证：%1</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/AboutDialog.ui" line="126"/>
+        <source>&lt;a href="https://github.com/amefs/TorrentCraft"&gt;[Git Repository]&lt;/a&gt;&lt;br/&gt;&lt;a href="https://amefs.github.io/TorrentCraft/"&gt;[Documentation]&lt;/a&gt;&lt;br/&gt;&lt;a href="https://github.com/amefs/TorrentCraft/issues"&gt;[Report an Issue]&lt;/a&gt;</source>
+        <translation>&lt;a href="https://github.com/amefs/TorrentCraft"&gt;[Git 仓库]&lt;/a&gt;&lt;br/&gt;&lt;a href="https://amefs.github.io/TorrentCraft/"&gt;[文档]&lt;/a&gt;&lt;br/&gt;&lt;a href="https://github.com/amefs/TorrentCraft/issues"&gt;[报告问题]&lt;/a&gt;</translation>
     </message>
 </context>
 <context>
@@ -1316,6 +1321,32 @@
         <translation>TorrentCraft 无法应用进程工作集限制。
 %1</translation>
     </message>
+    <message><source>Logging unavailable</source><translation>日志不可用</translation></message>
+    <message><source>No log file</source><translation>没有日志文件</translation></message>
+    <message><source>Enable file logging and apply the configuration before opening a log file.</source><translation>请启用文件日志并应用配置后再打开日志文件。</translation></message>
+    <message><source>The default editor could not open the log file.</source><translation>默认编辑器无法打开日志文件。</translation></message>
+    <message><source>Diagnostic context copied</source><translation>诊断上下文已复制</translation></message>
+    <message><source>Filtered %1 entries (%2 bytes):</source><translation>已过滤 %1 个条目（%2 字节）：</translation></message>
+    <message><source>Filter preview</source><translation>过滤预览</translation></message>
+    <message>
+        <source>
+
+Filtered %1 entries (%2 bytes):</source>
+        <translation>
+
+已过滤 %1 个条目（%2 字节）：</translation>
+    </message>
+    <message><source>Source</source><translation>来源</translation></message>
+    <message><source>Tracker changes require re-creating the torrent.</source><translation>Tracker 更改需要重新创建种子。</translation></message>
+    <message>
+        <source>
+
+Failed %1 file(s):</source>
+        <translation>
+
+%1 个文件失败：</translation>
+    </message>
+    <message><source>Tracker batch completed with errors</source><translation>Tracker 批量处理完成，但存在错误</translation></message>
 </context>
 <context>
     <name>NotificationDialog</name>
@@ -1625,6 +1656,48 @@
         <location filename="../src/gui/MainWindow.ui" line="958"/>
         <source>Breadth first</source>
         <translation>广度优先</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui" line="342"/>
+        <location filename="../src/gui/MainWindow.ui" line="1044"/>
+        <source>File Filter:</source>
+        <translation>文件过滤：</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui" line="347"/>
+        <location filename="../src/gui/MainWindow.ui" line="1044"/>
+        <source>Disabled</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui" line="348"/>
+        <location filename="../src/gui/MainWindow.ui" line="1044"/>
+        <source>Common system artifacts</source>
+        <translation>常见系统垃圾</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui" line="349"/>
+        <location filename="../src/gui/MainWindow.ui" line="1044"/>
+        <location filename="../src/gui/MainWindow.cpp" line="513"/>
+        <source>Custom exclusion rules</source>
+        <translation>自定义排除规则</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui" line="354"/>
+        <location filename="../src/gui/MainWindow.ui" line="1044"/>
+        <source>Edit custom rules...</source>
+        <translation>编辑自定义规则...</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui" line="359"/>
+        <location filename="../src/gui/MainWindow.ui" line="1044"/>
+        <source>Case-sensitive</source>
+        <translation>区分大小写</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.cpp" line="514"/>
+        <source>Enter one Glob pattern per line:</source>
+        <translation>每行输入一个通配符模式（Glob）：</translation>
     </message>
     <message>
         <location filename="../src/gui/MainWindow.ui" line="292"/>
@@ -2486,9 +2559,21 @@
     <message><source>Enable file logging and apply the configuration before opening a log file.</source><translation>请启用文件日志并应用配置后再打开日志文件。</translation></message>
     <message><source>The default editor could not open the log file.</source><translation>默认编辑器无法打开日志文件。</translation></message>
     <message><source>Diagnostic context copied</source><translation>诊断上下文已复制</translation></message>
+    <message><source>Default preset:</source><translation>默认预设：</translation></message>
+    <message><source>Defaults</source><translation>默认值</translation></message>
+    <message><source>Style:</source><translation>样式：</translation></message>
+    <message><source>Interface style</source><translation>界面样式</translation></message>
+    <message><source>Font:</source><translation>字体：</translation></message>
+    <message><source>Interface font</source><translation>界面字体</translation></message>
+</context>
+<context>
+    <name>FilterRulesDialog</name>
+    <message><source>Custom exclusion rules</source><translation>自定义排除规则</translation></message>
+    <message><source>Enter one Glob pattern per line:</source><translation>每行输入一个通配符模式（Glob）：</translation></message>
 </context>
 <context>
     <name>TrackerEditDialog</name>
+    <message><source>Tracker</source><translation>Tracker</translation></message>
     <message><source>Tracker URLs</source><translation>Tracker URL 列表</translation></message>
     <message><source>Use a blank line to separate tiers.</source><translation>使用空行分隔 Tracker 层级。</translation></message>
     <message><source>Tracker URL</source><translation>Tracker URL</translation></message>
@@ -2499,12 +2584,15 @@
 </context>
 <context>
     <name>OperationCloseDialog</name>
+    <message><source>Operation in progress</source><translation>操作进行中</translation></message>
     <message><source>A task is still running. Cancel it and exit?</source><translation>仍有任务正在运行。是否取消任务并退出？</translation></message>
     <message><source>Yes</source><translation>是</translation></message>
     <message><source>No</source><translation>否</translation></message>
 </context>
 <context>
     <name>LicenseDialog</name>
+    <message><source>License</source><translation>许可证</translation></message>
+    <message><source>License text</source><translation>许可证文本</translation></message>
     <message><source>License: %1</source><translation>许可证：%1</translation></message>
     <message><source>Close</source><translation>关闭</translation></message>
 </context>

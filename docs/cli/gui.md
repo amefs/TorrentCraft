@@ -25,8 +25,12 @@ The **Create** page is your starting point for generating a new `.torrent` file 
   - **Format**: Choose between **V1** (maximum compatibility with legacy clients), **V2** (modern BitTorrent v2 standard with SHA-256 piece trees), or **Hybrid** (recommended; compatible with all clients).
   - **Piece Size**: Set to **Automatic** (optimal piece size calculated from payload volume) or choose a fixed size from 16 KiB to 16 MiB.
   - **File Ordering**: Choose between Lexicographical, Natural, Canonical Alignment, or Breadth-First.
+  - **File Filter**: Choose **Disabled**, **Common system artifacts**, or **Custom exclusion rules**.
+    Custom rules use one Glob pattern per line and replace the built-in common-artifact list.
+    The **Case-sensitive** checkbox controls matching for either built-in or custom rules.
   - **Private Torrent**: Mark the torrent as private to disable DHT, PEX, and local peer discovery for private trackers.
 - **Fields Group**: Add Tracker announce tiers, HTTP/HTTPS Web Seeds, comments, creator signature, and custom info source tags.
+- **Filter report**: After a directory create or dry run, view the relative paths and byte summaries of entries excluded by the effective filter.
 - **Dry Run & Progress**: Test and validate creation settings without writing to disk, and monitor real-time hashing progress with a cancellation option.
 
 > **Preset Integration**: Fields automatically populate from your active preset and global defaults. Any manual adjustments made on the Create page take precedence for the current session without overwriting your saved preset.
@@ -109,7 +113,8 @@ The **Advanced** tab is the central settings hub for managing global configurati
 - **Default Save Location**:
   - Choose where new torrents are saved by default: *Current directory*, *Recent location*, or a *Specified directory*.
 - **Creation Defaults**:
-  - Set default protocol format, automatic piece size, default private state, default tracker tiers, and creator signatures for all new torrents.
+  - Set default protocol format, automatic piece size, file order, private state, file-filter policy, tracker tiers, and creator signatures for all new torrents.
+  - The global **File Filter** default is used when the selected preset does not declare its own filter object.
   - Set the **Default Preset** to load at GUI startup.
 - **Performance & I/O**:
   - Configure **Disk Mode** (`mmap` or standard I/O), **Verification Workers** (parallel threads), **Verification Memory Buffer (MiB)**, and **Working-Set Memory Limit**.

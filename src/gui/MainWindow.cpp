@@ -2,6 +2,7 @@
 
 #include "AboutDialog.hpp"
 #include "FileTreeModel.hpp"
+#include "FilterRulesDialog.hpp"
 #include "GuiLogController.hpp"
 #include "GuiTaskRunner.hpp"
 #include "Logo.hpp"
@@ -18,6 +19,7 @@
 #include <QClipboard>
 #include <QCloseEvent>
 #include <QComboBox>
+#include <QCoreApplication>
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QDir>
@@ -36,6 +38,7 @@
 #include <QMetaObject>
 #include <QMimeData>
 #include <QPlainTextEdit>
+#include <QPushButton>
 #include <QRegularExpression>
 #include <QStandardItemModel>
 #include <QStyleFactory>
@@ -50,6 +53,7 @@
 #include <filesystem>
 #include <limits>
 #include <memory>
+#include <numeric>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -61,6 +65,8 @@ using core::CreateOptions;
 using core::CreateOptionsInput;
 using core::Error;
 using core::ErrorCode;
+using core::FileFilterInput;
+using core::FileFilterMode;
 using core::FileOrderPolicy;
 using core::PieceLengthStrategy;
 using core::TorrentFormat;
@@ -90,6 +96,53 @@ QString format_name(const TorrentFormat format)
         return QStringLiteral("Hybrid");
     }
     return QStringLiteral("Unknown");
+}
+
+int file_filter_mode_index(const FileFilterMode mode) noexcept
+{
+    switch (mode)
+    {
+    case FileFilterMode::Disabled:
+        return 0;
+    case FileFilterMode::CommonArtifacts:
+        return 1;
+    case FileFilterMode::CustomRules:
+        return 2;
+    }
+    return 0;
+}
+
+FileFilterMode file_filter_mode_from_index(const int index) noexcept
+{
+    switch (index)
+    {
+    case 1:
+        return FileFilterMode::CommonArtifacts;
+    case 2:
+        return FileFilterMode::CustomRules;
+    default:
+        return FileFilterMode::Disabled;
+    }
+}
+
+QString file_filter_mode_name(const FileFilterMode mode)
+{
+    switch (mode)
+    {
+    case FileFilterMode::Disabled:
+        return QStringLiteral("disabled");
+    case FileFilterMode::CommonArtifacts:
+        return QStringLiteral("common-artifacts");
+    case FileFilterMode::CustomRules:
+        return QStringLiteral("custom-rules");
+    }
+    return QStringLiteral("disabled");
+}
+
+bool same_file_filter(const FileFilterInput& left, const FileFilterInput& right)
+{
+    return left.mode == right.mode && left.case_sensitive == right.case_sensitive &&
+           left.patterns == right.patterns;
 }
 
 const char* error_code_name(const ErrorCode code) noexcept
@@ -181,6 +234,16 @@ QString preset_preview(const frontend::CreationSettingsPatch& settings,
     if (effective.file_order)
         lines << QStringLiteral("file_order: ") +
                      QString::number(static_cast<int>(*effective.file_order));
+    if (effective.file_filter)
+    {
+        lines << QStringLiteral("file_filter: ") +
+                     file_filter_mode_name(effective.file_filter->mode);
+        lines << QStringLiteral("filter_case_sensitive: ") + (effective.file_filter->case_sensitive
+                                                                  ? QStringLiteral("true")
+                                                                  : QStringLiteral("false"));
+        lines << QStringLiteral("filter_patterns: ") + QString::number(static_cast<qulonglong>(
+                                                           effective.file_filter->patterns.size()));
+    }
     if (effective.piece_size)
         lines << QStringLiteral("piece_size: ") +
                      (effective.piece_size->fixed_kib
@@ -432,6 +495,27 @@ std::vector<std::string> nonempty_lines(const QString& value)
         }
     }
     return result;
+}
+
+QString filter_patterns_text(const std::vector<std::string>& patterns)
+{
+    QStringList lines;
+    for (const auto& pattern : patterns)
+    {
+        lines << QString::fromStdString(pattern);
+    }
+    return lines.join(QLatin1Char('\n'));
+}
+
+bool edit_filter_patterns(QWidget* parent, std::vector<std::string>& patterns)
+{
+    FilterRulesDialog dialog(filter_patterns_text(patterns), parent);
+    if (dialog.exec() != QDialog::Accepted)
+    {
+        return false;
+    }
+    patterns = nonempty_lines(dialog.rules());
+    return true;
 }
 
 std::optional<std::vector<core::TrackerTier>> parse_tracker_tiers(const QString& text,
@@ -766,6 +850,8 @@ MainWindow::MainWindow(GuiLogController* logger, QWidget* parent)
       tracker_model_(std::make_unique<QStandardItemModel>(this)), translator_(new QTranslator(this))
 {
     ui_->setupUi(this);
+    ui_->btnCreateEditFilterRules->setEnabled(false);
+    ui_->btnAdvancedDefaultEditFilterRules->setEnabled(false);
     ui_->cmbAdvancedStyle->addItem(tr("Default"), QString());
     logger_->set_failure_callback([this](std::string message) {
         const auto text = QString::fromUtf8(message.data(), static_cast<int>(message.size()));
@@ -908,6 +994,30 @@ MainWindow::MainWindow(GuiLogController* logger, QWidget* parent)
             [this](const int) { mark_preset_modified(); });
     connect(ui_->cmbCreateFileOrder, qOverload<int>(&QComboBox::currentIndexChanged), this,
             [this](const int) { mark_preset_modified(); });
+    connect(ui_->cmbCreateFilterMode, qOverload<int>(&QComboBox::currentIndexChanged), this,
+            [this](const int) {
+                ui_->btnCreateEditFilterRules->setEnabled(
+                    ui_->cmbCreateFilterMode->currentIndex() == 2);
+                if (!applying_creation_settings_)
+                {
+                    mark_preset_modified();
+                }
+            });
+    connect(ui_->btnCreateEditFilterRules, &QPushButton::clicked, this, [this] {
+        if (edit_filter_patterns(this, create_filter_patterns_))
+        {
+            mark_preset_modified();
+        }
+    });
+    connect(ui_->cmbAdvancedDefaultFilterMode, qOverload<int>(&QComboBox::currentIndexChanged),
+            this, [this](const int index) {
+                ui_->btnAdvancedDefaultEditFilterRules->setEnabled(index == 2);
+            });
+    connect(ui_->btnAdvancedDefaultEditFilterRules, &QPushButton::clicked, this, [this] {
+        static_cast<void>(edit_filter_patterns(this, advanced_default_filter_patterns_));
+    });
+    connect(ui_->chkCreateFilterCaseSensitive, &QCheckBox::toggled, this,
+            [this](const bool) { mark_preset_modified(); });
     connect(ui_->cmbCreatePieceSize, qOverload<int>(&QComboBox::currentIndexChanged), this,
             [this](const int) { mark_preset_modified(); });
     connect(ui_->chkCreatePrivate, &QCheckBox::toggled, this,
@@ -1440,6 +1550,9 @@ std::optional<CreateOptions> MainWindow::create_options_from_ui()
         input.fixed_piece_length =
             16U * 1024U << static_cast<unsigned>(ui_->cmbCreatePieceSize->currentIndex() - 1);
     }
+    input.file_filter.mode = file_filter_mode_from_index(ui_->cmbCreateFilterMode->currentIndex());
+    input.file_filter.case_sensitive = ui_->chkCreateFilterCaseSensitive->isChecked();
+    input.file_filter.patterns = create_filter_patterns_;
     input.is_private = ui_->chkCreatePrivate->isChecked();
     QString parse_error;
     auto seeds = parse_web_seeds(ui_->editCreateWebSeeds->toPlainText(), &parse_error);
@@ -1482,6 +1595,14 @@ core::Result<frontend::CreationSettingsPatch> MainWindow::creation_patch_from_cr
     {
         patch.file_order = current_order;
     }
+    const auto current_filter =
+        FileFilterInput{file_filter_mode_from_index(ui_->cmbCreateFilterMode->currentIndex()),
+                        ui_->chkCreateFilterCaseSensitive->isChecked(), create_filter_patterns_};
+    if (!same_file_filter(current_filter, defaults.file_filter.value_or(FileFilterInput{})))
+    {
+        patch.file_filter = current_filter;
+    }
+
     const auto current_piece =
         ui_->cmbCreatePieceSize->currentIndex() == 0
             ? std::optional<std::uint32_t>{}
@@ -1602,6 +1723,19 @@ void MainWindow::calculate_create_plan()
                 ui_->lblCreatePieces->setText(tr("Pieces: %1 | Piece length: %2")
                                                   .arg(static_cast<qulonglong>(plan.piece_count))
                                                   .arg(format_bytes_iec(plan.piece_length)));
+                if (!plan.filter_report.entries.empty())
+                {
+                    auto message =
+                        tr("Filtered %1 entries (%2 bytes):")
+                            .arg(static_cast<qulonglong>(plan.filter_report.entries.size()))
+                            .arg(static_cast<qulonglong>(plan.filter_report.total_bytes()));
+                    for (const auto& entry : plan.filter_report.entries)
+                    {
+                        message +=
+                            QStringLiteral("\n• ") + QString::fromStdString(entry.relative_path);
+                    }
+                    NotificationDialog::show_info(this, tr("Filter preview"), message);
+                }
                 set_status(tr("Ready"));
             }
         });
@@ -1721,13 +1855,25 @@ void MainWindow::create_torrent()
                                      {{"target", created.target_path.u8string()},
                                       {"payload_bytes", std::to_string(created.payload_bytes)},
                                       {"piece_length", std::to_string(created.piece_length)}});
-                NotificationDialog::show_info(
-                    this, tr("Torrent created"),
+                QString creation_message =
                     tr("Created %1\n%2 pieces.")
                         .arg(path_to_text(created.target_path))
                         .arg(static_cast<qulonglong>(
                             (created.payload_bytes + created.piece_length - 1U) /
-                            created.piece_length)));
+                            created.piece_length));
+                if (!created.filter_report.entries.empty())
+                {
+                    creation_message +=
+                        tr("\n\nFiltered %1 entries (%2 bytes):")
+                            .arg(static_cast<qulonglong>(created.filter_report.entries.size()))
+                            .arg(static_cast<qulonglong>(created.filter_report.total_bytes()));
+                    for (const auto& entry : created.filter_report.entries)
+                    {
+                        creation_message +=
+                            QStringLiteral("\n• ") + QString::fromStdString(entry.relative_path);
+                    }
+                }
+                NotificationDialog::show_info(this, tr("Torrent created"), creation_message);
                 remember_save_directory(created.target_path.parent_path());
                 set_status(tr("Ready"));
             }
@@ -3014,6 +3160,10 @@ void MainWindow::apply_creation_settings(const frontend::CreationSettingsPatch& 
                                               : 0);
     ui_->cmbCreateFileOrder->setCurrentIndex(
         settings.file_order ? static_cast<int>(*settings.file_order) : 0);
+    const auto filter = settings.file_filter.value_or(FileFilterInput{});
+    ui_->cmbCreateFilterMode->setCurrentIndex(file_filter_mode_index(filter.mode));
+    ui_->chkCreateFilterCaseSensitive->setChecked(filter.case_sensitive);
+    create_filter_patterns_ = filter.patterns;
     ui_->cmbCreatePieceSize->setCurrentIndex(
         settings.piece_size && settings.piece_size->fixed_kib
             ? piece_size_combo_index(*settings.piece_size->fixed_kib)
@@ -3086,6 +3236,10 @@ void MainWindow::populate_advanced_configuration()
                         : 0);
     ui_->cmbAdvancedDefaultFileOrder->setCurrentIndex(
         defaults.file_order ? static_cast<int>(*defaults.file_order) : 0);
+    const auto default_filter = defaults.file_filter.value_or(FileFilterInput{});
+    ui_->cmbAdvancedDefaultFilterMode->setCurrentIndex(file_filter_mode_index(default_filter.mode));
+    ui_->chkAdvancedDefaultFilterCaseSensitive->setChecked(default_filter.case_sensitive);
+    advanced_default_filter_patterns_ = default_filter.patterns;
     ui_->spinAdvancedDefaultPieceSize->setValue(
         defaults.piece_size && defaults.piece_size->fixed_kib
             ? static_cast<int>(*defaults.piece_size->fixed_kib)
@@ -3230,6 +3384,11 @@ void MainWindow::apply_advanced_configuration()
         patch.file_order = FileOrderPolicy::Lexicographical;
         break;
     }
+    FileFilterInput filter;
+    filter.mode = file_filter_mode_from_index(ui_->cmbAdvancedDefaultFilterMode->currentIndex());
+    filter.case_sensitive = ui_->chkAdvancedDefaultFilterCaseSensitive->isChecked();
+    filter.patterns = advanced_default_filter_patterns_;
+    patch.file_filter = std::move(filter);
     frontend::PieceSizeSetting piece;
     if (ui_->spinAdvancedDefaultPieceSize->value() > 0)
     {
@@ -3557,6 +3716,9 @@ void MainWindow::clear_current_form()
     create_tracker_model_->clear();
     create_tracker_model_->setHorizontalHeaderLabels({tr("Tier"), tr("Tracker")});
     ui_->chkCreatePrivate->setChecked(false);
+    ui_->cmbCreateFilterMode->setCurrentIndex(0);
+    ui_->chkCreateFilterCaseSensitive->setChecked(false);
+    create_filter_patterns_.clear();
     ui_->editCreateComment->clear();
     ui_->chkCreateCreator->setChecked(false);
     ui_->editCreateCreator->clear();

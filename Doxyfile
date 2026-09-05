@@ -1,6 +1,6 @@
 # Phase 8 repository API documentation
 PROJECT_NAME           = TorrentCraft
-PROJECT_NUMBER         = 1.0.0
+PROJECT_NUMBER         = 1.1.0
 OUTPUT_DIRECTORY       = out/docs/doxygen
 INPUT                  = include
 RECURSIVE              = YES

@@ -111,8 +111,12 @@ TEST_CASE("given_canonical_config_when_mutated_then_unknown_members_are_preserve
     REQUIRE(config);
     CreationSettingsPatch defaults;
     defaults.is_private = true;
+    defaults.file_filter =
+        FileFilterInput{FileFilterMode::CommonArtifacts, true, std::vector<std::string>{"*.tmp"}};
     CreationSettingsPatch added;
     added.piece_size = PieceSizeSetting{16384U};
+    added.file_filter =
+        FileFilterInput{FileFilterMode::CustomRules, false, std::vector<std::string>{"cache/"}};
 
     REQUIRE(config.value().set_defaults(defaults));
     auto add_result = config.value().add_preset("Added", added);
@@ -129,10 +133,16 @@ TEST_CASE("given_canonical_config_when_mutated_then_unknown_members_are_preserve
     REQUIRE(saved.find("vendor_default") != std::string::npos);
     REQUIRE(saved.find("vendor_preset") != std::string::npos);
     REQUIRE(saved.find("\"future\"") != std::string::npos);
+    REQUIRE(saved.find("\"file_filter\"") != std::string::npos);
+    REQUIRE(saved.find("\"case_sensitive\"") != std::string::npos);
 
     auto reloaded = ConfigFile::load(path);
     REQUIRE(reloaded);
     REQUIRE(reloaded.value().parsed().defaults.is_private == true);
+    const auto& default_filter = require_optional(reloaded.value().parsed().defaults.file_filter);
+    REQUIRE(default_filter.mode == FileFilterMode::CommonArtifacts);
+    REQUIRE(default_filter.case_sensitive);
+    REQUIRE(default_filter.patterns == std::vector<std::string>{"*.tmp"});
     REQUIRE(reloaded.value().parsed().presets.find("Existing") !=
             reloaded.value().parsed().presets.end());
     REQUIRE(reloaded.value().parsed().presets.find("Added") !=
@@ -141,6 +151,11 @@ TEST_CASE("given_canonical_config_when_mutated_then_unknown_members_are_preserve
         require_optional(
             require_optional(reloaded.value().parsed().presets.at("Added").piece_size).fixed_kib) ==
         16384U);
+    const auto& added_filter =
+        require_optional(reloaded.value().parsed().presets.at("Added").file_filter);
+    REQUIRE(added_filter.mode == FileFilterMode::CustomRules);
+    REQUIRE_FALSE(added_filter.case_sensitive);
+    REQUIRE(added_filter.patterns == std::vector<std::string>{"cache/"});
 }
 
 TEST_CASE(

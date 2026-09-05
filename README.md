@@ -15,6 +15,7 @@ BitTorrent metadata. It provides:
 - Deterministic file ordering and piece-length policies.
 - Atomic creation and save operations.
 - Shared configuration and presets for CLI and GUI.
+- Optional directory file filtering for common operating-system artifacts or custom Glob rules.
 - English and Simplified Chinese user interfaces.
 - Static Linux musl and Windows release builds.
 
@@ -58,7 +59,7 @@ cmake --install out/build/linux-clang-release \
 A downstream CMake project can consume the installed package:
 
 ~~~cmake
-find_package(TorrentUtilsCore 1.0.0 EXACT CONFIG REQUIRED)
+find_package(TorrentUtilsCore 1.1.0 EXACT CONFIG REQUIRED)
 target_link_libraries(my_target PRIVATE TorrentUtils::Core)
 ~~~
 

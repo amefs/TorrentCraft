@@ -62,6 +62,11 @@ torrentcraft config set defaults.comment null
     "private": false,
     "created_by": "TorrentCraft",
     "file_order": "lexicographical",
+    "file_filter": {
+      "mode": "common-artifacts",
+      "case_sensitive": false,
+      "patterns": []
+    },
     "tracker_list": [],
     "web_seeds": []
   },
@@ -83,6 +88,44 @@ torrentcraft config set defaults.comment null
 - **`defaults`**：制作新种子时的全局默认参数。
 - **`presets`**：命名预设模板，可通过 `--preset <name>` 随时调用。
 - **`verify` / `disk_io` / `memory_working_set_limit`**：全局校验线程数、缓存大小及磁盘 I/O 模式设置。
+
+## 文件过滤默认值与预设覆盖
+
+可选的 `defaults.file_filter` 对象控制目录制作时的全局过滤默认值：
+
+~~~json
+{
+  "file_filter": {
+    "mode": "common-artifacts",
+    "case_sensitive": false,
+    "patterns": []
+  }
+}
+~~~
+
+支持的模式为 `disabled`、`common-artifacts` 和 `custom-rules`。自定义规则只使用列出的
+Glob 模式，不会在内置常见垃圾文件规则上追加。除非 `case_sensitive` 为 `true`，否则默认
+不区分大小写。完整的匹配语法和内置规则列表请参见[创建种子](./create#文件过滤)。
+
+命名预设可以声明自己的完整 `file_filter` 对象。未声明该成员的预设会继承完整的全局默认值；
+声明后则会原子替换完整默认值，因此 `mode`、`case_sensitive` 和 `patterns` 不会分别合并：
+
+~~~json
+{
+  "presets": {
+    "archive": {
+      "file_filter": {
+        "mode": "custom-rules",
+        "case_sensitive": true,
+        "patterns": ["*.tmp", "cache/"]
+      }
+    }
+  }
+}
+~~~
+
+如需让预设明确关闭过滤，请使用 `mode: "disabled"`。没有 `file_filter` 的旧配置仍保持关闭
+过滤的行为。Advanced GUI 页面编辑全局默认值，Create 页面显示应用预设后的最终生效策略。
 
 ## 参数速查表
 

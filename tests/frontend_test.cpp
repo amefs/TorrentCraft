@@ -453,3 +453,92 @@ TEST_CASE("given_memory_size_when_parsed_then_bare_values_are_bytes_and_suffixes
 }
 
 } // namespace
+
+TEST_CASE("given_file_filter_config_when_parsed_and_resolved_then_filter_options_are_preserved",
+          "[unit][frontend][file-filter]")
+{
+    constexpr auto input = R"({
+        "schema": "torrentcraft.config/v1",
+        "defaults": {
+            "file_filter": {
+                "mode": "custom-rules",
+                "case_sensitive": true,
+                "patterns": ["*.tmp", "cache/"]
+            }
+        }
+    })";
+
+    auto parsed = parse_config_json(input);
+    REQUIRE(parsed);
+    const auto& filter = require_optional(parsed.value().defaults.file_filter);
+    REQUIRE(filter.mode == FileFilterMode::CustomRules);
+    REQUIRE(filter.case_sensitive);
+    REQUIRE(filter.patterns == std::vector<std::string>{"*.tmp", "cache/"});
+
+    auto resolved = resolve_settings(parsed.value().defaults);
+    REQUIRE(resolved);
+    REQUIRE(resolved.value().options.file_filter().mode() == FileFilterMode::CustomRules);
+    REQUIRE(resolved.value().options.file_filter().case_sensitive());
+    REQUIRE(resolved.value().options.file_filter().matches("cache", true));
+}
+
+TEST_CASE("given_file_filter_preset_when_overlaying_then_complete_policy_replaces_defaults",
+          "[unit][frontend][file-filter]")
+{
+    constexpr auto input = R"({
+        "schema": "torrentcraft.config/v1",
+        "defaults": {
+            "file_filter": {
+                "mode": "common-artifacts",
+                "case_sensitive": true,
+                "patterns": ["*.tmp"]
+            }
+        },
+        "presets": {
+            "custom": {
+                "file_filter": {
+                    "mode": "custom-rules"
+                }
+            },
+            "inherit": {}
+        }
+    })";
+
+    auto parsed = parse_config_json(input);
+    REQUIRE(parsed);
+
+    const auto& defaults = require_optional(parsed.value().defaults.file_filter);
+    const auto& custom = require_optional(parsed.value().presets.at("custom").file_filter);
+    REQUIRE(custom.mode == FileFilterMode::CustomRules);
+    REQUIRE_FALSE(custom.case_sensitive);
+    REQUIRE(custom.patterns.empty());
+
+    const auto effective =
+        overlay_settings(parsed.value().defaults, parsed.value().presets.at("custom"));
+    const auto& effective_filter = require_optional(effective.file_filter);
+    REQUIRE(effective_filter.mode == FileFilterMode::CustomRules);
+    REQUIRE_FALSE(effective_filter.case_sensitive);
+    REQUIRE(effective_filter.patterns.empty());
+
+    const auto inherited =
+        overlay_settings(parsed.value().defaults, parsed.value().presets.at("inherit"));
+    const auto& inherited_filter = require_optional(inherited.file_filter);
+    REQUIRE(inherited_filter.mode == defaults.mode);
+    REQUIRE(inherited_filter.case_sensitive == defaults.case_sensitive);
+    REQUIRE(inherited_filter.patterns == defaults.patterns);
+}
+
+TEST_CASE("given_file_filter_object_when_resolved_then_full_policy_reaches_core",
+          "[unit][frontend][file-filter]")
+{
+    CreationSettingsPatch settings;
+    settings.file_filter = FileFilterInput{FileFilterMode::CustomRules, true,
+                                           std::vector<std::string>{"cache/", "*.tmp"}};
+
+    auto resolved = resolve_settings(settings);
+    REQUIRE(resolved);
+    REQUIRE(resolved.value().options.file_filter().mode() == FileFilterMode::CustomRules);
+    REQUIRE(resolved.value().options.file_filter().case_sensitive());
+    REQUIRE(resolved.value().options.file_filter().matches("cache", true));
+    REQUIRE(resolved.value().options.file_filter().matches("skip.tmp", false));
+}

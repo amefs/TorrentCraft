@@ -1028,3 +1028,134 @@ TEST_CASE("given_padded_hybrid_torrent_when_tree_then_pad_files_are_hidden", "[u
 }
 
 } // namespace
+
+TEST_CASE("given_common_filter_when_creating_directory_then_cli_reports_filtered_entries",
+          "[integration][cli][file-filter]")
+{
+    const TempDirectory temp;
+    const auto content = temp.path() / "payload";
+    const auto target = temp.path() / "payload.torrent";
+    std::filesystem::create_directories(content);
+    write_file(content / "keep.bin", "keep");
+    write_file(content / ".DS_Store", "junk");
+    write_file(content / "Thumbs.db", "junk");
+
+    std::string output;
+    std::string diagnostics;
+    REQUIRE(run_cli({"torrentcraft", "create", content.u8string(), "-o", target.u8string(),
+                     "--filter-mode", "common-artifacts", "--json"},
+                    output, diagnostics) == 0);
+
+    const auto parsed = nlohmann::json::parse(output, nullptr, false);
+    REQUIRE_FALSE(parsed.is_discarded());
+    REQUIRE(parsed["data"]["payload_bytes"] == 4);
+    REQUIRE(parsed["data"]["filtered"]["count"] == 2);
+    REQUIRE(parsed["data"]["filtered"]["bytes"] == 8);
+    REQUIRE(std::filesystem::exists(target));
+
+    std::string tree_output;
+    std::string tree_diagnostics;
+    REQUIRE(run_cli({"torrentcraft", "tree", target.u8string()}, tree_output, tree_diagnostics) ==
+            0);
+    REQUIRE(tree_output.find("keep.bin") != std::string::npos);
+    REQUIRE(tree_output.find(".DS_Store") == std::string::npos);
+    REQUIRE(tree_output.find("Thumbs.db") == std::string::npos);
+}
+
+TEST_CASE("given_custom_filter_when_cli_arguments_are_used_then_patterns_and_case_policy_apply",
+          "[unit][cli][file-filter]")
+{
+    const TempDirectory temp;
+    const auto content = temp.path() / "payload";
+    std::filesystem::create_directories(content);
+    write_file(content / "keep.bin", "keep");
+    write_file(content / "skip.tmp", "junk");
+
+    std::string output;
+    std::string diagnostics;
+    REQUIRE(run_cli({"torrentcraft", "create", content.u8string(), "-o",
+                     (temp.path() / "payload.torrent").u8string(), "--exclude", "*.tmp",
+                     "--filter-case-sensitive", "--dry-run", "--json"},
+                    output, diagnostics) == 0);
+    REQUIRE(output.find("\"mode\":\"custom-rules\"") != std::string::npos);
+    REQUIRE(output.find("\"case_sensitive\":true") != std::string::npos);
+
+    REQUIRE(output.find("skip.tmp") != std::string::npos);
+}
+
+TEST_CASE("given_config_and_preset_filters_when_cli_resolves_then_preset_replaces_default",
+          "[integration][cli][file-filter]")
+{
+    const TempDirectory temp;
+    const auto content = temp.path() / "payload";
+    const auto config = temp.path() / "torrentcraft.json";
+    std::filesystem::create_directories(content);
+    write_file(content / "keep.bin", "keep");
+    write_file(content / ".DS_Store", "junk");
+    write_file(content / "skip.tmp", "junk");
+    write_file(config, R"({
+        "schema": "torrentcraft.config/v1",
+        "defaults": {
+            "file_filter": {
+                "mode": "custom-rules",
+                "case_sensitive": true,
+                "patterns": ["*.tmp"]
+            }
+        },
+        "presets": {
+            "common": {
+                "file_filter": {
+                    "mode": "common-artifacts"
+                }
+            }
+        }
+    })");
+
+    std::string output;
+    std::string diagnostics;
+    REQUIRE(run_cli({"torrentcraft", "create", content.u8string(), "-o",
+                     (temp.path() / "payload.torrent").u8string(), "--config", config.u8string(),
+                     "--preset", "common", "--dry-run", "--json"},
+                    output, diagnostics) == 0);
+
+    const auto parsed = nlohmann::json::parse(output, nullptr, false);
+    REQUIRE_FALSE(parsed.is_discarded());
+    REQUIRE(parsed["data"]["file_filter"]["mode"] == "common-artifacts");
+    REQUIRE(parsed["data"]["file_filter"]["case_sensitive"] == false);
+    REQUIRE(parsed["data"]["filtered"]["count"] == 1);
+    REQUIRE(parsed["data"]["filtered"]["entries"][0]["path"] == ".DS_Store");
+}
+
+TEST_CASE("given_config_filter_when_cli_case_override_is_used_then_patterns_are_preserved",
+          "[integration][cli][file-filter]")
+{
+    const TempDirectory temp;
+    const auto content = temp.path() / "payload";
+    const auto config = temp.path() / "torrentcraft.json";
+    std::filesystem::create_directories(content);
+    write_file(content / "keep.bin", "keep");
+    write_file(content / "skip.tmp", "junk");
+    write_file(config, R"({
+        "schema": "torrentcraft.config/v1",
+        "defaults": {
+            "file_filter": {
+                "mode": "custom-rules",
+                "case_sensitive": false,
+                "patterns": ["*.TMP"]
+            }
+        }
+    })");
+
+    std::string output;
+    std::string diagnostics;
+    REQUIRE(run_cli({"torrentcraft", "create", content.u8string(), "-o",
+                     (temp.path() / "payload.torrent").u8string(), "--config", config.u8string(),
+                     "--filter-case-sensitive", "--dry-run", "--json"},
+                    output, diagnostics) == 0);
+
+    const auto parsed = nlohmann::json::parse(output, nullptr, false);
+    REQUIRE_FALSE(parsed.is_discarded());
+    REQUIRE(parsed["data"]["file_filter"]["mode"] == "custom-rules");
+    REQUIRE(parsed["data"]["file_filter"]["case_sensitive"] == true);
+    REQUIRE(parsed["data"]["filtered"]["count"] == 0);
+}

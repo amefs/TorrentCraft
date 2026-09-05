@@ -34,8 +34,8 @@
     </message>
     <message>
         <location filename="../src/gui/AboutDialog.ui" line="87"/>
-        <source>Version 1.0.0</source>
-        <translation>Version 1.0.0</translation>
+        <source>Version 1.1.0</source>
+        <translation>Version 1.1.0</translation>
     </message>
     <message>
         <location filename="../src/gui/AboutDialog.ui" line="93"/>
@@ -210,8 +210,8 @@
     </message>
     <message>
         <location filename="../src/gui/AboutDialog.ui" line="291"/>
-        <source>1.0.0</source>
-        <translation>1.0.0</translation>
+        <source>1.1.0</source>
+        <translation>1.1.0</translation>
     </message>
     <message>
         <location filename="../src/gui/AboutDialog.ui" line="296"/>
@@ -387,6 +387,11 @@
         <location filename="../src/gui/AboutDialog.cpp" line="79"/>
         <source>License: %1</source>
         <translation>License: %1</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/AboutDialog.ui" line="126"/>
+        <source>&lt;a href="https://github.com/amefs/TorrentCraft"&gt;[Git Repository]&lt;/a&gt;&lt;br/&gt;&lt;a href="https://amefs.github.io/TorrentCraft/"&gt;[Documentation]&lt;/a&gt;&lt;br/&gt;&lt;a href="https://github.com/amefs/TorrentCraft/issues"&gt;[Report an Issue]&lt;/a&gt;</source>
+        <translation>&lt;a href="https://github.com/amefs/TorrentCraft"&gt;[Git Repository]&lt;/a&gt;&lt;br/&gt;&lt;a href="https://amefs.github.io/TorrentCraft/"&gt;[Documentation]&lt;/a&gt;&lt;br/&gt;&lt;a href="https://github.com/amefs/TorrentCraft/issues"&gt;[Report an Issue]&lt;/a&gt;</translation>
     </message>
 </context>
 <context>
@@ -1315,6 +1320,32 @@
         <translation>TorrentCraft could not apply the process working-set limit.
 %1</translation>
     </message>
+    <message><source>Logging unavailable</source><translation>Logging unavailable</translation></message>
+    <message><source>No log file</source><translation>No log file</translation></message>
+    <message><source>Enable file logging and apply the configuration before opening a log file.</source><translation>Enable file logging and apply the configuration before opening a log file.</translation></message>
+    <message><source>The default editor could not open the log file.</source><translation>The default editor could not open the log file.</translation></message>
+    <message><source>Diagnostic context copied</source><translation>Diagnostic context copied</translation></message>
+    <message><source>Filtered %1 entries (%2 bytes):</source><translation>Filtered %1 entries (%2 bytes):</translation></message>
+    <message><source>Filter preview</source><translation>Filter preview</translation></message>
+    <message>
+        <source>
+
+Filtered %1 entries (%2 bytes):</source>
+        <translation>
+
+Filtered %1 entries (%2 bytes):</translation>
+    </message>
+    <message><source>Source</source><translation>Source</translation></message>
+    <message><source>Tracker changes require re-creating the torrent.</source><translation>Tracker changes require re-creating the torrent.</translation></message>
+    <message>
+        <source>
+
+Failed %1 file(s):</source>
+        <translation>
+
+Failed %1 file(s):</translation>
+    </message>
+    <message><source>Tracker batch completed with errors</source><translation>Tracker batch completed with errors</translation></message>
 </context>
 <context>
     <name>NotificationDialog</name>
@@ -1624,6 +1655,48 @@
         <location filename="../src/gui/MainWindow.ui" line="958"/>
         <source>Breadth first</source>
         <translation>Breadth first</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui" line="342"/>
+        <location filename="../src/gui/MainWindow.ui" line="1044"/>
+        <source>File Filter:</source>
+        <translation>File Filter:</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui" line="347"/>
+        <location filename="../src/gui/MainWindow.ui" line="1044"/>
+        <source>Disabled</source>
+        <translation>Disabled</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui" line="348"/>
+        <location filename="../src/gui/MainWindow.ui" line="1044"/>
+        <source>Common system artifacts</source>
+        <translation>Common system artifacts</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui" line="349"/>
+        <location filename="../src/gui/MainWindow.ui" line="1044"/>
+        <location filename="../src/gui/MainWindow.cpp" line="513"/>
+        <source>Custom exclusion rules</source>
+        <translation>Custom exclusion rules</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui" line="354"/>
+        <location filename="../src/gui/MainWindow.ui" line="1044"/>
+        <source>Edit custom rules...</source>
+        <translation>Edit custom rules...</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui" line="359"/>
+        <location filename="../src/gui/MainWindow.ui" line="1044"/>
+        <source>Case-sensitive</source>
+        <translation>Case-sensitive</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.cpp" line="514"/>
+        <source>Enter one Glob pattern per line:</source>
+        <translation>Enter one Glob pattern per line:</translation>
     </message>
     <message>
         <location filename="../src/gui/MainWindow.ui" line="292"/>
@@ -2485,9 +2558,21 @@
     <message><source>Enable file logging and apply the configuration before opening a log file.</source><translation>Enable file logging and apply the configuration before opening a log file.</translation></message>
     <message><source>The default editor could not open the log file.</source><translation>The default editor could not open the log file.</translation></message>
     <message><source>Diagnostic context copied</source><translation>Diagnostic context copied</translation></message>
+    <message><source>Default preset:</source><translation>Default preset:</translation></message>
+    <message><source>Defaults</source><translation>Defaults</translation></message>
+    <message><source>Style:</source><translation>Style:</translation></message>
+    <message><source>Interface style</source><translation>Interface style</translation></message>
+    <message><source>Font:</source><translation>Font:</translation></message>
+    <message><source>Interface font</source><translation>Interface font</translation></message>
+</context>
+<context>
+    <name>FilterRulesDialog</name>
+    <message><source>Custom exclusion rules</source><translation>Custom exclusion rules</translation></message>
+    <message><source>Enter one Glob pattern per line:</source><translation>Enter one Glob pattern per line:</translation></message>
 </context>
 <context>
     <name>TrackerEditDialog</name>
+    <message><source>Tracker</source><translation>Tracker</translation></message>
     <message><source>Tracker URLs</source><translation>Tracker URLs</translation></message>
     <message><source>Use a blank line to separate tiers.</source><translation>Use a blank line to separate tiers.</translation></message>
     <message><source>Tracker URL</source><translation>Tracker URL</translation></message>
@@ -2498,12 +2583,15 @@
 </context>
 <context>
     <name>OperationCloseDialog</name>
+    <message><source>Operation in progress</source><translation>Operation in progress</translation></message>
     <message><source>A task is still running. Cancel it and exit?</source><translation>A task is still running. Cancel it and exit?</translation></message>
     <message><source>Yes</source><translation>Yes</translation></message>
     <message><source>No</source><translation>No</translation></message>
 </context>
 <context>
     <name>LicenseDialog</name>
+    <message><source>License</source><translation>License</translation></message>
+    <message><source>License text</source><translation>License text</translation></message>
     <message><source>License: %1</source><translation>License: %1</translation></message>
     <message><source>Close</source><translation>Close</translation></message>
 </context>
