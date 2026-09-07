@@ -190,8 +190,17 @@ torrentcraft create ./payload -o ./payload.torrent \
 Settings are resolved in the following order:
 
 ```text
-CLI flags > Selected Preset > Config Defaults > Built-in Engine Defaults
+Explicit CLI flags > Explicit Preset > Default Preset > Config Defaults > Built-in Engine Defaults
 ```
+
+When neither `--preset` nor `--preset-file` is supplied, the public `default_preset` configuration
+key selects the fallback preset and overlays `config.defaults`. CLI and GUI create/dry-run use the
+same resolution; an explicit preset replaces this fallback.
+
+For `created_by`, `--created-by` is the explicit highest-level value; when it is absent,
+the selected preset (including the `default_preset` fallback), config default, and finally
+`TorrentCraft` are considered in order. See [Creation setting resolution](./config#how-creation-settings-are-resolved)
+for the full CLI/GUI resolution diagram.
 
 ## Performance & Progress Control
 

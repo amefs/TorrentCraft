@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress'
+import { withMermaid } from 'vitepress-plugin-mermaid'
 
 const base = process.env.VITEPRESS_BASE ?? '/'
 
@@ -112,7 +113,7 @@ const chineseNav = [
   { text: '桌面 GUI', link: '/zh/cli/gui' }
 ]
 
-export default defineConfig({
+export default withMermaid(defineConfig({
   base,
   title: 'TorrentCraft',
   description: 'User documentation for TorrentCraft CLI and Desktop GUI.',
@@ -145,5 +146,40 @@ export default defineConfig({
     },
     outline: 'deep',
     lastUpdated: true
+  },
+  vite: {
+    // Mermaid pulls in CommonJS-only deps (fastdom via cytoscape-cose-bilkent,
+    // dagre, etc.). Pre-bundling them lets esbuild synthesize the `default`
+    // export the ESM graph expects — without this the browser throws
+    // "does not provide an export named 'default'" and the page renders blank.
+    optimizeDeps: {
+      include: [
+        'mermaid',
+        'dayjs',
+        'cytoscape',
+        'cytoscape-cose-bilkent',
+        'cytoscape-fcose',
+        'cose-base',
+        'layout-base',
+        'fastdom'
+      ]
+    },
+    ssr: {
+      noExternal: ['mermaid']
+    }
+  },
+  mermaid: {
+    // theme is auto-switched (default / dark) to follow VitePress appearance.
+    flowchart: {
+      curve: 'basis',
+      htmlLabels: true,
+      useMaxWidth: true
+    },
+    themeVariables: {
+      fontFamily: 'var(--vp-font-family-base)'
+    }
+  },
+  mermaidPlugin: {
+    class: 'mermaid-diagram'
   }
-})
+}))

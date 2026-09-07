@@ -26,7 +26,30 @@ torrentcraft ./payload.torrent ./payload
 torrentcraft ./payload ./payload.torrent --json
 ```
 
+## Options and configuration
+
+After the target operation is inferred, the remaining options are parsed by the same command handler
+as an explicit subcommand. Create options such as `--config`, `--preset`, `--preset-file`,
+`--format`, `--piece-size`, `--file-order`, file-filter options, tracker options, and progress or
+resource limits can appear before or after the paths:
+
+```bash
+torrentcraft --config ./torrentcraft.json --preset release ./payload --dry-run --json
+torrentcraft ./payload --format v1 --piece-size 1024 --output ./release.torrent
+```
+
+Inferred create therefore uses the same `default_preset` and overlay precedence as
+`torrentcraft create`: `config.defaults` is loaded first, `default_preset` is overlaid when no
+explicit preset is selected, and explicit CLI options are applied last. Configuration discovery
+is also unchanged: an explicit `--config` wins, otherwise the current working directory, the
+executable directory, and then the user configuration directory are checked. The directory
+containing the input is not searched automatically. See [Creation setting resolution](./config#how-creation-settings-are-resolved)
+for the shared resolution diagram.
+
+For create, the automatic `<input>.torrent` target is added only when `-o`/`--output` was not
+provided. An explicit output always wins, including the directory-plus-file form.
+
 ## Precedence & Disambiguation
 
 - **Keyword Precedence**: Known subcommands (e.g. `create`, `inspect`, `verify`, `config`) always take precedence over files with the same name.
-- **When to Use Explicit Subcommands**: Path inference is intentionally conservative. When you need fine-grained control over piece size, protocol format, tracker tiers, memory budgets, or custom config paths, always specify the full subcommand (e.g. `torrentcraft create ...`).
+- **When to Use Explicit Subcommands**: Use an explicit subcommand when you want its command-specific help or when the paths are ambiguous. Otherwise, path inference supports the same options and configuration precedence as the inferred target command.

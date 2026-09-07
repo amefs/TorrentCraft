@@ -2,6 +2,20 @@
 
 All notable user-visible changes are recorded here.
 
+## [1.1.1] - 2026-09-07
+
+### Fixed
+
+- Restore libtorrent default/mmap hashing for cancellable create operations instead of forcing the slower POSIX backend.
+- Add bounded cooperative cancellation for GUI long-running operations while preserving output atomicity and piece-boundary cancellation semantics.
+- Clean up interrupted libtorrent 2.0.14 mmap jobs, including completion jobs left queued after an interrupted callback.
+- Keep explicit `disk_io` modes and safe mmap fallback behavior consistent across create and verify.
+
+### Verification and release policy
+
+- The GitHub Actions `v1.1.1` tag workflow publishes the release after build, install-consumer checks, SBOM generation, security audit, and checksum validation pass.
+- Binary signing remains deferred for 1.1.1. SHA-256, provenance, SBOM, security, and LGPL sidecars remain part of the release evidence.
+
 ## [1.1.0] - 2026-09-05
 
 ### Added

@@ -26,7 +26,26 @@ torrentcraft ./payload.torrent ./payload
 torrentcraft ./payload ./payload.torrent --json
 ```
 
+## 参数与配置
+
+完成目标推断后，剩余参数会交给与显式子命令相同的命令处理器。`--config`、`--preset`、
+`--preset-file`、`--format`、`--piece-size`、`--file-order`、文件过滤器、Tracker、进度和
+资源限制等 create 参数都可以放在路径前或路径后：
+
+```bash
+torrentcraft --config ./torrentcraft.json --preset release ./payload --dry-run --json
+torrentcraft ./payload --format v1 --piece-size 1024 --output ./release.torrent
+```
+
+因此，路径推断 create 与 `torrentcraft create` 使用相同的 `default_preset` 和 overlay 优先级：
+先读取 `config.defaults`，没有显式预设时再叠加 `default_preset`，最后应用显式 CLI 参数。
+配置发现规则也保持一致：显式 `--config` 优先，否则依次检查当前工作目录、可执行文件目录和用户配置目录；
+不会自动搜索输入路径所在的目录。完整解析图请参见[制作设置的解析顺序](./config#制作设置的解析顺序)。
+
+create 仅在没有提供 `-o`/`--output` 时补充自动生成的 `<输入路径>.torrent` 目标。显式输出始终
+优先，包括“目标目录 + 普通文件”的推断形式。
+
 ## 优先级与防冲突说明
 
 - **命令关键字优先**：内置的子命令名称（如 `create`、`inspect`、`verify`、`config` 等）始终优先于同名文件。如果当前目录下刚好有一个名为 `create` 的文件夹，请使用显式子命令。
-- **何时使用显式命令**：智能推断保持谨慎与极简。如果需要精细控制分块大小、协议格式、Tracker 服务器、内存限制或配置文件路径，请使用完整的显式命令。
+- **何时使用显式命令**：当路径组合有歧义，或需要查看某个具体子命令的帮助时使用显式命令；其他情况下，智能推断与目标子命令使用相同的参数和配置优先级。

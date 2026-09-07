@@ -185,8 +185,16 @@ torrentcraft create ./payload -o ./payload.torrent \
 ### 参数生效优先级
 
 ```text
-命令行参数 > 选中的预设模板 > 全局配置默认值 > 内置引擎默认值
+显式命令行参数 > 显式预设 > 默认预设 > 全局配置默认值 > 内置引擎默认值
 ```
+
+未提供 `--preset` 或 `--preset-file` 时，顶层配置项 `default_preset` 会选择默认预设并
+叠加到全局配置默认值之上。CLI 与 GUI 的 create/dry-run 使用相同的解析顺序；显式预设会
+替换这个默认预设。
+
+对于 `created_by`，`--created-by` 是最高优先级的显式值；未指定时依次使用选中的预设
+（包括 `default_preset` 默认预设）、全局配置默认值，最后回退到 `TorrentCraft`。完整的
+CLI/GUI 解析图请参见[制作设置的解析顺序](./config#制作设置的解析顺序)。
 
 ## 性能与进度显示
 

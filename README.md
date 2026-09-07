@@ -8,6 +8,14 @@ BitTorrent metadata. It provides:
 - a Qt-free `torrentcraft` command-line application;
 - a Qt Widgets `torrentcraft-gui` desktop application.
 
+## Current release
+
+TorrentCraft 1.1.1 is the current maintenance release. It preserves the 1.1.0
+file-filtering features while improving bounded GUI cancellation, cancellable hashing
+performance, and cleanup of interrupted mmap jobs. GitHub Actions publishes the release
+from a validated `v1.1.1` tag with static Linux and Windows CLI/GUI assets plus platform
+support bundles containing checksums, provenance, SBOM, security, and Qt LGPL materials.
+
 ## Features
 
 - V1, V2, and Hybrid torrent metadata.
@@ -59,7 +67,7 @@ cmake --install out/build/linux-clang-release \
 A downstream CMake project can consume the installed package:
 
 ~~~cmake
-find_package(TorrentUtilsCore 1.1.0 EXACT CONFIG REQUIRED)
+find_package(TorrentUtilsCore 1.1.1 EXACT CONFIG REQUIRED)
 target_link_libraries(my_target PRIVATE TorrentUtils::Core)
 ~~~
 

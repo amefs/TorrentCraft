@@ -15,7 +15,7 @@ bundle and extract it beside the executables.
 > detailed SBOM (Software Bill of Materials), provenance, and security audit
 > reports. After extracting it beside the downloaded executables, verify the
 > release with `sha256sum -c SHA256SUMS` on Linux or `Get-FileHash` on PowerShell.
-> *(Note: 1.1.0 release binaries are currently unsigned; code signing is planned
+> *(Note: 1.1.1 release binaries are currently unsigned; code signing is planned
 > for a future release).*
 
 ## Quick Verification
@@ -67,7 +67,8 @@ When calling TorrentCraft in scripts or CI/CD pipelines:
 Both the CLI and GUI share the same configuration file (`torrentcraft.json`). By default, TorrentCraft automatically discovers configuration in this order:
 
 1. `./torrentcraft.json` (the current working directory)
-2. Platform-specific user configuration directory:
+2. `torrentcraft.json` beside the running executable (portable configuration)
+3. Platform-specific user configuration directory:
    - **Linux / macOS**: `~/.config/torrentcraft/torrentcraft.json`
    - **Windows**: `%APPDATA%\torrentcraft\torrentcraft.json`
 

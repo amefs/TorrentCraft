@@ -13,7 +13,7 @@ TorrentCraft 为 Linux (x86_64) 和 Windows (x86_64) 平台提供了免安装、
 > **完整性校验**：平台补充包中包含 `SHA256SUMS` 校验和文件，以及详尽的
 > SBOM（软件物料清单）、provenance 和安全审计报告。将补充包解压到可执行
 > 文件旁边后，可在 Linux 中运行 `sha256sum -c SHA256SUMS`，或在 PowerShell
-> 中使用 `Get-FileHash` 核对完整性。*（注：1.1.0 正式版本的二进制文件暂未
+> 中使用 `Get-FileHash` 核对完整性。*（注：1.1.1 正式版本的二进制文件暂未
 > 签署代码数字签名，签名支持将在后续版本中推出）*。
 
 ## 验证安装
@@ -65,7 +65,8 @@ torrentcraft verify ./my-folder.torrent ./my-folder
 CLI 工具与桌面 GUI 共享同一份配置文件（`torrentcraft.json`）。默认情况下，TorrentCraft 会按以下顺序自动查找配置：
 
 1. 当前工作目录下的 `./torrentcraft.json`
-2. 当前系统的用户配置目录：
+2. 当前可执行文件旁的 `torrentcraft.json`（便携式配置）
+3. 当前系统的用户配置目录：
    - **Linux / macOS**：`~/.config/torrentcraft/torrentcraft.json`
    - **Windows**：`%APPDATA%\torrentcraft\torrentcraft.json`
 
