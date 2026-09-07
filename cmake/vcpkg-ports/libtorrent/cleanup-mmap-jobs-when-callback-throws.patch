@@ -1,10 +1,6 @@
-diff --git a/src/mmap_disk_io.cpp b/src/mmap_disk_io.cpp
-index 328453d37..2ee985aa5 100644
 --- a/src/mmap_disk_io.cpp
 +++ b/src/mmap_disk_io.cpp
-@@ -494,3 +494,30 @@
- 		m_generic_threads.abort(wait);
- 		m_hash_threads.abort(wait);
+@@ -495,0 +496,27 @@
 +
 +		if (wait)
 +		{
@@ -32,11 +28,7 @@ index 328453d37..2ee985aa5 100644
 +			}
 +			if (cnt > 0) m_job_pool.free_jobs(to_delete.data(), cnt);
 +		}
- 	}
-@@ -1845,7 +1845,37 @@ namespace {
- #if TORRENT_USE_ASSERTS
- 			j->callback_called = true;
- #endif
+@@ -1848 +1875,31 @@
 -			j->call_callback();
 +			try
 +			{
@@ -69,6 +61,3 @@ index 328453d37..2ee985aa5 100644
 +				if (cnt > 0) m_job_pool.free_jobs(to_delete.data(), cnt);
 +				throw;
 +			}
- 			to_delete[cnt++] = j;
- 			j = next;
- 			if (cnt == int(to_delete.size()))
