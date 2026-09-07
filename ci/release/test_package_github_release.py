@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from package_github_release import PLATFORMS, package_platform  # noqa: E402
 
 
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 
 
 def make_artifact(root: Path, platform_name: str, extension: str) -> None:
@@ -57,24 +57,24 @@ class PackageGitHubReleaseTests(unittest.TestCase):
             self.assertEqual(
                 [path.name for path in assets],
                 [
-                    "TorrentCraft-1.1.0-linux-musl-x86_64-cli",
-                    "TorrentCraft-1.1.0-linux-musl-x86_64-gui",
-                    "TorrentCraft-1.1.0-linux-musl-x86_64-support.tar.gz",
+                    "TorrentCraft-1.1.1-linux-musl-x86_64-cli",
+                    "TorrentCraft-1.1.1-linux-musl-x86_64-gui",
+                    "TorrentCraft-1.1.1-linux-musl-x86_64-support.tar.gz",
                 ],
             )
             with tarfile.open(assets[-1], "r:gz") as archive:
                 names = set(archive.getnames())
                 self.assertIn("SHA256SUMS", names)
                 self.assertIn(
-                    "metadata/TorrentCraft-1.1.0-linux-musl-x86_64.SBOM.spdx.json",
+                    "metadata/TorrentCraft-1.1.1-linux-musl-x86_64.SBOM.spdx.json",
                     names,
                 )
                 self.assertIn("tests/test-platform.xml", names)
-                self.assertIn("source/TorrentCraft-1.1.0-source.tar.gz", names)
+                self.assertIn("source/TorrentCraft-1.1.1-source.tar.gz", names)
                 manifest = archive.extractfile("SHA256SUMS")
                 assert manifest is not None
                 text = manifest.read().decode()
-                self.assertIn("TorrentCraft-1.1.0-linux-musl-x86_64-cli", text)
+                self.assertIn("TorrentCraft-1.1.1-linux-musl-x86_64-cli", text)
                 with tempfile.TemporaryDirectory() as extracted:
                     extracted_root = Path(extracted)
                     archive.extractall(extracted_root)
@@ -102,7 +102,7 @@ class PackageGitHubReleaseTests(unittest.TestCase):
             with zipfile.ZipFile(assets[-1]) as archive:
                 self.assertIn("SHA256SUMS", archive.namelist())
                 self.assertIn(
-                    "compliance/TorrentCraft-1.1.0-windows-x86_64-Qt-LGPL-compliance.zip",
+                    "compliance/TorrentCraft-1.1.1-windows-x86_64-Qt-LGPL-compliance.zip",
                     archive.namelist(),
                 )
 

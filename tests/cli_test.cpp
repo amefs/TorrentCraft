@@ -171,23 +171,64 @@ TEST_CASE("given_config_preset_and_cli_overrides_when_created_then_torrent_is_wr
     write_file(content, "payload");
     write_file(config, R"({
         "schema": "torrentcraft.config/v1",
-        "defaults": {"piece_size": 16, "private": false},
-        "presets": {"release": {"comment": "from preset", "private": false}}
+        "defaults": {"piece_size": 16, "private": false, "created_by": "ConfigAuthor"},
+        "presets": {"release": {"comment": "from preset", "private": false, "created_by": "PresetAuthor"}}
     })");
 
     std::string output;
     std::string diagnostics;
-    const auto result =
-        run_cli({"torrentcraft", "create", content.u8string(), "-o", target.u8string(), "--config",
-                 config.u8string(), "--preset", "release", "--private", "--json"},
-                output, diagnostics);
+    const auto result = run_cli({"torrentcraft", "create", content.u8string(), "-o",
+                                 target.u8string(), "--config", config.u8string(), "--preset",
+                                 "release", "--private", "--created-by", "CliAuthor", "--json"},
+                                output, diagnostics);
 
     REQUIRE(result == 0);
     REQUIRE(diagnostics.empty());
     REQUIRE(output.find("\"ok\":true") != std::string::npos);
+    REQUIRE(run_cli({"torrentcraft", "metadata", "show", target.u8string(), "--json"}, output,
+                    diagnostics) == 0);
+    REQUIRE(output.find("\"creator\":\"CliAuthor\"") != std::string::npos);
     REQUIRE(std::filesystem::is_regular_file(target));
 }
 
+TEST_CASE("given_config_default_preset_when_created_then_explicit_presets_replace_it",
+          "[integration][cli]")
+{
+    const TempDirectory temp;
+    const auto content = temp.path() / "payload.bin";
+    const auto config = temp.path() / "torrentcraft.json";
+    const auto external = temp.path() / "external.json";
+    const auto target = temp.path() / "payload.torrent";
+    write_file(content, "payload");
+    write_file(config, R"({"schema":"torrentcraft.config/v1",
+        "default_preset":"release","defaults":{"private":false},
+        "presets":{"release":{"private":true},"explicit":{"private":false}}})");
+    write_file(external, R"({"private":false})");
+
+    std::string output;
+    std::string diagnostics;
+    auto result = run_cli({"torrentcraft", "create", content.u8string(), "-o", target.u8string(),
+                           "--config", config.u8string(), "--dry-run", "--json"},
+                          output, diagnostics);
+    REQUIRE(result == 0);
+    REQUIRE(diagnostics.empty());
+    REQUIRE(output.find("\"private\":true") != std::string::npos);
+
+    result = run_cli({"torrentcraft", "create", content.u8string(), "-o", target.u8string(),
+                      "--config", config.u8string(), "--preset", "explicit", "--dry-run", "--json"},
+                     output, diagnostics);
+    REQUIRE(result == 0);
+    REQUIRE(diagnostics.empty());
+    REQUIRE(output.find("\"private\":false") != std::string::npos);
+
+    result =
+        run_cli({"torrentcraft", "create", content.u8string(), "-o", target.u8string(), "--config",
+                 config.u8string(), "--preset-file", external.u8string(), "--dry-run", "--json"},
+                output, diagnostics);
+    REQUIRE(result == 0);
+    REQUIRE(diagnostics.empty());
+    REQUIRE(output.find("\"private\":false") != std::string::npos);
+}
 TEST_CASE("given_external_preset_file_when_dry_run_then_settings_are_resolved_without_output",
           "[unit][cli]")
 {
@@ -232,10 +273,19 @@ TEST_CASE("given_config_when_show_get_set_then_values_are_managed", "[unit][cli]
 {
     const TempDirectory temp;
     const auto config = temp.path() / "torrentcraft.json";
-    write_file(config, R"({"schema":"torrentcraft.config/v1","defaults":{"piece_size":4096}})");
 
     std::string output;
     std::string diagnostics;
+    write_file(config, R"({"schema":"torrentcraft.config/v1","defaults":{"piece_size":4096}})");
+
+    REQUIRE(run_cli({"torrentcraft", "config", "set", "default_preset", "\"release\"", "--config",
+                     config.u8string(), "--json"},
+                    output, diagnostics) == 0);
+    REQUIRE(run_cli({"torrentcraft", "config", "get", "default_preset", "--config",
+                     config.u8string(), "--json"},
+                    output, diagnostics) == 0);
+    REQUIRE(output.find("release") != std::string::npos);
+
     REQUIRE(run_cli({"torrentcraft", "config", "get", "defaults.piece_size", "--config",
                      config.u8string(), "--json"},
                     output, diagnostics) == 0);
@@ -470,6 +520,30 @@ TEST_CASE("given_two_torrents_when_no_subcommand_then_usage_error", "[unit][cli]
                     diagnostics) == 2);
 }
 
+TEST_CASE("given_inferred_verify_options_when_run_then_verify_parser_is_reused",
+          "[integration][cli]")
+{
+    const TempDirectory temp;
+    const auto torrent = temp.path() / "payload.torrent";
+    const auto content = temp.path() / "content";
+    std::filesystem::copy_file(std::filesystem::path(TORRENTUTILS_TEST_SOURCE_DIR) / "fixtures" /
+                                   "metadata" / "valid-v1-multifile.torrent",
+                               torrent);
+    std::filesystem::create_directories(content / "dir");
+    write_file(content / "a.bin", "abc");
+    write_file(content / "dir" / "b.bin", "wxyz");
+
+    std::string output;
+    std::string diagnostics;
+    const auto result = run_cli(
+        {"torrentcraft", content.u8string(), torrent.u8string(), "--verify-workers", "1", "--json"},
+        output, diagnostics);
+
+    REQUIRE(result == 6);
+    REQUIRE(diagnostics.empty());
+    REQUIRE(output.find("\"mismatched\"") != std::string::npos);
+}
+
 TEST_CASE("given_single_file_when_no_subcommand_then_infer_create_dry_run", "[unit][cli]")
 {
     const TempDirectory temp;
@@ -481,6 +555,138 @@ TEST_CASE("given_single_file_when_no_subcommand_then_infer_create_dry_run", "[un
     REQUIRE(run_cli({"torrentcraft", "payload.txt", "--dry-run", "--json"}, output, diagnostics) ==
             0);
     REQUIRE(output.find("payload.txt.torrent") != std::string::npos);
+}
+
+TEST_CASE("given_default_preset_when_path_inference_create_then_explicit_create_matches",
+          "[integration][cli]")
+{
+    const TempDirectory temp;
+    write_file(temp.path() / "payload.bin", "payload");
+    write_file(temp.path() / "torrentcraft.json",
+               R"({"schema":"torrentcraft.config/v1","default_preset":"release",
+                   "defaults":{"private":false,"format":"hybrid"},
+                   "presets":{"release":{"private":true,"format":"v1"}}})");
+    CurrentDirectory current_directory(temp.path());
+
+    std::string inferred_output;
+    std::string inferred_diagnostics;
+    REQUIRE(run_cli({"torrentcraft", "payload.bin", "--dry-run", "--json"}, inferred_output,
+                    inferred_diagnostics) == 0);
+    REQUIRE(inferred_diagnostics.empty());
+    const auto inferred = nlohmann::json::parse(inferred_output);
+
+    std::string explicit_output;
+    std::string explicit_diagnostics;
+    REQUIRE(run_cli({"torrentcraft", "create", "payload.bin", "-o", "payload.bin.torrent",
+                     "--dry-run", "--json"},
+                    explicit_output, explicit_diagnostics) == 0);
+    REQUIRE(explicit_diagnostics.empty());
+    const auto explicit_create = nlohmann::json::parse(explicit_output);
+
+    REQUIRE(inferred["data"]["target"] == explicit_create["data"]["target"]);
+    REQUIRE(inferred["data"]["format"] == explicit_create["data"]["format"]);
+    REQUIRE(inferred["data"]["private"] == explicit_create["data"]["private"]);
+    REQUIRE(inferred["data"]["file_filter"] == explicit_create["data"]["file_filter"]);
+}
+
+TEST_CASE("given_executable_config_when_path_inference_create_then_default_preset_is_applied",
+          "[integration][cli]")
+{
+    const TempDirectory temp;
+    const auto executable_directory = temp.path() / "bin";
+    const auto working_directory = temp.path() / "working";
+    const auto content = working_directory / "payload.bin";
+    std::filesystem::create_directories(executable_directory);
+    std::filesystem::create_directories(working_directory);
+    write_file(content, "payload");
+    write_file(executable_directory / "torrentcraft.json",
+               R"({"schema":"torrentcraft.config/v1","default_preset":"release",
+                   "defaults":{"private":false,"format":"hybrid"},
+                   "presets":{"release":{"private":true,"format":"v1"}}})");
+    CurrentDirectory current_directory(working_directory);
+
+    std::string output;
+    std::string diagnostics;
+    const auto executable = executable_directory / "torrentcraft-gui.exe";
+    REQUIRE(run_cli({executable.u8string(), content.u8string(), "--dry-run", "--json"}, output,
+                    diagnostics) == 0);
+    REQUIRE(diagnostics.empty());
+    const auto result = nlohmann::json::parse(output);
+    REQUIRE(result["data"]["format"] == "v1");
+    REQUIRE(result["data"]["private"] == true);
+}
+
+TEST_CASE("given_inferred_create_options_when_run_then_target_and_settings_are_forwarded",
+          "[unit][cli]")
+{
+    const TempDirectory temp;
+    const auto content = temp.path() / "payload.bin";
+    const auto config = temp.path() / "torrentcraft.json";
+    const auto target = temp.path() / "chosen.torrent";
+    write_file(content, "payload");
+    write_file(config,
+               R"({"schema":"torrentcraft.config/v1","presets":{"release":{"private":true}}})");
+
+    std::string output;
+    std::string diagnostics;
+    const auto result = run_cli({"torrentcraft", content.u8string(), "--config", config.u8string(),
+                                 "--preset", "release", "--format", "v1", "--piece-size", "16",
+                                 "--output", target.u8string(), "--dry-run", "--json"},
+                                output, diagnostics);
+
+    REQUIRE(result == 0);
+    REQUIRE(diagnostics.empty());
+    const auto json = nlohmann::json::parse(output);
+    REQUIRE(json["data"]["target"] == target.u8string());
+    REQUIRE(json["data"]["format"] == "v1");
+    REQUIRE(json["data"]["private"] == true);
+}
+
+TEST_CASE("given_inferred_create_option_without_value_when_run_then_value_error_is_preserved",
+          "[unit][cli]")
+{
+    const TempDirectory temp;
+    const auto content = temp.path() / "payload.bin";
+    write_file(content, "payload");
+
+    std::string output;
+    std::string diagnostics;
+    const auto result =
+        run_cli({"torrentcraft", content.u8string(), "--config"}, output, diagnostics);
+
+    REQUIRE(result == 2);
+    REQUIRE(diagnostics.find("--config requires a value") != std::string::npos);
+}
+
+TEST_CASE("given_inferred_directory_and_file_with_output_when_run_then_output_wins", "[unit][cli]")
+{
+    const TempDirectory temp;
+    const auto directory = temp.path() / "destination";
+    const auto content = temp.path() / "payload.bin";
+    const auto target = temp.path() / "chosen.torrent";
+    std::filesystem::create_directories(directory);
+    write_file(content, "payload");
+
+    std::string output;
+    std::string diagnostics;
+    const auto result = run_cli({"torrentcraft", directory.u8string(), content.u8string(),
+                                 "--output", target.u8string(), "--dry-run", "--json"},
+                                output, diagnostics);
+
+    REQUIRE(result == 0);
+    REQUIRE(diagnostics.empty());
+    REQUIRE(nlohmann::json::parse(output)["data"]["target"] == target.u8string());
+}
+
+TEST_CASE("given_inferred_create_help_when_run_then_create_help_is_printed", "[unit][cli]")
+{
+    std::string output;
+    std::string diagnostics;
+    const auto result = run_cli({"torrentcraft", "payload.bin", "--help"}, output, diagnostics);
+
+    REQUIRE(result == 0);
+    REQUIRE(diagnostics.empty());
+    REQUIRE(output.find("Usage:\n  torrentcraft create") != std::string::npos);
 }
 
 TEST_CASE("given_torrent_when_tracker_and_metadata_commands_then_expected_results", "[unit][cli]")
@@ -1039,6 +1245,8 @@ TEST_CASE("given_common_filter_when_creating_directory_then_cli_reports_filtered
     write_file(content / "keep.bin", "keep");
     write_file(content / ".DS_Store", "junk");
     write_file(content / "Thumbs.db", "junk");
+    std::filesystem::create_directories(content / "__MACOSX" / "nested");
+    write_file(content / "__MACOSX" / "nested" / "ignored.bin", "junk");
 
     std::string output;
     std::string diagnostics;
@@ -1049,8 +1257,8 @@ TEST_CASE("given_common_filter_when_creating_directory_then_cli_reports_filtered
     const auto parsed = nlohmann::json::parse(output, nullptr, false);
     REQUIRE_FALSE(parsed.is_discarded());
     REQUIRE(parsed["data"]["payload_bytes"] == 4);
-    REQUIRE(parsed["data"]["filtered"]["count"] == 2);
-    REQUIRE(parsed["data"]["filtered"]["bytes"] == 8);
+    REQUIRE(parsed["data"]["filtered"]["count"] == 3);
+    REQUIRE(parsed["data"]["filtered"]["bytes"] == 12);
     REQUIRE(std::filesystem::exists(target));
 
     std::string tree_output;
@@ -1060,6 +1268,7 @@ TEST_CASE("given_common_filter_when_creating_directory_then_cli_reports_filtered
     REQUIRE(tree_output.find("keep.bin") != std::string::npos);
     REQUIRE(tree_output.find(".DS_Store") == std::string::npos);
     REQUIRE(tree_output.find("Thumbs.db") == std::string::npos);
+    REQUIRE(tree_output.find("__MACOSX") == std::string::npos);
 }
 
 TEST_CASE("given_custom_filter_when_cli_arguments_are_used_then_patterns_and_case_policy_apply",

@@ -380,6 +380,13 @@ ConfigSearchPaths default_config_search_paths(std::optional<std::filesystem::pat
 
 core::Result<std::optional<std::filesystem::path>> discover_config(const ConfigSearchPaths& paths)
 {
+    return discover_config(paths, std::nullopt);
+}
+
+core::Result<std::optional<std::filesystem::path>>
+discover_config(const ConfigSearchPaths& paths,
+                const std::optional<std::filesystem::path>& executable_directory)
+{
     std::vector<std::filesystem::path> candidates;
     if (paths.explicit_path)
     {
@@ -388,9 +395,26 @@ core::Result<std::optional<std::filesystem::path>> discover_config(const ConfigS
     else
     {
         candidates.push_back(paths.working_directory / kConfigFilename);
+        if (executable_directory)
+        {
+            const auto executable_config = *executable_directory / kConfigFilename;
+            if (executable_config.lexically_normal() != candidates.front().lexically_normal())
+            {
+                candidates.push_back(executable_config);
+            }
+        }
         if (paths.user_config_path)
         {
-            candidates.push_back(*paths.user_config_path);
+            const auto normalized_user_config = paths.user_config_path->lexically_normal();
+            const auto duplicate =
+                std::find_if(candidates.cbegin(), candidates.cend(),
+                             [&normalized_user_config](const auto& candidate) {
+                                 return candidate.lexically_normal() == normalized_user_config;
+                             });
+            if (duplicate == candidates.cend())
+            {
+                candidates.push_back(*paths.user_config_path);
+            }
         }
     }
 
@@ -541,12 +565,19 @@ GuiPreferences ConfigFile::gui_preferences() const
     {
         preferences.recent_save_path = value->get<std::string>();
     }
-    if (const auto value = gui_member(details_->document, "default_preset");
-        value != nullptr && value->is_string() && !value->get<std::string>().empty())
+    const auto default_preset = details_->document.find("default_preset");
+    if (default_preset != details_->document.end() && default_preset->is_string())
     {
-        preferences.default_preset = value->get<std::string>();
+        preferences.default_preset = default_preset->get<std::string>();
     }
-
+    else if (default_preset == details_->document.end())
+    {
+        if (const auto value = gui_member(details_->document, "default_preset");
+            value != nullptr && value->is_string())
+        {
+            preferences.default_preset = value->get<std::string>();
+        }
+    }
     const auto gui = details_->document.find("gui");
     if (gui == details_->document.end() || !gui->is_object())
     {
@@ -634,14 +665,15 @@ core::Result<void> ConfigFile::set_gui_preferences(const GuiPreferences& prefere
     {
         gui.erase("recent_save_path");
     }
-    if (preferences.default_preset && !preferences.default_preset->empty())
+    if (preferences.default_preset)
     {
-        gui["default_preset"] = *preferences.default_preset;
+        details_->document["default_preset"] = *preferences.default_preset;
     }
     else
     {
-        gui.erase("default_preset");
+        details_->document.erase("default_preset");
     }
+    gui.erase("default_preset");
     if (preferences.font_family && !preferences.font_family->empty())
     {
         gui["font_family"] = *preferences.font_family;
@@ -855,6 +887,11 @@ core::Result<ConfigKey> parse_config_key(const std::string_view input)
         return core::Result<ConfigKey>::success(
             ConfigKey{ConfigScope::Preset, std::move(name), std::move(setting)});
     }
+    if (text == "default_preset")
+    {
+        return core::Result<ConfigKey>::success(
+            ConfigKey{ConfigScope::DefaultPreset, std::nullopt, "default_preset"});
+    }
     if (text.rfind("verify.", 0) == 0)
     {
         const std::string member = text.substr(7);
@@ -878,8 +915,8 @@ core::Result<ConfigKey> parse_config_key(const std::string_view input)
     }
     return core::Result<ConfigKey>::failure(validation_error(
         "frontend.config.key",
-        "must be defaults.<setting>, presets.<name>.<setting>, verify.<member>, disk_io, or "
-        "memory_working_set_limit"));
+        "must be default_preset, defaults.<setting>, presets.<name>.<setting>, verify.<member>, "
+        "disk_io, or memory_working_set_limit"));
 }
 
 core::Result<std::string> ConfigFile::get_key(const ConfigKey& key) const
@@ -912,6 +949,25 @@ core::Result<std::string> ConfigFile::get_key(const ConfigKey& key) const
                                                        {{"preset", *key.preset_name}}});
         }
         object = &*preset;
+    }
+    else if (key.scope == ConfigScope::DefaultPreset)
+    {
+        if (details_->parsed.legacy)
+        {
+            return core::Result<std::string>::failure(validation_error(
+                "frontend.config.key", "default_preset requires a canonical config"));
+        }
+        const auto value = details_->document.find("default_preset");
+        if (value != details_->document.end())
+        {
+            return core::Result<std::string>::success(value->dump());
+        }
+        if (const auto legacy = gui_member(details_->document, "default_preset"); legacy != nullptr)
+        {
+            return core::Result<std::string>::success(legacy->dump());
+        }
+        return core::Result<std::string>::failure(
+            {core::ErrorCode::FileNotFound, "setting is not set", {{"setting", key.setting}}});
     }
     else if (key.scope == ConfigScope::Verify)
     {
@@ -1014,6 +1070,15 @@ core::Result<void> ConfigFile::set_key(const ConfigKey& key, std::optional<std::
         }
         target = &preset;
     }
+    else if (key.scope == ConfigScope::DefaultPreset)
+    {
+        if (details_->parsed.legacy)
+        {
+            return core::Result<void>::failure(validation_error(
+                "frontend.config.key", "default_preset requires a canonical config"));
+        }
+        target = &details_->document;
+    }
     else if (key.scope == ConfigScope::Verify)
     {
         if (details_->parsed.legacy)
@@ -1077,6 +1142,12 @@ core::Result<void> ConfigFile::set_key(const ConfigKey& key, std::optional<std::
         (*target)[key.setting] = std::move(value);
     }
 
+    if (key.scope == ConfigScope::DefaultPreset)
+    {
+        const auto gui = details_->document.find("gui");
+        if (gui != details_->document.end() && gui->is_object())
+            gui->erase("default_preset");
+    }
     auto parsed = parse_document(details_->document);
     if (!parsed)
     {

@@ -48,6 +48,9 @@ class CancellationToken
     /** Returns whether the associated source has requested cancellation. */
     [[nodiscard]] bool is_cancelled() const noexcept;
 
+    /** Returns whether this token is associated with a cancellation source. */
+    [[nodiscard]] bool can_be_cancelled() const noexcept;
+
     /**
      * Registers a synchronous one-shot callback; callbacks must not throw.
      *

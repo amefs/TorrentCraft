@@ -14,10 +14,15 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <system_error>
 #include <thread>
 #include <torrentutils/core/torrent_engine.hpp>
 #include <utility>
 #include <vector>
+
+#ifndef _WIN32
+#include <sys/stat.h>
+#endif
 
 namespace {
 
@@ -87,11 +92,11 @@ template <typename Value>
     return value.value();
 }
 
-TorrentDocument v1_document(Sha1Digest piece_hash = sha1(2))
+TorrentDocument v1_document(Sha1Digest piece_hash = sha1(2), FileAttributes attributes = {})
 {
     auto path = LogicalPath::from_segments({"payload.bin"});
     REQUIRE(path);
-    auto file = FileEntry::create(std::move(path).value(), 16);
+    auto file = FileEntry::create(std::move(path).value(), 16, attributes);
     REQUIRE(file);
     auto hashes = InfoHashes::create(TorrentFormat::V1, sha1(1), std::nullopt);
     REQUIRE(hashes);
@@ -1862,6 +1867,210 @@ TEST_CASE("given_missing_content_root_when_created_then_file_not_found_is_report
     REQUIRE(result.error().message == "create content root does not exist");
 }
 
+TEST_CASE("given_pre_cancelled_context_when_engine_operations_start_then_backend_is_not_entered",
+          "[unit][torrent-engine][cancellation]")
+{
+    auto options = CreateOptions::create();
+    REQUIRE(options);
+    CancellationSource cancellation;
+    cancellation.cancel();
+    const TaskContext context{cancellation.token(), {}, nullptr, {}};
+    const TorrentEngine engine;
+    const auto document = v1_document();
+
+    const auto inspected = engine.inspect(document, context);
+    REQUIRE_FALSE(inspected);
+    CHECK(inspected.error().code == ErrorCode::Cancelled);
+
+    const auto created =
+        engine.create({"payload.bin", "payload.torrent", options.value()}, context);
+    REQUIRE_FALSE(created);
+    CHECK(created.error().code == ErrorCode::Cancelled);
+
+    const auto verified = engine.verify({document, "payload.bin"}, context);
+    REQUIRE_FALSE(verified);
+    CHECK(verified.error().code == ErrorCode::Cancelled);
+}
+
+TEST_CASE("given_negative_creation_time_when_created_then_request_is_rejected",
+          "[unit][torrent-engine][create]")
+{
+    auto options = CreateOptions::create();
+    REQUIRE(options);
+    const TorrentEngine engine;
+
+    const auto result = engine.create({"payload.bin",
+                                       "payload.torrent",
+                                       options.value(),
+                                       false,
+                                       {std::nullopt, std::nullopt, -1}});
+
+    REQUIRE_FALSE(result);
+    CHECK(result.error().code == ErrorCode::ValidationFailed);
+}
+
+TEST_CASE("given_v1_hidden_executable_file_when_verified_then_attributes_are_supported",
+          "[unit][torrent-engine][verify]")
+{
+    const TempDirectory temp;
+    const auto content = temp.path() / "payload.bin";
+    {
+        std::ofstream output(content, std::ios::binary);
+        output << "0123456789abcdef";
+        REQUIRE(output);
+    }
+    FileAttributes attributes;
+    attributes.hidden = true;
+    attributes.executable = true;
+    const TorrentEngine engine;
+
+    const auto result = engine.verify({v1_document(sha1(2), attributes), content});
+
+    REQUIRE(result);
+    CHECK(result.value().outcome == VerificationOutcome::Mismatched);
+}
+
+TEST_CASE("given_create_plan_request_edges_when_planned_then_public_contract_is_enforced",
+          "[unit][torrent-engine][create-plan]")
+{
+    const TempDirectory temp;
+    const auto content = temp.path() / "payload.bin";
+    {
+        std::ofstream output(content, std::ios::binary);
+        output << "0123456789abcdef";
+        REQUIRE(output);
+    }
+
+    CreateOptionsInput input;
+    input.format = TorrentFormat::V1;
+    input.piece_length_strategy = PieceLengthStrategy::Fixed;
+    input.fixed_piece_length = 16U * 1024U;
+    const auto options = CreateOptions::create(std::move(input));
+    REQUIRE(options);
+    const TorrentEngine engine;
+
+    SECTION("regular file")
+    {
+        const auto result = engine.plan_create({content, options.value()});
+
+        REQUIRE(result);
+        CHECK(result.value().payload_bytes == 16U);
+        CHECK(result.value().piece_length == 16U * 1024U);
+        CHECK(result.value().piece_count == 1U);
+        CHECK(result.value().filter_report.entries.empty());
+    }
+
+    SECTION("missing content")
+    {
+        const auto result = engine.plan_create({temp.path() / "missing.bin", options.value()});
+
+        REQUIRE_FALSE(result);
+        CHECK(result.error().code == ErrorCode::FileNotFound);
+    }
+
+    SECTION("empty content path")
+    {
+        const auto result = engine.plan_create({{}, options.value()});
+
+        REQUIRE_FALSE(result);
+        CHECK(result.error().code == ErrorCode::ValidationFailed);
+    }
+
+    SECTION("pre-cancelled")
+    {
+        CancellationSource cancellation;
+        cancellation.cancel();
+
+        const auto result =
+            engine.plan_create({content, options.value()}, {cancellation.token(), {}, nullptr, {}});
+
+        REQUIRE_FALSE(result);
+        CHECK(result.error().code == ErrorCode::Cancelled);
+    }
+
+    SECTION("empty directory")
+    {
+        const auto empty_directory = temp.path() / "empty";
+        std::filesystem::create_directory(empty_directory);
+
+        const auto planned = engine.plan_create({empty_directory, options.value()});
+        REQUIRE_FALSE(planned);
+        CHECK(planned.error().code == ErrorCode::ValidationFailed);
+
+        const auto created =
+            engine.create({empty_directory, temp.path() / "empty.torrent", options.value()});
+        REQUIRE_FALSE(created);
+        CHECK(created.error().code == ErrorCode::ValidationFailed);
+        CHECK_FALSE(std::filesystem::exists(temp.path() / "empty.torrent"));
+    }
+}
+
+#ifndef _WIN32
+TEST_CASE("given_posix_fifo_content_when_created_or_planned_then_target_policy_is_enforced",
+          "[unit][torrent-engine][create][create-plan][file-filter]")
+{
+    const TempDirectory temp;
+    auto options = CreateOptions::create();
+    REQUIRE(options);
+    const TorrentEngine engine;
+
+    const auto root_fifo = temp.path() / "payload.pipe";
+    REQUIRE(::mkfifo(root_fifo.c_str(), 0600) == 0);
+
+    const auto root_plan = engine.plan_create({root_fifo, options.value()});
+    REQUIRE_FALSE(root_plan);
+    CHECK(root_plan.error().code == ErrorCode::ValidationFailed);
+
+    const auto root_create =
+        engine.create({root_fifo, temp.path() / "root-fifo.torrent", options.value()});
+    REQUIRE_FALSE(root_create);
+    CHECK(root_create.error().code == ErrorCode::ValidationFailed);
+
+    const auto rejected_directory = temp.path() / "rejected";
+    std::filesystem::create_directory(rejected_directory);
+    {
+        std::ofstream output(rejected_directory / "payload.bin", std::ios::binary);
+        output << "payload";
+        REQUIRE(output);
+    }
+    REQUIRE(::mkfifo((rejected_directory / "unsupported.pipe").c_str(), 0600) == 0);
+    std::filesystem::create_symlink(rejected_directory / "payload.bin",
+                                    rejected_directory / "ignored.link");
+
+    const auto rejected_plan = engine.plan_create({rejected_directory, options.value()});
+    REQUIRE_FALSE(rejected_plan);
+    CHECK(rejected_plan.error().code == ErrorCode::ValidationFailed);
+
+    CreateOptionsInput filtered_input;
+    filtered_input.file_filter.mode = FileFilterMode::CustomRules;
+    filtered_input.file_filter.case_sensitive = true;
+    filtered_input.file_filter.patterns = {"*.pipe", "*.link"};
+    auto filtered_options = CreateOptions::create(std::move(filtered_input));
+    REQUIRE(filtered_options);
+
+    const auto filtered_plan = engine.plan_create({rejected_directory, filtered_options.value()});
+    REQUIRE(filtered_plan);
+    REQUIRE(filtered_plan.value().filter_report.entries.size() == 2U);
+    CHECK(std::any_of(filtered_plan.value().filter_report.entries.begin(),
+                      filtered_plan.value().filter_report.entries.end(), [](const auto& entry) {
+                          return entry.relative_path == "unsupported.pipe" &&
+                                 entry.kind == FilteredEntryKind::Other;
+                      }));
+    CHECK(std::any_of(filtered_plan.value().filter_report.entries.begin(),
+                      filtered_plan.value().filter_report.entries.end(), [](const auto& entry) {
+                          return entry.relative_path == "ignored.link" &&
+                                 entry.kind == FilteredEntryKind::Symlink;
+                      }));
+
+    const auto filtered_target = temp.path() / "filtered-fifo.torrent";
+    const auto filtered_create =
+        engine.create({rejected_directory, filtered_target, filtered_options.value()});
+    REQUIRE(filtered_create);
+    CHECK(std::filesystem::is_regular_file(filtered_target));
+    REQUIRE(filtered_create.value().filter_report.entries.size() == 2U);
+}
+#endif
+
 TEST_CASE("given_regular_file_when_created_as_v1_then_committed_torrent_matches_result",
           "[integration][torrent-engine][create]")
 {
@@ -2098,7 +2307,7 @@ TEST_CASE("given_existing_target_and_hashing_cancellation_when_overwrite_enabled
     const auto target = temp.path() / "payload.torrent";
     {
         std::ofstream output(content, std::ios::binary);
-        output << "0123456789abcdef";
+        output << std::string(std::size_t{2U} * 1024U * 1024U, 'x');
         REQUIRE(output);
     }
     {
@@ -2113,13 +2322,23 @@ TEST_CASE("given_existing_target_and_hashing_cancellation_when_overwrite_enabled
     input.fixed_piece_length = 16U * 1024U;
     auto options = CreateOptions::create(std::move(input));
     REQUIRE(options);
+    std::optional<DiskIoMode> disk_io_mode;
+    SECTION("default disk I/O")
+    {
+        disk_io_mode = std::nullopt;
+    }
+    SECTION("explicit mmap disk I/O")
+    {
+        disk_io_mode = DiskIoMode::Mmap;
+    }
     CancellationSource cancellation;
     TaskContext context;
     context.cancellation = cancellation.token();
     context.on_progress = [&cancellation](const ProgressInfo&) { cancellation.cancel(); };
     const TorrentEngine engine;
 
-    const auto result = engine.create({content, target, std::move(options).value(), true}, context);
+    const auto result = engine.create(
+        {content, target, std::move(options).value(), true, {}, {}, disk_io_mode}, context);
 
     REQUIRE_FALSE(result);
     REQUIRE(result.error().code == ErrorCode::Cancelled);
@@ -2129,6 +2348,94 @@ TEST_CASE("given_existing_target_and_hashing_cancellation_when_overwrite_enabled
                                std::istreambuf_iterator<char>()};
     REQUIRE(contents == "existing creation target");
     REQUIRE(temporary_sibling_count(target) == 0);
+}
+
+TEST_CASE("given_hash_progress_system_error_when_created_then_io_failure_leaves_no_output",
+          "[unit][torrent-engine][create][io]")
+{
+    const TempDirectory temp;
+    const auto content = temp.path() / "payload.bin";
+    const auto target = temp.path() / "payload.torrent";
+    {
+        std::ofstream output(content, std::ios::binary);
+        output << std::string(std::size_t{16} * 1024U, 'x');
+        REQUIRE(output);
+    }
+
+    CreateOptionsInput input;
+    input.format = TorrentFormat::V1;
+    input.piece_length_strategy = PieceLengthStrategy::Fixed;
+    input.fixed_piece_length = 16U * 1024U;
+    auto options = CreateOptions::create(std::move(input));
+    REQUIRE(options);
+    TaskContext context;
+    context.on_progress = [](const ProgressInfo&) {
+        throw std::system_error(std::make_error_code(std::errc::permission_denied),
+                                "injected hash failure");
+    };
+    const TorrentEngine engine;
+
+    const auto result = engine.create(
+        {content, target, std::move(options).value(), false, {}, {}, DiskIoMode::Posix}, context);
+
+    REQUIRE_FALSE(result);
+    REQUIRE(result.error().code == ErrorCode::IoFailure);
+    const std::string message_prefix = "could not hash create content: ";
+    REQUIRE(result.error().message.compare(0, message_prefix.size(), message_prefix) == 0);
+    REQUIRE_FALSE(std::filesystem::exists(target));
+    REQUIRE(temporary_sibling_count(target) == 0);
+}
+
+TEST_CASE("given_hash_progress_exceptions_when_created_then_failure_leaves_no_output",
+          "[unit][torrent-engine][create][io]")
+{
+    const TempDirectory temp;
+    const auto content = temp.path() / "payload.bin";
+    {
+        std::ofstream output(content, std::ios::binary);
+        output << std::string(std::size_t{16} * 1024U, 'x');
+        REQUIRE(output);
+    }
+    const TorrentEngine engine;
+    const auto create_with_failure = [&](const std::filesystem::path& target,
+                                         ProgressCallback callback) {
+        CreateOptionsInput input;
+        input.format = TorrentFormat::V1;
+        input.piece_length_strategy = PieceLengthStrategy::Fixed;
+        input.fixed_piece_length = 16U * 1024U;
+        auto options = CreateOptions::create(std::move(input));
+        REQUIRE(options);
+        TaskContext context;
+        context.on_progress = std::move(callback);
+        return engine.create(
+            {content, target, std::move(options).value(), false, {}, {}, DiskIoMode::Mmap},
+            context);
+    };
+
+    SECTION("standard exception")
+    {
+        const auto target = temp.path() / "standard.torrent";
+        const auto result = create_with_failure(
+            target, [](const ProgressInfo&) { throw std::runtime_error("injected hash failure"); });
+
+        REQUIRE_FALSE(result);
+        REQUIRE(result.error().code == ErrorCode::Internal);
+        REQUIRE(result.error().message == "could not hash create content: injected hash failure");
+        REQUIRE_FALSE(std::filesystem::exists(target));
+        REQUIRE(temporary_sibling_count(target) == 0);
+    }
+
+    SECTION("unknown exception")
+    {
+        const auto target = temp.path() / "unknown.torrent";
+        const auto result = create_with_failure(target, [](const ProgressInfo&) { throw 7; });
+
+        REQUIRE_FALSE(result);
+        REQUIRE(result.error().code == ErrorCode::Internal);
+        REQUIRE(result.error().message == "could not hash create content");
+        REQUIRE_FALSE(std::filesystem::exists(target));
+        REQUIRE(temporary_sibling_count(target) == 0);
+    }
 }
 
 TEST_CASE("given_metadata_encoding_failure_when_created_then_no_target_or_temporary_sibling_"

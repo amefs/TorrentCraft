@@ -36,6 +36,7 @@ TEST_CASE("given_canonical_config_when_parsed_then_defaults_and_presets_are_reta
 {
     constexpr auto input = R"({
         "schema": "torrentcraft.config/v1",
+        "default_preset": "private",
         "defaults": {
             "format": "hybrid",
             "piece_size": "auto",
@@ -58,6 +59,7 @@ TEST_CASE("given_canonical_config_when_parsed_then_defaults_and_presets_are_reta
     REQUIRE(result);
     REQUIRE_FALSE(result.value().legacy);
     REQUIRE(result.value().defaults.format == TorrentFormat::Hybrid);
+    REQUIRE(result.value().default_preset == "private");
     REQUIRE_FALSE(require_optional(result.value().defaults.piece_size).fixed_kib.has_value());
     REQUIRE(require_optional(result.value().defaults.tracker_tiers).size() == 1U);
     const auto& private_preset = result.value().presets.at("private");
@@ -65,6 +67,30 @@ TEST_CASE("given_canonical_config_when_parsed_then_defaults_and_presets_are_reta
     REQUIRE(require_optional(require_optional(private_preset.piece_size).fixed_kib) == 4096U);
     REQUIRE(require_optional(private_preset.tracker_tiers).size() == 2U);
     REQUIRE(result.value().diagnostics.empty());
+}
+
+TEST_CASE("given_default_preset_keys_when_parsed_then_public_key_wins_and_empty_disables_legacy",
+          "[unit][frontend]")
+{
+    auto legacy = parse_config_json(
+        R"({"schema":"torrentcraft.config/v1","gui":{"default_preset":"legacy"}})");
+    REQUIRE(legacy);
+    REQUIRE(legacy.value().default_preset == "legacy");
+
+    auto public_key = parse_config_json(R"({"schema":"torrentcraft.config/v1",
+        "default_preset":"public","gui":{"default_preset":"legacy"}})");
+    REQUIRE(public_key);
+    REQUIRE(public_key.value().default_preset == "public");
+
+    auto disabled = parse_config_json(R"({"schema":"torrentcraft.config/v1",
+        "default_preset":"","gui":{"default_preset":"legacy"}})");
+    REQUIRE(disabled);
+    REQUIRE(disabled.value().default_preset == "");
+
+    auto invalid =
+        parse_config_json(R"({"schema":"torrentcraft.config/v1","default_preset":false})");
+    REQUIRE_FALSE(invalid);
+    REQUIRE(invalid.error().issues.front().field == "frontend.config.default_preset");
 }
 
 TEST_CASE("given_legacy_preset_when_parsed_then_common_fields_and_migration_are_reported",
@@ -176,20 +202,24 @@ TEST_CASE("given_layered_settings_when_overlaid_then_each_present_key_replaces_t
           "[unit][frontend]")
 {
     CreationSettingsPatch defaults;
+    defaults.created_by = "config";
     defaults.is_private = false;
     defaults.tracker_tiers =
         std::vector<std::vector<std::string>>{{"https://default.example/announce"}};
     defaults.comment = "default";
     CreationSettingsPatch preset;
+    preset.created_by = "preset";
     preset.is_private = true;
     preset.tracker_tiers =
         std::vector<std::vector<std::string>>{{"https://preset.example/announce"}};
     CreationSettingsPatch cli;
+    cli.created_by = "";
     cli.tracker_tiers = std::vector<std::vector<std::string>>{};
     cli.comment = "cli";
 
     const auto effective = overlay_settings(overlay_settings(defaults, preset), cli);
 
+    REQUIRE(effective.created_by == "");
     REQUIRE(effective.is_private == true);
     REQUIRE(require_optional(effective.tracker_tiers).empty());
     REQUIRE(effective.comment == "cli");

@@ -13,6 +13,7 @@
 #include <torrentutils/core/application.hpp>
 #include <torrentutils/core/tracker_engine.hpp>
 #include <utility>
+#include <vector>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -21,6 +22,7 @@
 namespace torrentutils::core {
 namespace {
 constexpr std::uintmax_t max_torrent_bytes = static_cast<std::uintmax_t>(128U) * 1024U * 1024U;
+constexpr std::size_t cancellation_io_chunk_bytes = std::size_t{1024U} * std::size_t{1024U};
 constexpr std::string_view retained_unknown_prefix = "retained unknown field: ";
 constexpr std::string_view retained_extension_prefix = "retained extension field: ";
 
@@ -121,6 +123,36 @@ class PendingFile
     bool committed_{};
 };
 
+class CancellationBackup
+{
+  public:
+    CancellationBackup(std::filesystem::path path, CancellationToken cancellation)
+        : path_(std::move(path)), cancellation_(std::move(cancellation))
+    {
+    }
+
+    ~CancellationBackup()
+    {
+        if (path_ && cancellation_.is_cancelled())
+        {
+            std::error_code ignored;
+            std::filesystem::remove(*path_, ignored);
+        }
+    }
+
+    CancellationBackup(const CancellationBackup&) = delete;
+    CancellationBackup& operator=(const CancellationBackup&) = delete;
+
+    void release() noexcept
+    {
+        path_.reset();
+    }
+
+  private:
+    std::optional<std::filesystem::path> path_;
+    CancellationToken cancellation_;
+};
+
 [[nodiscard]] std::filesystem::path temporary_sibling(const std::filesystem::path& target)
 {
     static std::atomic<std::uint64_t> sequence{};
@@ -148,8 +180,17 @@ class PendingFile
 #endif
 }
 
-[[nodiscard]] Result<std::vector<std::uint8_t>> read_bounded_file(const std::filesystem::path& path)
+[[nodiscard]] Error cancelled_save();
+
+[[nodiscard]] Result<std::vector<std::uint8_t>>
+read_bounded_file(const std::filesystem::path& path, const CancellationToken& cancellation)
 {
+    if (cancellation.is_cancelled())
+    {
+        return Result<std::vector<std::uint8_t>>::failure(
+            {ErrorCode::Cancelled, "torrent file read was cancelled", {}});
+    }
+
     std::error_code error;
     const auto size = std::filesystem::file_size(path, error);
     if (error)
@@ -172,17 +213,143 @@ class PendingFile
             stream_error(errno, "failed to open torrent source"));
     }
     std::vector<std::uint8_t> bytes(static_cast<std::size_t>(size));
-    if (!bytes.empty())
+
+    std::size_t offset{};
+    while (offset < bytes.size())
     {
-        input.read(reinterpret_cast<char*>(bytes.data()),
-                   static_cast<std::streamsize>(bytes.size()));
+        if (cancellation.is_cancelled())
+        {
+            return Result<std::vector<std::uint8_t>>::failure(
+                {ErrorCode::Cancelled, "torrent file read was cancelled", {}});
+        }
+        const auto remaining = bytes.size() - offset;
+        const auto chunk = (std::min)(remaining, cancellation_io_chunk_bytes);
+        input.read(reinterpret_cast<char*>(bytes.data() + offset),
+                   static_cast<std::streamsize>(chunk));
+        if (!input || static_cast<std::size_t>(input.gcount()) != chunk)
+        {
+            return Result<std::vector<std::uint8_t>>::failure(
+                stream_error(errno, "failed to read torrent source"));
+        }
+        offset += chunk;
     }
-    if (!input || input.peek() != std::char_traits<char>::eof())
+    if (cancellation.is_cancelled())
+    {
+        return Result<std::vector<std::uint8_t>>::failure(
+            {ErrorCode::Cancelled, "torrent file read was cancelled", {}});
+    }
+    if (input.peek() != std::char_traits<char>::eof())
     {
         return Result<std::vector<std::uint8_t>>::failure(
             stream_error(errno, "failed to read torrent source"));
     }
     return Result<std::vector<std::uint8_t>>::success(std::move(bytes));
+}
+
+[[nodiscard]] Result<void> write_bounded_file(const std::filesystem::path& path,
+                                              const std::vector<std::uint8_t>& bytes,
+                                              const CancellationToken& cancellation)
+{
+    if (cancellation.is_cancelled())
+    {
+        return Result<void>::failure(cancelled_save());
+    }
+
+    errno = 0;
+    std::ofstream output(path, std::ios::binary | std::ios::trunc);
+    if (!output)
+    {
+        return Result<void>::failure(
+            stream_error(errno, "failed to create temporary torrent sibling"));
+    }
+    std::size_t offset{};
+    while (offset < bytes.size())
+    {
+        if (cancellation.is_cancelled())
+        {
+            return Result<void>::failure(cancelled_save());
+        }
+        const auto remaining = bytes.size() - offset;
+        const auto chunk = (std::min)(remaining, cancellation_io_chunk_bytes);
+        output.write(reinterpret_cast<const char*>(bytes.data() + offset),
+                     static_cast<std::streamsize>(chunk));
+        if (!output)
+        {
+            return Result<void>::failure(
+                stream_error(errno, "failed to write temporary torrent sibling"));
+        }
+        offset += chunk;
+    }
+    output.close();
+    if (!output)
+    {
+        return Result<void>::failure(
+            stream_error(errno, "failed to write temporary torrent sibling"));
+    }
+    if (cancellation.is_cancelled())
+    {
+        return Result<void>::failure(cancelled_save());
+    }
+    return Result<void>::success();
+}
+
+[[nodiscard]] Result<void> copy_bounded_file(const std::filesystem::path& source,
+                                             const std::filesystem::path& target,
+                                             const CancellationToken& cancellation)
+{
+    if (cancellation.is_cancelled())
+    {
+        return Result<void>::failure(cancelled_save());
+    }
+
+    errno = 0;
+    std::ifstream input(source, std::ios::binary);
+    if (!input)
+    {
+        return Result<void>::failure(stream_error(errno, "failed to open torrent backup source"));
+    }
+    std::ofstream output(target, std::ios::binary | std::ios::trunc);
+    if (!output)
+    {
+        return Result<void>::failure(stream_error(errno, "failed to create torrent backup"));
+    }
+
+    std::vector<char> buffer(cancellation_io_chunk_bytes);
+    while (input)
+    {
+        if (cancellation.is_cancelled())
+        {
+            return Result<void>::failure(cancelled_save());
+        }
+        input.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+        const auto count = input.gcount();
+        if (count > 0)
+        {
+            output.write(buffer.data(), count);
+            if (!output)
+            {
+                return Result<void>::failure(stream_error(errno, "failed to write torrent backup"));
+            }
+        }
+        if (input.eof())
+        {
+            break;
+        }
+        if (!input)
+        {
+            return Result<void>::failure(stream_error(errno, "failed to read torrent backup"));
+        }
+    }
+    output.close();
+    if (!output)
+    {
+        return Result<void>::failure(stream_error(errno, "failed to write torrent backup"));
+    }
+    if (cancellation.is_cancelled())
+    {
+        return Result<void>::failure(cancelled_save());
+    }
+    return Result<void>::success();
 }
 
 [[nodiscard]] Error cancelled_save()
@@ -261,9 +428,39 @@ Result<LoadedTorrent> TorrentRepository::commit(const LoadedTorrent& loaded,
     return commit(loaded, std::move(bytes), cancellation);
 }
 
+Result<LoadedTorrent> TorrentRepository::load(const std::filesystem::path& source,
+                                              const LoadOptions options,
+                                              const CancellationToken& cancellation)
+{
+    if (cancellation.is_cancelled())
+    {
+        return Result<LoadedTorrent>::failure(
+            {ErrorCode::Cancelled, "torrent load was cancelled", {}});
+    }
+    auto loaded = load(source, options);
+    if (cancellation.is_cancelled())
+    {
+        return Result<LoadedTorrent>::failure(
+            {ErrorCode::Cancelled, "torrent load was cancelled", {}});
+    }
+    return loaded;
+}
+
 Result<LoadedTorrent> FileTorrentRepository::load(const std::filesystem::path& source,
                                                   const LoadOptions options)
 {
+    return load(source, options, CancellationToken{});
+}
+
+Result<LoadedTorrent> FileTorrentRepository::load(const std::filesystem::path& source,
+                                                  const LoadOptions options,
+                                                  const CancellationToken& cancellation)
+{
+    if (cancellation.is_cancelled())
+    {
+        return Result<LoadedTorrent>::failure(
+            {ErrorCode::Cancelled, "torrent load was cancelled", {}});
+    }
     std::error_code error;
     auto absolute_source = std::filesystem::absolute(source, error);
     if (error)
@@ -317,29 +514,29 @@ Result<LoadedTorrent> FileTorrentRepository::load(const std::filesystem::path& s
             {ErrorCode::InvalidBencode, "bencode input exceeds configured byte limit", {}});
     }
 
-    errno = 0;
-    std::ifstream input(absolute_source, std::ios::binary);
-    if (!input)
+    auto bytes_result = read_bounded_file(absolute_source, cancellation);
+    if (!bytes_result)
     {
-        return Result<LoadedTorrent>::failure(stream_error(errno, "failed to open torrent source"));
+        return Result<LoadedTorrent>::failure(std::move(bytes_result).error());
     }
-    std::vector<std::uint8_t> bytes(static_cast<std::size_t>(size));
-    if (!bytes.empty())
-    {
-        input.read(reinterpret_cast<char*>(bytes.data()),
-                   static_cast<std::streamsize>(bytes.size()));
-    }
-    if (!input || input.peek() != std::char_traits<char>::eof())
-    {
-        return Result<LoadedTorrent>::failure(stream_error(errno, "failed to read torrent source"));
-    }
+    auto bytes = std::move(bytes_result).value();
 
     const auto mode = options.mode == LoadMode::Strict ? detail::MetadataReadMode::Strict
                                                        : detail::MetadataReadMode::Lenient;
+    if (cancellation.is_cancelled())
+    {
+        return Result<LoadedTorrent>::failure(
+            {ErrorCode::Cancelled, "torrent load was cancelled", {}});
+    }
     auto decoded = detail::decode_torrent(bytes, mode);
     if (!decoded)
     {
         return Result<LoadedTorrent>::failure(std::move(decoded).error());
+    }
+    if (cancellation.is_cancelled())
+    {
+        return Result<LoadedTorrent>::failure(
+            {ErrorCode::Cancelled, "torrent load was cancelled", {}});
     }
     auto document = std::move(decoded).value();
     auto diagnostics = load_diagnostics(document);
@@ -451,7 +648,7 @@ Result<LoadedTorrent> FileTorrentRepository::commit(const LoadedTorrent& loaded,
                 {ErrorCode::Conflict, "torrent source is no longer an ordinary file", {}});
         }
 
-        auto current = read_bounded_file(loaded.details_->source);
+        auto current = read_bounded_file(loaded.details_->source, cancellation);
         if (!current)
         {
             return Result<LoadedTorrent>::failure(std::move(current).error());
@@ -468,6 +665,7 @@ Result<LoadedTorrent> FileTorrentRepository::commit(const LoadedTorrent& loaded,
             {ErrorCode::Conflict, "save target already exists", {}});
     }
 
+    std::optional<CancellationBackup> backup_guard;
     if (request.backup && target_exists)
     {
         auto backup = target;
@@ -475,35 +673,30 @@ Result<LoadedTorrent> FileTorrentRepository::commit(const LoadedTorrent& loaded,
                                std::chrono::system_clock::now().time_since_epoch())
                                .count();
         backup += ".bak-" + std::to_string(stamp);
-        std::error_code backup_error;
-        if (!std::filesystem::copy_file(target, backup, std::filesystem::copy_options::none,
-                                        backup_error))
+        std::error_code backup_status_error;
+        if (std::filesystem::exists(backup, backup_status_error))
         {
             return Result<LoadedTorrent>::failure(
-                filesystem_error(backup_error, "failed to create torrent backup"));
+                {ErrorCode::Conflict, "torrent backup target already exists", {}});
+        }
+        if (backup_status_error)
+        {
+            return Result<LoadedTorrent>::failure(
+                filesystem_error(backup_status_error, "failed to inspect torrent backup target"));
+        }
+        backup_guard.emplace(backup, cancellation);
+        auto backup_result = copy_bounded_file(target, backup, cancellation);
+        if (!backup_result)
+        {
+            return Result<LoadedTorrent>::failure(std::move(backup_result).error());
         }
     }
 
     PendingFile pending(temporary_sibling(target));
-    errno = 0;
+    auto write_result = write_bounded_file(pending.path(), bytes, cancellation);
+    if (!write_result)
     {
-        std::ofstream output(pending.path(), std::ios::binary | std::ios::trunc);
-        if (!output)
-        {
-            return Result<LoadedTorrent>::failure(
-                stream_error(errno, "failed to create temporary torrent sibling"));
-        }
-        if (!bytes.empty())
-        {
-            output.write(reinterpret_cast<const char*>(bytes.data()),
-                         static_cast<std::streamsize>(bytes.size()));
-        }
-        output.close();
-        if (!output)
-        {
-            return Result<LoadedTorrent>::failure(
-                stream_error(errno, "failed to write temporary torrent sibling"));
-        }
+        return Result<LoadedTorrent>::failure(std::move(write_result).error());
     }
 
     if (cancellation.is_cancelled())
@@ -518,6 +711,10 @@ Result<LoadedTorrent> FileTorrentRepository::commit(const LoadedTorrent& loaded,
             filesystem_error(commit_error, "failed to atomically replace torrent source"));
     }
     pending.release();
+    if (backup_guard)
+    {
+        backup_guard->release();
+    }
 
     auto details = std::make_shared<const LoadedTorrent::Details>(LoadedTorrent::Details{
         loaded.details_->document, target, LoadedTorrentSourceState::RegularFile, std::move(bytes),
@@ -535,6 +732,14 @@ Result<LoadedTorrent> TorrentService::load(const std::filesystem::path& source,
 {
     static_cast<void>(clock_);
     return repository_.load(source, options);
+}
+
+Result<LoadedTorrent> TorrentService::load(const std::filesystem::path& source,
+                                           const LoadOptions options,
+                                           const TaskContext& context) const
+{
+    static_cast<void>(clock_);
+    return repository_.load(source, options, context.cancellation);
 }
 namespace {
 template <class... Visitors> struct Overloaded : Visitors...
@@ -736,6 +941,10 @@ Result<SaveResult> TorrentService::save(const LoadedTorrent& loaded, const SaveR
             {ErrorCode::UnsupportedFeature,
              "torrent document requires rebuild and cannot be source-bound saved",
              {}});
+    }
+    if (context.cancellation.is_cancelled())
+    {
+        return Result<SaveResult>::failure(cancelled_save());
     }
     const bool same_target =
         request.mode == SaveTargetMode::Original ||

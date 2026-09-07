@@ -1,0 +1,74 @@
+diff --git a/src/mmap_disk_io.cpp b/src/mmap_disk_io.cpp
+index 328453d37..2ee985aa5 100644
+--- a/src/mmap_disk_io.cpp
++++ b/src/mmap_disk_io.cpp
+@@ -494,3 +494,30 @@
+ 		m_generic_threads.abort(wait);
+ 		m_hash_threads.abort(wait);
++
++		if (wait)
++		{
++			// A callback exception can stop the io_context before this completion
++			// batch gets dispatched. All disk threads have joined now, so it is safe
++			// to release the remaining jobs without invoking their callbacks.
++			aux::mmap_disk_job* j = nullptr;
++			{
++				std::lock_guard<std::mutex> l(m_completed_jobs_mutex);
++				j = m_completed_jobs.get_all();
++			}
++
++			aux::array<aux::mmap_disk_job*, 64> to_delete;
++			int cnt = 0;
++			while (j)
++			{
++				aux::mmap_disk_job* next = j->next;
++				to_delete[cnt++] = j;
++				j = next;
++				if (cnt == int(to_delete.size()))
++				{
++					cnt = 0;
++					m_job_pool.free_jobs(to_delete.data(), int(to_delete.size()));
++				}
++			}
++			if (cnt > 0) m_job_pool.free_jobs(to_delete.data(), cnt);
++		}
+ 	}
+@@ -1845,7 +1845,37 @@ namespace {
+ #if TORRENT_USE_ASSERTS
+ 			j->callback_called = true;
+ #endif
+-			j->call_callback();
++			try
++			{
++				j->call_callback();
++			}
++			catch (...)
++			{
++				// The callback may interrupt io_context::run() by throwing. Release
++				// both the current job and the rest of this detached completion
++				// batch before propagating the exception.
++				to_delete[cnt++] = j;
++				j = next;
++				if (cnt == int(to_delete.size()))
++				{
++					cnt = 0;
++					m_job_pool.free_jobs(to_delete.data(), int(to_delete.size()));
++				}
++				while (j)
++				{
++					next = j->next;
++					to_delete[cnt++] = j;
++					j = next;
++					if (cnt == int(to_delete.size()))
++					{
++						cnt = 0;
++						m_job_pool.free_jobs(to_delete.data(), int(to_delete.size()));
++					}
++				}
++
++				if (cnt > 0) m_job_pool.free_jobs(to_delete.data(), cnt);
++				throw;
++			}
+ 			to_delete[cnt++] = j;
+ 			j = next;
+ 			if (cnt == int(to_delete.size()))

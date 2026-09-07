@@ -80,23 +80,23 @@ bool GuiTaskRunner::start(Work work, Completion completion)
     connect(
         worker, &Worker::completed, this,
         [this, thread, completion = std::move(completion)]() mutable {
-            running_ = false;
-            worker_ = nullptr;
-            emit finished();
             if (completion)
             {
                 completion();
             }
+            worker_ = nullptr;
+            running_ = false;
+            emit finished();
             thread->quit();
         },
         Qt::QueuedConnection);
     connect(
         worker, &Worker::failed, this,
         [this, thread](const QString& message) {
-            running_ = false;
-            worker_ = nullptr;
-            emit finished();
             emit failed(message);
+            worker_ = nullptr;
+            running_ = false;
+            emit finished();
             thread->quit();
         },
         Qt::QueuedConnection);

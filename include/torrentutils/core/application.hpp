@@ -123,6 +123,11 @@ class TorrentRepository
     [[nodiscard]] virtual Result<LoadedTorrent> load(const std::filesystem::path& source,
                                                      LoadOptions options = {}) = 0;
 
+    /** Loads through a cancellation-aware boundary while preserving the legacy overload. */
+    [[nodiscard]] virtual Result<LoadedTorrent> load(const std::filesystem::path& source,
+                                                     LoadOptions options,
+                                                     const CancellationToken& cancellation);
+
     [[nodiscard]] virtual Result<LoadedTorrent> commit(const LoadedTorrent& loaded,
                                                        std::vector<std::uint8_t> bytes,
                                                        const CancellationToken& cancellation) = 0;
@@ -150,6 +155,10 @@ class FileTorrentRepository final : public TorrentRepository
   public:
     [[nodiscard]] Result<LoadedTorrent> load(const std::filesystem::path& source,
                                              LoadOptions options = {}) override;
+
+    [[nodiscard]] Result<LoadedTorrent> load(const std::filesystem::path& source,
+                                             LoadOptions options,
+                                             const CancellationToken& cancellation) override;
 
     [[nodiscard]] Result<LoadedTorrent> commit(const LoadedTorrent& loaded,
                                                std::vector<std::uint8_t> bytes,
@@ -283,6 +292,9 @@ class TorrentService
 
     [[nodiscard]] Result<LoadedTorrent> load(const std::filesystem::path& source,
                                              LoadOptions options = {}) const;
+
+    [[nodiscard]] Result<LoadedTorrent> load(const std::filesystem::path& source,
+                                             LoadOptions options, const TaskContext& context) const;
 
     [[nodiscard]] Result<EditResult> edit(const LoadedTorrent& loaded,
                                           const std::vector<EditAction>& actions) const;

@@ -57,7 +57,7 @@ try
     const bool application_service_is_available =
         std::is_constructible_v<torrentutils::core::TorrentService,
                                 torrentutils::core::TorrentRepository&, torrentutils::core::Clock&>;
-    const bool version_is_current = torrentutils::core::version() == "1.1.0"sv;
+    const bool version_is_current = torrentutils::core::version() == "1.1.1"sv;
     return foundation_is_transitive && domain_is_transitive && tracker_engine_is_available &&
                    torrent_engine_contract_is_available && application_service_is_available &&
                    version_is_current

@@ -22,6 +22,10 @@ default_config_search_paths(std::optional<std::filesystem::path> explicit_path,
 [[nodiscard]] core::Result<std::optional<std::filesystem::path>>
 discover_config(const ConfigSearchPaths& paths);
 
+[[nodiscard]] core::Result<std::optional<std::filesystem::path>>
+discover_config(const ConfigSearchPaths& paths,
+                const std::optional<std::filesystem::path>& executable_directory);
+
 [[nodiscard]] core::Result<ParsedPreset> load_preset_file(const std::filesystem::path& path);
 
 /** GUI-only language preference persisted under the config document's gui object. */

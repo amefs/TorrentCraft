@@ -34,8 +34,8 @@
     </message>
     <message>
         <location filename="../src/gui/AboutDialog.ui" line="87"/>
-        <source>Version 1.1.0</source>
-        <translation>Version 1.1.0</translation>
+        <source>Version 1.1.1</source>
+        <translation>Version 1.1.1</translation>
     </message>
     <message>
         <location filename="../src/gui/AboutDialog.ui" line="93"/>
@@ -210,8 +210,8 @@
     </message>
     <message>
         <location filename="../src/gui/AboutDialog.ui" line="291"/>
-        <source>1.1.0</source>
-        <translation>1.1.0</translation>
+        <source>1.1.1</source>
+        <translation>1.1.1</translation>
     </message>
     <message>
         <location filename="../src/gui/AboutDialog.ui" line="296"/>
@@ -574,6 +574,7 @@
 </context>
 <context>
     <name>MainWindow</name>
+    <message><source>%1 bytes</source><translation>%1 bytes</translation></message>
     <message>
         <location filename="../src/gui/MainWindow.ui" line="961"/>
         <source>Style:</source>
@@ -1783,10 +1784,14 @@ Failed %1 file(s):</translation>
         <translation>Created by text</translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.ui" line="447"/>
-        <location filename="../src/gui/MainWindow.ui" line="495"/>
-        <location filename="../src/gui/MainWindow.ui" line="690"/>
-        <location filename="../src/gui/MainWindow.ui" line="703"/>
+        <location filename="../src/gui/MainWindow.ui" line="537"/>
+        <source>Use custom creator</source>
+        <translation>Use custom creator</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui" line="585"/>
+        <location filename="../src/gui/MainWindow.ui" line="775"/>
+        <location filename="../src/gui/MainWindow.ui" line="788"/>
         <source>Custom</source>
         <translation>Custom</translation>
     </message>

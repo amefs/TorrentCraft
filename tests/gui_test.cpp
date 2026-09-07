@@ -25,6 +25,7 @@
 #include <QGridLayout>
 #include <QHeaderView>
 #include <QIcon>
+#include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
@@ -325,11 +326,15 @@ class GuiLogoTest final : public QObject
         auto* source = window.findChild<QLineEdit*>("editTrackerSourcePath");
         auto* reload = window.findChild<QPushButton*>("btnTrackerReloadFolder");
         auto* table = window.findChild<QTableView*>("tblTrackerTorrents");
+        auto* runner = window.findChild<GuiTaskRunner*>();
         QVERIFY(source != nullptr);
         QVERIFY(reload != nullptr);
         QVERIFY(table != nullptr);
+        QVERIFY(runner != nullptr);
         source->setText(directory.path());
+        QSignalSpy finished(runner, &GuiTaskRunner::finished);
         reload->click();
+        QTRY_COMPARE(finished.count(), 1);
 
         auto* model = table->model();
         QVERIFY(model != nullptr);
@@ -587,7 +592,7 @@ class GuiLogoTest final : public QObject
                     }
                 }
             },
-            "gui": {"default_preset": "Custom"}
+            "default_preset": "Custom"
         })") > 0);
         config.close();
 
@@ -763,8 +768,146 @@ class GuiLogoTest final : public QObject
         QCOMPARE(source->text(), QStringLiteral("GUI-SRC"));
     }
 
-    void createPiecePreviewUsesCoreAutomaticPieceLength()
+    void pieceSizeChoicesRoundTripThroughDefaultsAndPresets()
     {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const auto config_path = directory.filePath(QStringLiteral("torrentcraft.json"));
+        QFile config(config_path);
+        QVERIFY(config.open(QIODevice::WriteOnly));
+        QVERIFY(config.write(R"({"schema":"torrentcraft.config/v1"})") > 0);
+        config.close();
+        MainWindow window;
+        auto* path = window.findChild<QLineEdit*>("editAdvancedConfigPath");
+        auto* reload = window.findChild<QPushButton*>("btnAdvancedReloadConfig");
+        auto* apply = window.findChild<QPushButton*>("btnAdvancedApply");
+        auto* defaults = window.findChild<QComboBox*>("cmbAdvancedDefaultPieceSize");
+        auto* create = window.findChild<QComboBox*>("cmbCreatePieceSize");
+        auto* save = window.findChild<QAction*>("actionSavePreset");
+        auto* menu = window.findChild<QMenu*>("menuLoadPreset");
+        if (!path || !reload || !apply || !defaults || !create || !save || !menu)
+        {
+            QFAIL("Piece size controls were not found.");
+        }
+        path->setText(config_path);
+        reload->click();
+        QVERIFY(!defaults->isEditable());
+        QVERIFY(!create->isEditable());
+        QCOMPARE(create->count(), 12);
+        QCOMPARE(defaults->count(), create->count());
+
+        const auto native_path = std::filesystem::u8path(config_path.toUtf8().toStdString());
+        for (int index = 0; index < create->count(); ++index)
+        {
+            QCOMPARE(defaults->itemText(index), create->itemText(index));
+            const auto expected = index == 0 ? std::optional<std::uint32_t>{}
+                                             : std::optional<std::uint32_t>{16U << (index - 1)};
+            defaults->setCurrentIndex(index);
+            apply->click();
+            auto persisted = torrentutils::frontend::ConfigFile::load(native_path);
+            QVERIFY(persisted);
+            const auto& default_piece = persisted.value().parsed().defaults.piece_size;
+            if (!default_piece.has_value())
+            {
+                QFAIL("Default piece size was not persisted.");
+            }
+            QCOMPARE(default_piece->fixed_kib, expected);
+            reload->click();
+            QCOMPARE(defaults->currentIndex(), index);
+            QCOMPARE(create->currentIndex(), index);
+
+            // Save against a different default, including Automatic over a fixed default.
+            defaults->setCurrentIndex(index == 0 ? 1 : 0);
+            apply->click();
+            create->setCurrentIndex(index);
+            const auto name = QStringLiteral("Size%1").arg(index);
+            QTimer dismiss_dialogs;
+            connect(&dismiss_dialogs, &QTimer::timeout, &window, [&window, &name] {
+                for (auto* dialog : window.findChildren<QDialog*>())
+                {
+                    if (auto* input = qobject_cast<QInputDialog*>(dialog))
+                    {
+                        input->setTextValue(name);
+                    }
+                    dialog->accept();
+                }
+            });
+            dismiss_dialogs.start(10);
+            save->trigger();
+            dismiss_dialogs.stop();
+            persisted = torrentutils::frontend::ConfigFile::load(native_path);
+            QVERIFY(persisted);
+            const auto& presets = persisted.value().parsed().presets;
+            const auto saved = presets.find(name.toStdString());
+            if (saved == presets.end())
+            {
+                QFAIL("Preset was not persisted.");
+            }
+            const auto& saved_piece = saved->second.piece_size;
+            if (!saved_piece.has_value())
+            {
+                QFAIL("Preset piece size was not persisted.");
+            }
+            QCOMPARE(saved_piece->fixed_kib, expected);
+            reload->click();
+            QAction* load = nullptr;
+            for (auto* action : menu->actions())
+            {
+                if (action->text() == name)
+                {
+                    load = action;
+                    break;
+                }
+            }
+            if (!load)
+            {
+                QFAIL("Saved preset was not available to load.");
+            }
+            load->trigger();
+            QCOMPARE(create->currentIndex(), index);
+            QCOMPARE(defaults->currentIndex(), index == 0 ? 1 : 0);
+        }
+    }
+
+    void inspectPieceSizeUsesIecUnits()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const auto torrent_path = directory.filePath(QStringLiteral("eight-mib.torrent"));
+        QFile torrent(torrent_path);
+        QVERIFY(torrent.open(QIODevice::WriteOnly));
+        QVERIFY(torrent.write("d4:infod6:lengthi1e4:name1:x12:piece lengthi8388608e"
+                              "6:pieces20:12345678901234567890ee") > 0);
+        torrent.close();
+        MainWindow window;
+        auto* path = window.findChild<QLineEdit*>("editInspectTorrentPath");
+        auto* inspect = window.findChild<QPushButton*>("btnInspectLoad");
+        auto* length = window.findChild<QLabel*>("lblInspectPieceLengthValue");
+        auto* runner = window.findChild<GuiTaskRunner*>();
+        if (!path || !inspect || !length || !runner)
+        {
+            QFAIL("Inspect controls were not found.");
+        }
+        path->setText(torrent_path);
+        QSignalSpy finished(runner, &GuiTaskRunner::finished);
+        inspect->click();
+        QTRY_COMPARE(finished.count(), 1);
+        QCOMPARE(length->text(), QStringLiteral("8 MiB"));
+        QCOMPARE(length->toolTip(), QStringLiteral("8388608 bytes"));
+    }
+
+    void createPiecePreviewUsesCorePieceLength_data()
+    {
+        QTest::addColumn<int>("choice");
+        QTest::addColumn<QString>("expected_length");
+        QTest::newRow("automatic") << 0 << QStringLiteral("512 KiB");
+        QTest::newRow("fixed-eight-mib") << 10 << QStringLiteral("8 MiB");
+    }
+
+    void createPiecePreviewUsesCorePieceLength()
+    {
+        QFETCH(int, choice);
+        QFETCH(QString, expected_length);
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
         const auto content_path = directory.filePath(QStringLiteral("payload.bin"));
@@ -777,17 +920,19 @@ class GuiLogoTest final : public QObject
         auto* input = window.findChild<QLineEdit*>("editCreateInputPath");
         auto* calculate = window.findChild<QPushButton*>("btnCreateCalcPieces");
         auto* pieces = window.findChild<QLabel*>("lblCreatePieces");
+        auto* size = window.findChild<QComboBox*>("cmbCreatePieceSize");
         auto* runner = window.findChild<GuiTaskRunner*>();
-        QVERIFY(input != nullptr);
-        QVERIFY(calculate != nullptr);
-        QVERIFY(pieces != nullptr);
-        QVERIFY(runner != nullptr);
+        if (!input || !calculate || !pieces || !size || !runner)
+        {
+            QFAIL("Piece preview controls were not found.");
+        }
 
         input->setText(content_path);
+        size->setCurrentIndex(choice);
         QSignalSpy finished(runner, &GuiTaskRunner::finished);
         calculate->click();
         QTRY_COMPARE(finished.count(), 1);
-        QVERIFY(pieces->text().contains(QStringLiteral("512 KiB")));
+        QVERIFY(pieces->text().contains(expected_length));
     }
 
     void createUsesCurrentTimeWithoutCustomDate()
@@ -858,7 +1003,7 @@ class GuiLogoTest final : public QObject
         QVERIFY(config.open(QIODevice::WriteOnly | QIODevice::Text));
         QVERIFY(config.write(R"({
             "schema": "torrentcraft.config/v1",
-            "defaults": {"created_by": "TorrentCraft"},
+            "defaults": {"created_by": "ConfigAuthor"},
             "presets": {"Empty": {"created_by": ""}}
         })") > 0);
         config.close();
@@ -877,7 +1022,7 @@ class GuiLogoTest final : public QObject
 
         config_edit->setText(config_path);
         reload->click();
-        QCOMPARE(creator->text(), QStringLiteral("TorrentCraft"));
+        QCOMPARE(creator->text(), QStringLiteral("ConfigAuthor"));
         QVERIFY(!custom->isChecked());
         QVERIFY(!creator->isEnabled());
 
@@ -894,6 +1039,13 @@ class GuiLogoTest final : public QObject
         empty_preset->trigger();
         QVERIFY(creator->text().isEmpty());
         QVERIFY(custom->isChecked());
+        QVERIFY(creator->isEnabled());
+        custom->setChecked(false);
+        QCOMPARE(creator->text(), QStringLiteral("ConfigAuthor"));
+        QVERIFY(!custom->isChecked());
+        QVERIFY(!creator->isEnabled());
+        custom->setChecked(true);
+        QVERIFY(creator->text().isEmpty());
         QVERIFY(creator->isEnabled());
     }
 
@@ -988,7 +1140,8 @@ class GuiLogoTest final : public QObject
             buttons->button(QDialogButtonBox::Yes)->click();
         });
 
-        QVERIFY(window.close());
+        QVERIFY(!window.close());
+        QVERIFY(window.isVisible());
         QTRY_VERIFY(!runner->is_running());
         QVERIFY(!window.isVisible());
     }

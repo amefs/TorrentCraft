@@ -50,6 +50,11 @@ bool CancellationToken::is_cancelled() const noexcept
     return state_ != nullptr && state_->cancelled.load(std::memory_order_acquire);
 }
 
+bool CancellationToken::can_be_cancelled() const noexcept
+{
+    return state_ != nullptr;
+}
+
 CancellationRegistration::CancellationRegistration(std::shared_ptr<detail::CancellationState> state,
                                                    std::shared_ptr<void> entry) noexcept
     : state_(std::move(state)), entry_(std::move(entry))
