@@ -34,6 +34,8 @@ vcpkg_from_github(
         REF "v${VERSION}"
         SHA512 b22107e14e715e9cf4a415caf9b518826f2c4be2b54dad9fce1cb84e6e7de3c1bfe8fc9ee2565d46e5aa554809ea9994a8ef8df2a94f73c926dc30d12c5199e5
         HEAD_REF RC_2_0
+        PATCHES
+            cleanup-mmap-jobs-when-callback-throws.patch
 )
 
 vcpkg_from_github(

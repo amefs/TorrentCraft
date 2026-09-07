@@ -94,6 +94,30 @@ TEST_CASE("given_config_search_paths_when_discovered_then_explicit_and_project_p
     REQUIRE_FALSE(absent_result.value().has_value());
 }
 
+TEST_CASE("given_executable_config_when_project_config_is_absent_then_it_precedes_user_config",
+          "[unit][frontend][config]")
+{
+    const TempDirectory temp;
+    const auto project = temp.path() / "project";
+    const auto executable = temp.path() / "bin";
+    const auto user = temp.path() / "user" / "torrentcraft.json";
+    std::filesystem::create_directories(project);
+    std::filesystem::create_directories(executable);
+    std::filesystem::create_directories(user.parent_path());
+    write_file(executable / "torrentcraft.json", "{}");
+    write_file(user, "{}");
+
+    const auto executable_result = discover_config({std::nullopt, project, user}, executable);
+
+    REQUIRE(executable_result);
+    REQUIRE(executable_result.value() == executable / "torrentcraft.json");
+
+    write_file(project / "torrentcraft.json", "{}");
+    const auto project_result = discover_config({std::nullopt, project, user}, executable);
+    REQUIRE(project_result);
+    REQUIRE(project_result.value() == project / "torrentcraft.json");
+}
+
 TEST_CASE("given_canonical_config_when_mutated_then_unknown_members_are_preserved_atomically",
           "[unit][frontend][config]")
 {
@@ -192,7 +216,7 @@ TEST_CASE("given_gui_preferences_when_mutated_then_nested_values_are_persisted_a
     const auto path = temp.path() / "torrentcraft.json";
     write_file(path, R"({
         "schema": "torrentcraft.config/v1",
-        "gui": {"future": {"keep": true}}
+        "gui": {"future": {"keep": true}, "default_preset": "legacy"}
     })");
 
     auto config = ConfigFile::load(path);
@@ -206,6 +230,7 @@ TEST_CASE("given_gui_preferences_when_mutated_then_nested_values_are_persisted_a
     preferences.logging_enabled = true;
     preferences.log_level = GuiLogLevel::Debug;
     preferences.log_path = "/tmp/torrentcraft.log";
+    preferences.default_preset = "release";
     REQUIRE(config.value().set_gui_preferences(preferences));
     REQUIRE(config.value().save());
 
@@ -223,6 +248,9 @@ TEST_CASE("given_gui_preferences_when_mutated_then_nested_values_are_persisted_a
     const auto json = reloaded.value().document_json();
     REQUIRE(json);
     REQUIRE(json.value().find("\"keep\"") != std::string::npos);
+    REQUIRE(json.value().find("\"default_preset\":\"release\"") != std::string::npos);
+    REQUIRE(json.value().find("\"default_preset\":\"legacy\"") == std::string::npos);
+    REQUIRE(require_optional(actual.default_preset) == "release");
 
     preferences.default_save_path.reset();
     REQUIRE_FALSE(config.value().set_gui_preferences(preferences));
@@ -459,6 +487,41 @@ TEST_CASE("given_existing_preset_when_added_with_overwrite_then_preset_is_replac
     REQUIRE(saved.find("piece_size") != std::string::npos);
     REQUIRE(saved.find("4096") != std::string::npos);
     REQUIRE(saved.find("private") == std::string::npos);
+}
+
+TEST_CASE(
+    "given_default_preset_key_when_mutated_then_public_storage_and_legacy_cleanup_are_applied",
+    "[unit][frontend][config]")
+{
+    const TempDirectory temp;
+    const auto path = temp.path() / "torrentcraft.json";
+    write_file(path, R"({"schema":"torrentcraft.config/v1",
+        "gui":{"default_preset":"legacy"}})");
+
+    auto config = ConfigFile::load(path);
+    REQUIRE(config);
+    auto key = parse_config_key("default_preset");
+    REQUIRE(key);
+    REQUIRE(key.value().scope == ConfigScope::DefaultPreset);
+    auto legacy = config.value().get_key(key.value());
+    REQUIRE(legacy);
+    REQUIRE(legacy.value() == "\"legacy\"");
+
+    REQUIRE(config.value().set_key(key.value(), "\"release\""));
+    auto json = config.value().document_json();
+    REQUIRE(json);
+    REQUIRE(json.value().find("\"default_preset\":\"release\"") != std::string::npos);
+    REQUIRE(json.value().find("\"default_preset\":\"legacy\"") == std::string::npos);
+    REQUIRE(config.value().save());
+
+    auto reloaded = ConfigFile::load(path);
+    REQUIRE(reloaded);
+    REQUIRE(reloaded.value().parsed().default_preset == "release");
+    REQUIRE(reloaded.value().set_key(key.value(), std::nullopt));
+    REQUIRE(reloaded.value().save());
+    auto cleared = ConfigFile::load(path);
+    REQUIRE(cleared);
+    REQUIRE_FALSE(cleared.value().parsed().default_preset.has_value());
 }
 
 TEST_CASE("given_canonical_config_when_working_set_limit_is_mutated_then_value_is_managed",

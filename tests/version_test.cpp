@@ -2,7 +2,7 @@
 #include <string_view>
 #include <torrentutils/core/core.hpp>
 
-TEST_CASE("given_core_when_reading_version_then_reports_1_1_0", "[unit][version]")
+TEST_CASE("given_core_when_reading_version_then_reports_1_1_1", "[unit][version]")
 {
     using namespace std::literals;
 
@@ -10,5 +10,5 @@ TEST_CASE("given_core_when_reading_version_then_reports_1_1_0", "[unit][version]
     STATIC_REQUIRE(torrentutils::core::kVersionMinor == 1);
     STATIC_REQUIRE(torrentutils::core::kVersionPatch == 0);
 
-    REQUIRE(torrentutils::core::version() == "1.1.0"sv);
+    REQUIRE(torrentutils::core::version() == "1.1.1"sv);
 }

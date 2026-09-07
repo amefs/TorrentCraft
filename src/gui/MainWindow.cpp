@@ -270,7 +270,7 @@ QString preset_preview(const frontend::CreationSettingsPatch& settings,
 
 int piece_size_combo_index(const std::uint32_t kib) noexcept
 {
-    if (kib < 16U || (kib & (kib - 1U)) != 0U)
+    if (kib < 16U || kib > 16384U || (kib & (kib - 1U)) != 0U)
     {
         return 0;
     }
@@ -282,6 +282,15 @@ int piece_size_combo_index(const std::uint32_t kib) noexcept
         ++index;
     }
     return index;
+}
+
+std::optional<std::uint32_t> piece_size_kib_from_combo_index(const int index) noexcept
+{
+    if (index < 1 || index > 11)
+    {
+        return std::nullopt;
+    }
+    return 16U << static_cast<unsigned>(index - 1);
 }
 
 std::filesystem::path path_from_text(const QString& value)
@@ -1036,14 +1045,23 @@ MainWindow::MainWindow(GuiLogController* logger, QWidget* parent)
             [this](QStandardItem*) { mark_preset_modified(); });
     connect(ui_->chkCreateCreator, &QCheckBox::toggled, ui_->editCreateCreator,
             &QWidget::setEnabled);
-    connect(ui_->editCreateCreator, &QLineEdit::textChanged, this, [this] {
-        if (ui_->editCreateCreator->text().trimmed() == QStringLiteral("TorrentCraft"))
-        {
-            ui_->chkCreateCreator->setChecked(false);
-        }
-    });
     connect(ui_->chkCreateDate, &QCheckBox::toggled, ui_->dateCreateCreation, &QWidget::setEnabled);
 
+    connect(ui_->chkCreateCreator, &QCheckBox::toggled, this, [this](const bool enabled) {
+        if (applying_creation_settings_)
+            return;
+        std::optional<std::string> creator =
+            config_ ? config_->parsed().defaults.created_by : std::nullopt;
+        if (enabled && !active_preset_name_.isEmpty() && config_)
+        {
+            const auto iterator =
+                config_->parsed().presets.find(active_preset_name_.toUtf8().toStdString());
+            if (iterator != config_->parsed().presets.end() && iterator->second.created_by)
+                creator = iterator->second.created_by;
+        }
+        ui_->editCreateCreator->setText(creator ? QString::fromStdString(*creator)
+                                                : QStringLiteral("TorrentCraft"));
+    });
     connect(ui_->btnInspectSelectFile, &QPushButton::clicked, this, [this] {
         choose_file(ui_->editInspectTorrentPath, tr("Select torrent"),
                     tr("Torrent files (*.torrent)"));
@@ -1180,6 +1198,10 @@ MainWindow::MainWindow(GuiLogController* logger, QWidget* parent)
     connect(task_runner_.get(), &GuiTaskRunner::progress, this,
             [this](const QString& stage, const qulonglong completed, const qulonglong total,
                    const qulonglong completed_bytes, const qulonglong total_bytes) {
+                if (cancellation_requested_)
+                {
+                    return;
+                }
                 update_progress_status(stage, completed, total, completed_bytes, total_bytes);
                 if (total > 0)
                 {
@@ -1211,11 +1233,19 @@ MainWindow::MainWindow(GuiLogController* logger, QWidget* parent)
         }
         show_task_error(message);
     });
-    connect(task_runner_.get(), &GuiTaskRunner::finished, this, [this] { set_busy(false); });
+    connect(task_runner_.get(), &GuiTaskRunner::finished, this, [this] {
+        set_busy(false);
+        if (close_after_operation_)
+        {
+            close_after_operation_ = false;
+            QMetaObject::invokeMethod(this, "close", Qt::QueuedConnection);
+        }
+    });
 
     const auto paths =
         frontend::default_config_search_paths(std::nullopt, path_from_text(QDir::currentPath()));
-    auto discovered = frontend::discover_config(paths);
+    auto discovered =
+        frontend::discover_config(paths, path_from_text(QCoreApplication::applicationDirPath()));
     if (discovered)
     {
         const auto discovered_path =
@@ -1288,8 +1318,9 @@ void MainWindow::closeEvent(QCloseEvent* event)
 
     logger_->log_event(core::LogLevel::Info, "gui", "window", "close_confirmed",
                        {{"action", "cancel_and_exit"}});
-    task_runner_->cancel();
-    event->accept();
+    close_after_operation_ = true;
+    cancel_operation();
+    event->ignore();
 }
 
 std::string MainWindow::begin_gui_operation(const std::string_view component,
@@ -1453,10 +1484,10 @@ void MainWindow::populate_tracker_defaults()
         return;
     }
     auto settings = config_->parsed().defaults;
-    const auto preferences = config_->gui_preferences();
-    if (preferences.default_preset)
+    const auto default_preset = config_->parsed().default_preset;
+    if (default_preset)
     {
-        const auto iterator = config_->parsed().presets.find(*preferences.default_preset);
+        const auto iterator = config_->parsed().presets.find(*default_preset);
         if (iterator != config_->parsed().presets.end())
         {
             settings = frontend::overlay_settings(settings, iterator->second);
@@ -1540,15 +1571,15 @@ std::optional<CreateOptions> MainWindow::create_options_from_ui()
         input.file_order_policy = FileOrderPolicy::Lexicographical;
         break;
     }
-    if (ui_->cmbCreatePieceSize->currentIndex() == 0)
+    const auto piece_kib = piece_size_kib_from_combo_index(ui_->cmbCreatePieceSize->currentIndex());
+    if (!piece_kib)
     {
         input.piece_length_strategy = PieceLengthStrategy::Auto;
     }
     else
     {
         input.piece_length_strategy = PieceLengthStrategy::Fixed;
-        input.fixed_piece_length =
-            16U * 1024U << static_cast<unsigned>(ui_->cmbCreatePieceSize->currentIndex() - 1);
+        input.fixed_piece_length = *piece_kib * 1024U;
     }
     input.file_filter.mode = file_filter_mode_from_index(ui_->cmbCreateFilterMode->currentIndex());
     input.file_filter.case_sensitive = ui_->chkCreateFilterCaseSensitive->isChecked();
@@ -1604,10 +1635,7 @@ core::Result<frontend::CreationSettingsPatch> MainWindow::creation_patch_from_cr
     }
 
     const auto current_piece =
-        ui_->cmbCreatePieceSize->currentIndex() == 0
-            ? std::optional<std::uint32_t>{}
-            : std::optional<std::uint32_t>(16U * 1024U << static_cast<unsigned>(
-                                               ui_->cmbCreatePieceSize->currentIndex() - 1));
+        piece_size_kib_from_combo_index(ui_->cmbCreatePieceSize->currentIndex());
     const auto default_piece = defaults.piece_size && defaults.piece_size->fixed_kib
                                    ? defaults.piece_size->fixed_kib
                                    : std::optional<std::uint32_t>{};
@@ -1657,8 +1685,7 @@ core::Result<frontend::CreationSettingsPatch> MainWindow::creation_patch_from_cr
     const auto current_creator = ui_->chkCreateCreator->isChecked()
                                      ? optional_text(ui_->editCreateCreator->text())
                                      : std::optional<std::string>{};
-    if (ui_->chkCreateCreator->isChecked() &&
-        ui_->editCreateCreator->text().trimmed() != QStringLiteral("TorrentCraft"))
+    if (ui_->chkCreateCreator->isChecked())
     {
         patch.created_by = current_creator.value_or(std::string{});
     }
@@ -1707,8 +1734,11 @@ void MainWindow::calculate_create_plan()
             else if (!result->value())
             {
                 const auto& error = result->value().error();
-                finish_gui_operation(operation_id, core::LogLevel::Error, "gui", "create_plan",
-                                     "failure",
+                finish_gui_operation(operation_id,
+                                     error.code == ErrorCode::Cancelled ? core::LogLevel::Warning
+                                                                        : core::LogLevel::Error,
+                                     "gui", "create_plan",
+                                     error.code == ErrorCode::Cancelled ? "cancel" : "failure",
                                      {{"code", std::to_string(static_cast<int>(error.code))},
                                       {"message", error.message}});
                 show_error(error);
@@ -1902,7 +1932,8 @@ void MainWindow::load_inspect_torrent()
     task_runner_->start(
         [this, source, mode, loaded, inspection,
          operation_id](const core::CancellationToken& token) {
-            *loaded = service_.load(source, {mode});
+            core::TaskContext context{token, {}, logger_, operation_id};
+            *loaded = service_.load(source, {mode}, context);
             if (!loaded->value())
             {
                 return;
@@ -1921,24 +1952,30 @@ void MainWindow::load_inspect_torrent()
             {
                 const auto& error = loaded->value().error();
                 finish_gui_operation(
-                    operation_id, core::LogLevel::Error, "gui", "inspect", "failure",
+                    operation_id,
+                    error.code == ErrorCode::Cancelled ? core::LogLevel::Warning
+                                                       : core::LogLevel::Error,
+                    "gui", "inspect", error.code == ErrorCode::Cancelled ? "cancel" : "failure",
                     {{"code", error_code_name(error.code)}, {"message", error.message}});
                 show_error(error);
             }
             else
             {
-                inspect_loaded_ = loaded->value().value();
-                populate_inspect_fields(*inspect_loaded_);
                 if (inspection->has_value() && !inspection->value())
                 {
                     const auto& error = inspection->value().error();
                     finish_gui_operation(
-                        operation_id, core::LogLevel::Error, "gui", "inspect", "failure",
+                        operation_id,
+                        error.code == ErrorCode::Cancelled ? core::LogLevel::Warning
+                                                           : core::LogLevel::Error,
+                        "gui", "inspect", error.code == ErrorCode::Cancelled ? "cancel" : "failure",
                         {{"code", error_code_name(error.code)}, {"message", error.message}});
                     show_error(error);
                     return;
                 }
-                else if (inspection->has_value())
+                inspect_loaded_ = loaded->value().value();
+                populate_inspect_fields(*inspect_loaded_);
+                if (inspection->has_value())
                 {
                     const auto supported = inspection->value().value().verification_capability ==
                                            core::VerificationCapability::Supported;
@@ -1990,7 +2027,11 @@ void MainWindow::validate_inspect_torrent()
             {
                 const auto& error = result->value().error();
                 finish_gui_operation(
-                    operation_id, core::LogLevel::Error, "gui", "inspect_validate", "failure",
+                    operation_id,
+                    error.code == ErrorCode::Cancelled ? core::LogLevel::Warning
+                                                       : core::LogLevel::Error,
+                    "gui", "inspect_validate",
+                    error.code == ErrorCode::Cancelled ? "cancel" : "failure",
                     {{"code", error_code_name(error.code)}, {"message", error.message}});
                 show_error(error);
             }
@@ -2021,7 +2062,9 @@ void MainWindow::populate_inspect_fields(const core::LoadedTorrent& loaded)
     ui_->lblInspectNameValue->setText(QString::fromStdString(info.name()));
     ui_->lblInspectFormatValue->setText(format_name(info.format()));
     ui_->lblInspectPayloadBytesValue->setText(QString::number(info.pieces().total_size()));
-    ui_->lblInspectPieceLengthValue->setText(QString::number(info.pieces().piece_length()));
+    ui_->lblInspectPieceLengthValue->setText(format_bytes_iec(info.pieces().piece_length()));
+    ui_->lblInspectPieceLengthValue->setToolTip(
+        tr("%1 bytes").arg(static_cast<qulonglong>(info.pieces().piece_length())));
     ui_->lblInspectFileCountValue->setText(QString::number(static_cast<qulonglong>(visible_files)));
     ui_->lblInspectPrivateValue->setText(info.is_private() ? tr("Yes") : tr("No"));
     ui_->lblInspectCreatedByValue->setText(optional_string(loaded.document().metadata().creator()));
@@ -2068,8 +2111,9 @@ void MainWindow::load_modify_torrent()
     set_busy(true);
     set_status(tr("Loading torrent"));
     task_runner_->start(
-        [this, source, mode, result, operation_id](const core::CancellationToken&) {
-            *result = service_.load(source, {mode});
+        [this, source, mode, result, operation_id](const core::CancellationToken& token) {
+            core::TaskContext context{token, {}, logger_, operation_id};
+            *result = service_.load(source, {mode}, context);
         },
         [this, result, operation_id] {
             if (!*result)
@@ -2082,7 +2126,10 @@ void MainWindow::load_modify_torrent()
             {
                 const auto& error = result->value().error();
                 finish_gui_operation(
-                    operation_id, core::LogLevel::Error, "gui", "modify_load", "failure",
+                    operation_id,
+                    error.code == ErrorCode::Cancelled ? core::LogLevel::Warning
+                                                       : core::LogLevel::Error,
+                    "gui", "modify_load", error.code == ErrorCode::Cancelled ? "cancel" : "failure",
                     {{"code", error_code_name(error.code)}, {"message", error.message}});
                 show_error(error);
             }
@@ -2294,6 +2341,12 @@ void MainWindow::save_modify(const bool preview_only)
                 outcome->error = edited.error();
                 return;
             }
+            if (token.is_cancelled())
+            {
+                outcome->error =
+                    Error{ErrorCode::Cancelled, "torrent modification was cancelled", {}};
+                return;
+            }
             outcome->edit = std::move(edited).value();
             if (dry_run || outcome->edit->disposition != core::EditDisposition::Applied)
             {
@@ -2404,8 +2457,9 @@ void MainWindow::load_verify_torrent()
     set_busy(true);
     set_status(tr("Loading verification torrent"));
     task_runner_->start(
-        [this, loaded, path, operation_id](const core::CancellationToken&) {
-            *loaded = service_.load(path);
+        [this, loaded, path, operation_id](const core::CancellationToken& token) {
+            core::TaskContext context{token, {}, logger_, operation_id};
+            *loaded = service_.load(path, {}, context);
         },
         [this, loaded, path_text, operation_id] {
             if (ui_->editVerifyTorrentPath->text().trimmed() != path_text)
@@ -2425,10 +2479,16 @@ void MainWindow::load_verify_torrent()
             {
                 const auto& error = loaded->value().error();
                 finish_gui_operation(
-                    operation_id, core::LogLevel::Error, "gui", "verify_load", "failure",
+                    operation_id,
+                    error.code == ErrorCode::Cancelled ? core::LogLevel::Warning
+                                                       : core::LogLevel::Error,
+                    "gui", "verify_load", error.code == ErrorCode::Cancelled ? "cancel" : "failure",
                     {{"code", error_code_name(error.code)}, {"message", error.message}});
                 show_error(error);
-                set_status(tr("Verification torrent could not be loaded"));
+                if (error.code != ErrorCode::Cancelled)
+                {
+                    set_status(tr("Verification torrent could not be loaded"));
+                }
                 return;
             }
             verify_loaded_ = loaded->value().value();
@@ -2511,7 +2571,7 @@ void MainWindow::start_verify()
                 QMetaObject::invokeMethod( // NOLINT(clang-analyzer-cplusplus.NewDeleteLeaks)
                     this,
                     [this, snapshot = std::move(snapshot), total_bytes] {
-                        if (!verification_running_)
+                        if (!verification_running_ || cancellation_requested_)
                         {
                             return;
                         }
@@ -2565,7 +2625,10 @@ void MainWindow::start_verify()
                     operation_id, core::LogLevel::Error, "gui", "verify", "failure",
                     {{"code", error_code_name(error.code)}, {"message", error.message}});
                 show_error(error);
-                set_status(tr("Verification interrupted"));
+                if (error.code != ErrorCode::Cancelled)
+                {
+                    set_status(tr("Verification interrupted"));
+                }
                 return;
             }
             if (!outcome->report)
@@ -2641,31 +2704,6 @@ void MainWindow::load_tracker_torrent()
     std::error_code error;
     if (std::filesystem::is_directory(source, error))
     {
-        tracker_source_directory_ = source.lexically_normal();
-        tracker_loaded_.reset();
-        ui_->tblTrackerTorrents->setModel(nullptr);
-        auto* files = new QStandardItemModel(this);
-        files->setHorizontalHeaderLabels({tr("Filename"), tr("Size"), tr("Status")});
-        for (const auto& entry : std::filesystem::directory_iterator(source, error))
-        {
-            const auto& path = entry.path();
-            std::error_code entry_error;
-            if (error || !entry.is_regular_file(entry_error) || entry_error ||
-                path.extension() != ".torrent")
-            {
-                continue;
-            }
-
-            std::error_code size_error;
-            const auto size = entry.file_size(size_error);
-            auto* name_item =
-                new QStandardItem(QString::fromUtf8(path.filename().u8string().c_str()));
-            name_item->setData(path_to_text(path), Qt::UserRole);
-            auto* size_item = new QStandardItem(size_error ? QString() : format_bytes_iec(size));
-            auto* status_item = new QStandardItem(size_error ? tr("Unavailable") : tr("Ready"));
-            files->appendRow({name_item, size_item, status_item});
-        }
-        ui_->tblTrackerTorrents->setModel(files);
         if (error)
         {
             finish_gui_operation(
@@ -2676,20 +2714,115 @@ void MainWindow::load_tracker_torrent()
                         {}});
             return;
         }
-        auto* file_header = ui_->tblTrackerTorrents->horizontalHeader();
-        file_header->setStretchLastSection(false);
-        file_header->setSectionResizeMode(0, QHeaderView::Stretch);
-        file_header->setSectionResizeMode(1, QHeaderView::ResizeToContents);
-        file_header->setSectionResizeMode(2, QHeaderView::ResizeToContents);
-        tracker_model_.reset(new QStandardItemModel(this));
-        tracker_model_->setHorizontalHeaderLabels({tr("Tier"), tr("Tracker")});
-        ui_->tblTrackerTiers->setModel(tracker_model_.get());
-        populate_tracker_defaults();
-        configure_tracker_table(*ui_->tblTrackerTiers);
-        finish_gui_operation(
-            operation_id, core::LogLevel::Info, "gui", "tracker_load", "finish",
-            {{"file_count", std::to_string(files->rowCount())}, {"source_kind", "directory"}});
-        set_status(tr("Torrent folder loaded; select one file for tracker editing."));
+
+        struct DirectoryFile
+        {
+            std::filesystem::path path;
+            std::optional<std::uintmax_t> size;
+        };
+        struct DirectoryOutcome
+        {
+            std::vector<DirectoryFile> files;
+            std::optional<Error> error;
+        };
+        auto outcome = std::make_shared<DirectoryOutcome>();
+        tracker_loaded_.reset();
+        tracker_source_directory_.reset();
+        ui_->tblTrackerTorrents->setModel(nullptr);
+        set_busy(true);
+        set_status(tr("Loading torrent"));
+        task_runner_->start(
+            [source, outcome](const core::CancellationToken& token) {
+                std::error_code enumeration_error;
+                for (const auto& entry :
+                     std::filesystem::directory_iterator(source, enumeration_error))
+                {
+                    if (token.is_cancelled())
+                    {
+                        outcome->error =
+                            Error{ErrorCode::Cancelled, "tracker folder loading was cancelled", {}};
+                        return;
+                    }
+                    if (enumeration_error)
+                    {
+                        break;
+                    }
+                    const auto path = entry.path();
+                    std::error_code entry_error;
+                    if (!entry.is_regular_file(entry_error) || entry_error ||
+                        path.extension() != ".torrent")
+                    {
+                        continue;
+                    }
+                    std::error_code size_error;
+                    const auto size = entry.file_size(size_error);
+                    outcome->files.push_back(
+                        {path, size_error ? std::nullopt : std::optional<std::uintmax_t>{size}});
+                }
+                if (enumeration_error)
+                {
+                    outcome->error = Error{ErrorCode::IoFailure,
+                                           "failed to enumerate tracker source directory: " +
+                                               enumeration_error.message(),
+                                           {}};
+                    return;
+                }
+                if (token.is_cancelled())
+                {
+                    outcome->error =
+                        Error{ErrorCode::Cancelled, "tracker folder loading was cancelled", {}};
+                    return;
+                }
+                std::sort(
+                    outcome->files.begin(), outcome->files.end(),
+                    [](const auto& left, const auto& right) { return left.path < right.path; });
+            },
+            [this, source, outcome, operation_id] {
+                if (outcome->error)
+                {
+                    const auto& error = *outcome->error;
+                    finish_gui_operation(
+                        operation_id,
+                        error.code == ErrorCode::Cancelled ? core::LogLevel::Warning
+                                                           : core::LogLevel::Error,
+                        "gui", "tracker_load",
+                        error.code == ErrorCode::Cancelled ? "cancel" : "failure",
+                        {{"code", error_code_name(error.code)}, {"message", error.message}});
+                    show_error(error);
+                    return;
+                }
+                tracker_source_directory_ = source.lexically_normal();
+                ui_->tblTrackerTorrents->setModel(nullptr);
+                auto* files = new QStandardItemModel(this);
+                files->setHorizontalHeaderLabels({tr("Filename"), tr("Size"), tr("Status")});
+                for (const auto& file : outcome->files)
+                {
+                    auto* name_item = new QStandardItem(
+                        QString::fromUtf8(file.path.filename().u8string().c_str()));
+                    name_item->setData(path_to_text(file.path), Qt::UserRole);
+                    auto* size_item = file.size ? new QStandardItem(format_bytes_iec(*file.size))
+                                                : new QStandardItem(QString());
+                    auto* status_item = file.size ? new QStandardItem(tr("Ready"))
+                                                  : new QStandardItem(tr("Unavailable"));
+                    files->appendRow({name_item, size_item, status_item});
+                }
+                ui_->tblTrackerTorrents->setModel(files);
+                auto* file_header = ui_->tblTrackerTorrents->horizontalHeader();
+                file_header->setStretchLastSection(false);
+                file_header->setSectionResizeMode(0, QHeaderView::Stretch);
+                file_header->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+                file_header->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+                tracker_model_.reset(new QStandardItemModel(this));
+                tracker_model_->setHorizontalHeaderLabels({tr("Tier"), tr("Tracker")});
+                ui_->tblTrackerTiers->setModel(tracker_model_.get());
+                populate_tracker_defaults();
+                configure_tracker_table(*ui_->tblTrackerTiers);
+                finish_gui_operation(operation_id, core::LogLevel::Info, "gui", "tracker_load",
+                                     "finish",
+                                     {{"file_count", std::to_string(outcome->files.size())},
+                                      {"source_kind", "directory"}});
+                set_status(tr("Torrent folder loaded; select one file for tracker editing."));
+            });
         return;
     }
     if (!tracker_source_directory_ ||
@@ -2701,8 +2834,9 @@ void MainWindow::load_tracker_torrent()
     set_busy(true);
     set_status(tr("Loading tracker list"));
     task_runner_->start(
-        [this, source, result, operation_id](const core::CancellationToken&) {
-            *result = service_.load(source);
+        [this, source, result, operation_id](const core::CancellationToken& token) {
+            core::TaskContext context{token, {}, logger_, operation_id};
+            *result = service_.load(source, {}, context);
         },
         [this, result, operation_id] {
             if (!*result)
@@ -2715,7 +2849,11 @@ void MainWindow::load_tracker_torrent()
             {
                 const auto& error = result->value().error();
                 finish_gui_operation(
-                    operation_id, core::LogLevel::Error, "gui", "tracker_load", "failure",
+                    operation_id,
+                    error.code == ErrorCode::Cancelled ? core::LogLevel::Warning
+                                                       : core::LogLevel::Error,
+                    "gui", "tracker_load",
+                    error.code == ErrorCode::Cancelled ? "cancel" : "failure",
                     {{"code", error_code_name(error.code)}, {"message", error.message}});
                 show_error(error);
             }
@@ -2761,38 +2899,7 @@ void MainWindow::save_tracker_torrent()
     const auto dry_run = ui_->chkTrackerDryRun->isChecked();
     if (tracker_source_directory_)
     {
-        std::error_code error;
-        std::vector<std::filesystem::path> files;
-        for (const auto& entry :
-             std::filesystem::directory_iterator(*tracker_source_directory_, error))
-        {
-            if (error)
-            {
-                break;
-            }
-            if (entry.is_regular_file(error) && entry.path().extension() == ".torrent")
-            {
-                files.push_back(entry.path());
-            }
-        }
-        if (error)
-        {
-            show_error({ErrorCode::IoFailure,
-                        "failed to enumerate tracker source directory: " + error.message(),
-                        {}});
-            return;
-        }
-        std::sort(files.begin(), files.end());
-        if (files.empty())
-        {
-            logger_->log_event(
-                core::LogLevel::Warning, "gui", "tracker_batch", "skip",
-                {{"path", tracker_source_directory_->u8string()}, {"reason", "no_torrent_files"}});
-            NotificationDialog::show_warning(this, tr("No torrent files"),
-                                             tr("The selected folder contains no torrent files."));
-            return;
-        }
-
+        const auto source_directory = *tracker_source_directory_;
         struct BatchOutcome
         {
             struct Failure
@@ -2800,27 +2907,30 @@ void MainWindow::save_tracker_torrent()
                 std::filesystem::path path;
                 QString reason;
             };
+            std::vector<std::filesystem::path> files;
             std::size_t processed{};
             std::vector<Failure> failures;
             std::optional<Error> cancellation;
+            std::optional<Error> error;
         };
         auto outcome = std::make_shared<BatchOutcome>();
         const auto operation_id = begin_gui_operation(
             "gui", "tracker_batch",
-            {{"source", tracker_source_directory_->u8string()},
+            {{"source", source_directory.u8string()},
              {"destination", destination_dir.u8string()},
              {"dry_run", dry_run ? "true" : "false"},
              {"overwrite", ui_->chkTrackerOverwrite->isChecked() ? "true" : "false"},
-             {"backup", ui_->chkTrackerBackup->isChecked() ? "true" : "false"},
-             {"file_count", std::to_string(files.size())}});
+             {"backup", ui_->chkTrackerBackup->isChecked() ? "true" : "false"}});
         const auto overwrite = ui_->chkTrackerOverwrite->isChecked();
         const auto backup = ui_->chkTrackerBackup->isChecked();
         set_busy(true);
         set_status(tr("Converting tracker files"));
         task_runner_->start(
-            [this, destination_dir, files, trackers = std::move(*trackers), outcome, dry_run,
-             overwrite, backup, operation_id](const core::CancellationToken& token) {
-                for (std::size_t index = 0; index < files.size(); ++index)
+            [this, source_directory, destination_dir, trackers = std::move(*trackers), outcome,
+             dry_run, overwrite, backup, operation_id](const core::CancellationToken& token) {
+                std::error_code enumeration_error;
+                for (const auto& entry :
+                     std::filesystem::directory_iterator(source_directory, enumeration_error))
                 {
                     if (token.is_cancelled())
                     {
@@ -2828,30 +2938,80 @@ void MainWindow::save_tracker_torrent()
                             ErrorCode::Cancelled, "tracker batch conversion was cancelled", {}};
                         return;
                     }
-                    task_runner_->report({"Tracker batch", index, files.size()});
-                    auto loaded = service_.load(files[index]);
+                    if (enumeration_error)
+                    {
+                        break;
+                    }
+                    std::error_code entry_error;
+                    if (entry.is_regular_file(entry_error) && !entry_error &&
+                        entry.path().extension() == ".torrent")
+                    {
+                        outcome->files.push_back(entry.path());
+                    }
+                }
+                if (enumeration_error)
+                {
+                    outcome->error = Error{ErrorCode::IoFailure,
+                                           "failed to enumerate tracker source directory: " +
+                                               enumeration_error.message(),
+                                           {}};
+                    return;
+                }
+                if (token.is_cancelled())
+                {
+                    outcome->cancellation =
+                        Error{ErrorCode::Cancelled, "tracker batch conversion was cancelled", {}};
+                    return;
+                }
+                std::sort(outcome->files.begin(), outcome->files.end());
+                for (std::size_t index = 0; index < outcome->files.size(); ++index)
+                {
+                    if (token.is_cancelled())
+                    {
+                        outcome->cancellation = Error{
+                            ErrorCode::Cancelled, "tracker batch conversion was cancelled", {}};
+                        return;
+                    }
+                    task_runner_->report({"Tracker batch", index, outcome->files.size()});
+                    core::TaskContext context{token, {}, logger_, operation_id};
+                    auto loaded = service_.load(outcome->files[index], {}, context);
                     if (!loaded)
                     {
-                        outcome->failures.push_back({files[index], error_text(loaded.error())});
+                        if (loaded.error().code == ErrorCode::Cancelled)
+                        {
+                            outcome->cancellation = loaded.error();
+                            return;
+                        }
+                        outcome->failures.push_back(
+                            {outcome->files[index], error_text(loaded.error())});
                         continue;
                     }
                     auto edited = service_.edit(loaded.value(), {core::ReplaceTrackers{trackers}});
                     if (!edited)
                     {
-                        outcome->failures.push_back({files[index], error_text(edited.error())});
+                        outcome->failures.push_back(
+                            {outcome->files[index], error_text(edited.error())});
                         continue;
+                    }
+                    if (token.is_cancelled())
+                    {
+                        outcome->cancellation = Error{
+                            ErrorCode::Cancelled, "tracker batch conversion was cancelled", {}};
+                        return;
                     }
                     if (edited.value().disposition == core::EditDisposition::NeedRebuild)
                     {
                         outcome->failures.push_back(
-                            {files[index], tr("Tracker changes require re-creating the torrent.")});
+                            {outcome->files[index],
+                             tr("Tracker changes require re-creating the torrent.")});
                         continue;
                     }
                     if (!dry_run && edited.value().disposition == core::EditDisposition::Applied)
                     {
-                        const auto target = destination_dir.empty()
-                                                ? files[index]
-                                                : destination_dir / files[index].filename();
+                        const auto target =
+                            destination_dir.empty()
+                                ? outcome->files[index]
+                                : destination_dir / outcome->files[index].filename();
                         core::SaveRequest request;
                         if (!destination_dir.empty())
                         {
@@ -2860,20 +3020,26 @@ void MainWindow::save_tracker_torrent()
                             request.allow_overwrite = overwrite;
                         }
                         request.backup = backup;
-                        core::TaskContext context{token, {}, logger_, operation_id};
-                        auto saved = service_.save(edited.value().loaded, request, context);
+                        core::TaskContext save_context{token, {}, logger_, operation_id};
+                        auto saved = service_.save(edited.value().loaded, request, save_context);
                         if (!saved)
                         {
-                            outcome->failures.push_back({files[index], error_text(saved.error())});
+                            if (saved.error().code == ErrorCode::Cancelled)
+                            {
+                                outcome->cancellation = saved.error();
+                                return;
+                            }
+                            outcome->failures.push_back(
+                                {outcome->files[index], error_text(saved.error())});
                             continue;
                         }
                     }
                     ++outcome->processed;
                 }
-                task_runner_->report({"Tracker batch", files.size(), files.size()});
+                task_runner_->report(
+                    {"Tracker batch", outcome->files.size(), outcome->files.size()});
             },
-            [this, outcome, dry_run, destination_dir, source_directory = tracker_source_directory_,
-             operation_id] {
+            [this, outcome, dry_run, destination_dir, source_directory, operation_id] {
                 if (outcome->cancellation)
                 {
                     finish_gui_operation(operation_id, core::LogLevel::Warning, "gui",
@@ -2881,6 +3047,24 @@ void MainWindow::save_tracker_torrent()
                                          {{"code", error_code_name(outcome->cancellation->code)},
                                           {"message", outcome->cancellation->message}});
                     show_error(*outcome->cancellation);
+                    return;
+                }
+                if (outcome->error)
+                {
+                    const auto& error = *outcome->error;
+                    finish_gui_operation(
+                        operation_id, core::LogLevel::Error, "gui", "tracker_batch", "failure",
+                        {{"code", error_code_name(error.code)}, {"message", error.message}});
+                    show_error(error);
+                    return;
+                }
+                if (outcome->files.empty())
+                {
+                    finish_gui_operation(operation_id, core::LogLevel::Warning, "gui",
+                                         "tracker_batch", "skip", {{"reason", "no_torrent_files"}});
+                    NotificationDialog::show_warning(
+                        this, tr("No torrent files"),
+                        tr("The selected folder contains no torrent files."));
                     return;
                 }
                 std::size_t logged_failures = 0;
@@ -2904,6 +3088,7 @@ void MainWindow::save_tracker_torrent()
                                                                : core::LogLevel::Warning,
                                      "gui", "tracker_batch", "finish",
                                      {{"processed_count", std::to_string(outcome->processed)},
+                                      {"file_count", std::to_string(outcome->files.size())},
                                       {"failure_count", std::to_string(outcome->failures.size())},
                                       {"suppressed_count", std::to_string(suppressed_failures)},
                                       {"dry_run", dry_run ? "true" : "false"}});
@@ -2930,9 +3115,8 @@ void MainWindow::save_tracker_torrent()
                 }
                 if (!dry_run)
                 {
-                    remember_save_directory(destination_dir.empty() && source_directory
-                                                ? *source_directory
-                                                : destination_dir);
+                    remember_save_directory(destination_dir.empty() ? source_directory
+                                                                    : destination_dir);
                 }
                 set_status(tr("Ready"));
             });
@@ -2970,6 +3154,12 @@ void MainWindow::save_tracker_torrent()
         [this, trackers = std::move(trackers).value(), edited, outcome, save_request, dry_run,
          operation_id](const core::CancellationToken& token) {
             *edited = service_.edit(*tracker_loaded_, {core::ReplaceTrackers{trackers}});
+            if (token.is_cancelled())
+            {
+                *edited = core::Result<core::EditResult>::failure(
+                    {ErrorCode::Cancelled, "tracker modification was cancelled", {}});
+                return;
+            }
             if (!edited->value() || dry_run ||
                 edited->value().value().disposition != core::EditDisposition::Applied)
             {
@@ -2990,7 +3180,11 @@ void MainWindow::save_tracker_torrent()
             {
                 const auto& error = edited->value().error();
                 finish_gui_operation(
-                    operation_id, core::LogLevel::Error, "gui", "tracker_save", "failure",
+                    operation_id,
+                    error.code == ErrorCode::Cancelled ? core::LogLevel::Warning
+                                                       : core::LogLevel::Error,
+                    "gui", "tracker_save",
+                    error.code == ErrorCode::Cancelled ? "cancel" : "failure",
                     {{"code", error_code_name(error.code)}, {"message", error.message}});
                 show_error(error);
             }
@@ -3019,7 +3213,11 @@ void MainWindow::save_tracker_torrent()
             {
                 const auto& error = outcome->value().error();
                 finish_gui_operation(
-                    operation_id, core::LogLevel::Error, "gui", "tracker_save", "failure",
+                    operation_id,
+                    error.code == ErrorCode::Cancelled ? core::LogLevel::Warning
+                                                       : core::LogLevel::Error,
+                    "gui", "tracker_save",
+                    error.code == ErrorCode::Cancelled ? "cancel" : "failure",
                     {{"code", error_code_name(error.code)}, {"message", error.message}});
                 show_error(error);
             }
@@ -3038,17 +3236,8 @@ void MainWindow::cancel_operation()
 {
     if (task_runner_->is_running())
     {
+        cancellation_requested_ = true;
         task_runner_->cancel();
-        if (!active_operations_.empty())
-        {
-            logger_->log_event(core::LogLevel::Warning, active_operations_.back().component,
-                               active_operations_.back().operation, "cancel",
-                               {{"operation_id", active_operations_.back().id}});
-        }
-        else
-        {
-            logger_->log_event(core::LogLevel::Warning, "gui", "operation", "cancel");
-        }
         set_status(tr("Cancellation requested"));
     }
 }
@@ -3085,10 +3274,10 @@ void MainWindow::reload_configuration()
     }
     config_ = std::move(config).value();
     apply_memory_working_set_limit();
-    populate_advanced_configuration();
-    configure_logger();
     const auto chinese = config_->gui_language() == frontend::GuiLanguage::SimplifiedChinese;
     apply_language(chinese ? ui_->actionLanguageChinese : ui_->actionLanguageEnglish);
+    populate_advanced_configuration();
+    configure_logger();
     refresh_preset_menu();
     finish_gui_operation(
         operation_id, core::LogLevel::Info, "gui", "config_reload", "finish",
@@ -3149,7 +3338,8 @@ void MainWindow::show_configuration()
     }
 }
 
-void MainWindow::apply_creation_settings(const frontend::CreationSettingsPatch& settings)
+void MainWindow::apply_creation_settings(const frontend::CreationSettingsPatch& settings,
+                                         const bool creator_override)
 {
     const auto previous_applying = applying_creation_settings_;
     applying_creation_settings_ = true;
@@ -3183,7 +3373,7 @@ void MainWindow::apply_creation_settings(const frontend::CreationSettingsPatch& 
     ui_->editCreateCreator->setText(settings.created_by
                                         ? QString::fromStdString(*settings.created_by)
                                         : QStringLiteral("TorrentCraft"));
-    ui_->chkCreateCreator->setChecked(is_custom_created_by(settings.created_by));
+    ui_->chkCreateCreator->setChecked(creator_override);
     ui_->editCreateCreator->setEnabled(ui_->chkCreateCreator->isChecked());
     ui_->editCreateSource->setText(
         settings.info_source ? QString::fromStdString(*settings.info_source) : QString());
@@ -3226,7 +3416,7 @@ void MainWindow::populate_advanced_configuration()
                                                QString::fromStdString(name));
     }
     const auto preset_index =
-        ui_->cmbAdvancedDefaultPreset->findData(optional_string(gui.default_preset));
+        ui_->cmbAdvancedDefaultPreset->findData(optional_string(parsed.default_preset));
     ui_->cmbAdvancedDefaultPreset->setCurrentIndex(preset_index < 0 ? 0 : preset_index);
 
     ui_->cmbAdvancedDefaultFormat->setCurrentIndex(
@@ -3240,9 +3430,9 @@ void MainWindow::populate_advanced_configuration()
     ui_->cmbAdvancedDefaultFilterMode->setCurrentIndex(file_filter_mode_index(default_filter.mode));
     ui_->chkAdvancedDefaultFilterCaseSensitive->setChecked(default_filter.case_sensitive);
     advanced_default_filter_patterns_ = default_filter.patterns;
-    ui_->spinAdvancedDefaultPieceSize->setValue(
+    ui_->cmbAdvancedDefaultPieceSize->setCurrentIndex(
         defaults.piece_size && defaults.piece_size->fixed_kib
-            ? static_cast<int>(*defaults.piece_size->fixed_kib)
+            ? piece_size_combo_index(*defaults.piece_size->fixed_kib)
             : 0);
     ui_->chkAdvancedDefaultPrivate->setChecked(defaults.is_private.value_or(false));
     ui_->editAdvancedDefaultTrackerTiers->clear();
@@ -3276,16 +3466,18 @@ void MainWindow::populate_advanced_configuration()
     ui_->editAdvancedDefaultSource->setText(optional_string(defaults.info_source));
     auto effective_defaults = defaults;
     QString active_preset_name;
-    if (gui.default_preset)
+    bool preset_creator_override = false;
+    if (parsed.default_preset)
     {
-        const auto iterator = parsed.presets.find(*gui.default_preset);
+        const auto iterator = parsed.presets.find(*parsed.default_preset);
         if (iterator != parsed.presets.end())
         {
             effective_defaults = frontend::overlay_settings(defaults, iterator->second);
-            active_preset_name = QString::fromStdString(*gui.default_preset);
+            active_preset_name = QString::fromStdString(*parsed.default_preset);
+            preset_creator_override = iterator->second.created_by.has_value();
         }
     }
-    apply_creation_settings(effective_defaults);
+    apply_creation_settings(effective_defaults, preset_creator_override);
     set_active_preset(active_preset_name);
 
     const auto verify = parsed.verify.value_or(frontend::VerifyResourceSettings{});
@@ -3351,7 +3543,9 @@ void MainWindow::apply_advanced_configuration()
                                                                            : TorrentFormat::Hybrid)
               .toStdString()},
          {"file_order", std::to_string(ui_->cmbAdvancedDefaultFileOrder->currentIndex())},
-         {"piece_size_kib", std::to_string(ui_->spinAdvancedDefaultPieceSize->value())},
+         {"piece_size_kib", std::to_string(piece_size_kib_from_combo_index(
+                                               ui_->cmbAdvancedDefaultPieceSize->currentIndex())
+                                               .value_or(0U))},
          {"private", ui_->chkAdvancedDefaultPrivate->isChecked() ? "true" : "false"},
          {"verify_workers", std::to_string(ui_->spinAdvancedVerifyWorkers->value())},
          {"verify_memory_mib", std::to_string(ui_->spinAdvancedVerifyMemory->value())},
@@ -3390,10 +3584,8 @@ void MainWindow::apply_advanced_configuration()
     filter.patterns = advanced_default_filter_patterns_;
     patch.file_filter = std::move(filter);
     frontend::PieceSizeSetting piece;
-    if (ui_->spinAdvancedDefaultPieceSize->value() > 0)
-    {
-        piece.fixed_kib = static_cast<std::uint32_t>(ui_->spinAdvancedDefaultPieceSize->value());
-    }
+    piece.fixed_kib =
+        piece_size_kib_from_combo_index(ui_->cmbAdvancedDefaultPieceSize->currentIndex());
     patch.piece_size = piece;
     patch.is_private = ui_->chkAdvancedDefaultPrivate->isChecked();
     patch.comment = optional_text(ui_->editAdvancedDefaultComment->text());
@@ -3600,7 +3792,8 @@ void MainWindow::import_preset()
             return;
         }
         apply_creation_settings(
-            frontend::overlay_settings(config_->parsed().defaults, preset.value().settings));
+            frontend::overlay_settings(config_->parsed().defaults, preset.value().settings),
+            preset.value().settings.created_by.has_value());
         refresh_preset_menu();
         set_active_preset(name.trimmed());
         finish_gui_operation(operation_id, core::LogLevel::Info, "gui", "preset_import", "finish",
@@ -3781,7 +3974,7 @@ void MainWindow::load_inline_preset(const QString& name)
     const auto operation_id =
         begin_gui_operation("gui", "preset_load", {{"name", name.toUtf8().toStdString()}});
     const auto effective = frontend::overlay_settings(config_->parsed().defaults, iterator->second);
-    apply_creation_settings(effective);
+    apply_creation_settings(effective, iterator->second.created_by.has_value());
     set_active_preset(name);
     set_status(tr("Preset loaded: %1").arg(name));
     finish_gui_operation(operation_id, core::LogLevel::Info, "gui", "preset_load", "finish",
@@ -3986,6 +4179,10 @@ void MainWindow::update_progress_status(const QString& stage, const qulonglong c
 
 void MainWindow::set_busy(const bool busy)
 {
+    if (busy)
+    {
+        cancellation_requested_ = false;
+    }
     reset_progress_state();
     for (auto* button :
          {ui_->btnCreateCalcPieces,  ui_->btnCreateTorrent,       ui_->btnInspectLoad,
@@ -4011,6 +4208,11 @@ void MainWindow::set_status(const QString& text)
 
 void MainWindow::show_error(const Error& error)
 {
+    if (error.code == ErrorCode::Cancelled)
+    {
+        set_status(tr("Cancelled"));
+        return;
+    }
     const auto level = error.code == ErrorCode::Conflict || error.code == ErrorCode::Cancelled
                            ? core::LogLevel::Warning
                            : core::LogLevel::Error;

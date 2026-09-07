@@ -11,7 +11,8 @@ torrentcraft config path|show|init|get <key>|set <key> <value> [options]
 When no `--config PATH` is explicitly provided, TorrentCraft searches for configuration in this order:
 
 1. `./torrentcraft.json` (the current working directory)
-2. The platform-specific user configuration directory:
+2. `torrentcraft.json` beside the running executable (portable configuration)
+3. The platform-specific user configuration directory:
    - **Linux / macOS**: `$XDG_CONFIG_HOME/torrentcraft/torrentcraft.json`, or `$HOME/.config/torrentcraft/torrentcraft.json`
    - **Windows**: `%APPDATA%\torrentcraft\torrentcraft.json`
 
@@ -47,6 +48,10 @@ torrentcraft config set verify.workers 4
 torrentcraft config set verify.memory '"64 MiB"'
 torrentcraft config set disk_io '"mmap"'
 
+# Select the default creation preset shared by CLI and GUI
+torrentcraft config set default_preset '"release"'
+torrentcraft config get default_preset
+
 # Remove a setting by assigning null
 torrentcraft config set defaults.comment null
 ```
@@ -56,6 +61,7 @@ torrentcraft config set defaults.comment null
 ```json
 {
   "schema": "torrentcraft.config/v1",
+  "default_preset": "release",
   "defaults": {
     "format": "hybrid",
     "piece_size": "auto",
@@ -85,9 +91,41 @@ torrentcraft config set defaults.comment null
 }
 ```
 
+- **`default_preset`**: Optional shared fallback preset for CLI and GUI create/dry-run. Explicit
+  `--preset` or `--preset-file` overrides it; legacy `gui.default_preset` is read and migrated on write.
 - **`defaults`**: Global fallback creation settings for new torrents.
 - **`presets`**: Named templates that can be applied with `--preset <name>`.
 - **`verify` / `disk_io` / `memory_working_set_limit`**: Control hashing threads, caching buffers, and disk I/O modes.
+
+## How creation settings are resolved
+
+TorrentCraft resolves creation settings in layers, starting with built-in defaults and ending
+with values specific to the current CLI or GUI operation:
+
+~~~mermaid
+flowchart TD
+    BuiltIn["Built-in engine defaults"] --> Defaults["Global defaults: config.defaults"]
+    Defaults --> PresetChoice{"Was --preset or --preset-file provided?"}
+    PresetChoice -- "Yes" --> ExplicitPreset["Selected preset"]
+    PresetChoice -- "No" --> DefaultChoice{"Is default_preset configured?"}
+    DefaultChoice -- "Yes" --> DefaultPreset["Configured default preset"]
+    DefaultChoice -- "No" --> Effective["Resolved base settings"]
+    ExplicitPreset --> Effective
+    DefaultPreset --> Effective
+    Effective --> CliOverrides["Explicit CLI options and filter overrides"]
+    CliOverrides --> CliResult["Final CLI creation settings"]
+    Effective --> GuiForm["GUI Create form"]
+    GuiForm --> GuiEdits["Manual edits on the form"]
+    GuiEdits --> GuiResult["Final GUI creation settings"]
+~~~
+
+`default_preset` and an explicitly selected preset are alternative sources. When
+`--preset` or `--preset-file` is provided, TorrentCraft uses that preset and skips
+the `default_preset` fallback; the two presets are not merged. The GUI follows the
+same resolution order, then applies any manual edits on the Create form as the
+final values for that operation. The creator checkbox is a GUI-specific exception
+documented in
+[Desktop GUI](./gui#creator-override).
 
 ## File filter defaults and preset overrides
 

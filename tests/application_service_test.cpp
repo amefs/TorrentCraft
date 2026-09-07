@@ -220,6 +220,21 @@ TEST_CASE("given_regular_torrent_when_loaded_then_service_returns_source_bound_d
     CHECK(result.value().document().info().name() == "test.bin");
 }
 
+TEST_CASE("given_pre_cancelled_load_when_called_through_service_then_no_decode_is_started")
+{
+    FileTorrentRepository repository;
+    FixedClock clock;
+    TorrentService service(repository, clock);
+    CancellationSource cancellation;
+    cancellation.cancel();
+
+    const auto result = service.load(metadata_fixture("valid-v1.torrent"), {},
+                                     {cancellation.token(), {}, nullptr, {}});
+
+    REQUIRE_FALSE(result);
+    CHECK(result.error().code == ErrorCode::Cancelled);
+}
+
 TEST_CASE("given_system_clock_when_queried_then_it_returns_current_unix_time")
 {
     const auto before = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
@@ -1268,9 +1283,15 @@ TEST_CASE("given_save_request_edges_then_repository_enforces_target_policy")
         {
           public:
             using TorrentRepository::commit;
+            using TorrentRepository::load;
 
             Result<LoadedTorrent> load(const std::filesystem::path&, LoadOptions) override
             {
+                ++load_calls;
+                if (cancel_during_load != nullptr)
+                {
+                    cancel_during_load->cancel();
+                }
                 return Result<LoadedTorrent>::failure(
                     {ErrorCode::UnsupportedFeature, "test repository does not load", {}});
             }
@@ -1281,7 +1302,32 @@ TEST_CASE("given_save_request_edges_then_repository_enforces_target_policy")
                 return Result<LoadedTorrent>::failure(
                     {ErrorCode::UnsupportedFeature, "test repository is source-only", {}});
             }
+
+            CancellationSource* cancel_during_load{};
+            std::size_t load_calls{};
         } source_only_repository;
+
+        const auto unsupported_load = source_only_repository.load({}, {}, {});
+        REQUIRE_FALSE(unsupported_load);
+        CHECK(unsupported_load.error().code == ErrorCode::UnsupportedFeature);
+        CHECK(source_only_repository.load_calls == 1U);
+
+        CancellationSource cancellation_during_load;
+        source_only_repository.cancel_during_load = &cancellation_during_load;
+        const auto cancelled_load =
+            source_only_repository.load({}, {}, cancellation_during_load.token());
+        REQUIRE_FALSE(cancelled_load);
+        CHECK(cancelled_load.error().code == ErrorCode::Cancelled);
+        CHECK(source_only_repository.load_calls == 2U);
+
+        CancellationSource cancellation_before_load;
+        cancellation_before_load.cancel();
+        const auto pre_cancelled_load =
+            source_only_repository.load({}, {}, cancellation_before_load.token());
+        REQUIRE_FALSE(pre_cancelled_load);
+        CHECK(pre_cancelled_load.error().code == ErrorCode::Cancelled);
+        CHECK(source_only_repository.load_calls == 2U);
+
         SaveRequest request;
         request.mode = SaveTargetMode::NewPath;
         const auto committed = source_only_repository.commit(loaded, {}, request, {});

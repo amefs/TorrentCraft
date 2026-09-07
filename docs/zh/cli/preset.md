@@ -60,8 +60,16 @@ torrentcraft create ./payload -o ./payload.torrent --preset release
 ### 参数生效优先级
 
 ```text
-命令行参数 > 选中的预设模板 > 全局配置默认值 > 内置引擎默认值
+显式命令行参数 > 显式预设 > 默认预设 > 全局配置默认值 > 内置引擎默认值
 ```
+
+顶层配置项 `default_preset` 仅在没有提供 `--preset` 或 `--preset-file` 时生效。它是 CLI 与
+GUI 共享的 create 默认预设，会叠加到全局配置默认值之上；显式预设会替换它。
+
+对于 `created_by`，选中的预设值（包括 `default_preset` 默认预设）会覆盖全局配置默认值。
+CLI 的 `--created-by` 参数属于最高优先级的显式覆盖，显式空字符串也会被保留。完整的
+解析图请参见[制作设置的解析顺序](./config#制作设置的解析顺序)。
+
 
 ## 文件过滤覆盖规则
 

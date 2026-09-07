@@ -98,8 +98,18 @@ void log_operation(const TaskContext& context, const LogLevel level,
 template <class T>
 Result<T> log_result(Result<T> result, const TaskContext& context, const std::string_view operation)
 {
-    log_operation(context, result ? LogLevel::Info : LogLevel::Error, operation,
-                  result ? "finish" : "failure");
+    if (result)
+    {
+        log_operation(context, LogLevel::Info, operation, "finish");
+    }
+    else if (result.error().code == ErrorCode::Cancelled)
+    {
+        log_operation(context, LogLevel::Warning, operation, "cancel");
+    }
+    else
+    {
+        log_operation(context, LogLevel::Error, operation, "failure");
+    }
     return result;
 }
 } // namespace

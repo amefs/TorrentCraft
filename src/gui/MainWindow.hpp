@@ -67,7 +67,8 @@ class MainWindow final : public QMainWindow
     void initialize_configuration();
     void show_configuration();
     void populate_advanced_configuration();
-    void apply_creation_settings(const torrentutils::frontend::CreationSettingsPatch& settings);
+    void apply_creation_settings(const torrentutils::frontend::CreationSettingsPatch& settings,
+                                 bool creator_override = false);
     void apply_advanced_configuration();
     void reset_advanced_configuration();
     void open_log_file();
@@ -134,6 +135,8 @@ class MainWindow final : public QMainWindow
     QActionGroup* language_group_{};
     QTranslator* translator_{};
     bool verification_running_{};
+    bool close_after_operation_{};
+    bool cancellation_requested_{};
     bool applying_creation_settings_{};
     bool preset_modified_{};
     QString active_preset_name_;

@@ -6,7 +6,9 @@
 #include "verification_progress_publisher.hpp"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <libtorrent/add_torrent_params.hpp>
@@ -40,6 +42,11 @@
 #endif
 
 namespace torrentutils::core::detail {
+
+[[nodiscard]] Result<void> write_generated_torrent(const std::filesystem::path& path,
+                                                   const std::vector<char>& bytes,
+                                                   const CancellationToken& cancellation);
+
 namespace {
 
 namespace lt = libtorrent;
@@ -47,6 +54,56 @@ namespace lt = libtorrent;
 static_assert(lt::version_major == 2);
 static_assert(lt::version_minor == 0);
 static_assert(lt::version_tiny == 14);
+
+constexpr std::size_t cancellation_io_chunk_bytes = std::size_t{1024U} * std::size_t{1024U};
+
+[[nodiscard]] lt::disk_io_constructor_type disk_io_constructor(const std::optional<DiskIoMode> mode)
+{
+    if (mode == DiskIoMode::Posix)
+    {
+        return lt::posix_disk_io_constructor;
+    }
+#if TORRENT_HAVE_MMAP || TORRENT_HAVE_MAP_VIEW_OF_FILE
+    if (mode == DiskIoMode::Mmap)
+    {
+        return lt::mmap_disk_io_constructor;
+    }
+#endif
+
+    return lt::default_disk_io_constructor;
+}
+
+class CancellationInterrupt final : public std::exception
+{
+  public:
+    [[nodiscard]] const char* what() const noexcept override
+    {
+        return "torrent operation cancelled";
+    }
+};
+
+void throw_if_cancelled(const CancellationToken& cancellation)
+{
+    if (cancellation.is_cancelled())
+    {
+        throw CancellationInterrupt{};
+    }
+}
+
+Error cancelled_create()
+{
+    return {ErrorCode::Cancelled, "torrent creation was cancelled", {}};
+}
+
+Error cancelled_plan()
+{
+    return {ErrorCode::Cancelled, "create plan calculation was cancelled", {}};
+}
+
+Error cancelled_verify()
+{
+    return {ErrorCode::Cancelled, "torrent verification was cancelled", {}};
+}
 
 Error filesystem_error(std::string message, const std::error_code& error)
 {
@@ -422,6 +479,18 @@ Result<std::shared_ptr<lt::torrent_info>> v1_verification_metadata(const Torrent
              "could not prepare torrent verification metadata: " + exception.code().message(),
              {}});
     }
+    catch (const std::exception& exception)
+    {
+        return Result<std::shared_ptr<lt::torrent_info>>::failure(
+            {ErrorCode::Internal,
+             "could not prepare torrent verification metadata: " + std::string(exception.what()),
+             {}});
+    }
+    catch (...)
+    {
+        return Result<std::shared_ptr<lt::torrent_info>>::failure(
+            {ErrorCode::Internal, "could not prepare torrent verification metadata", {}});
+    }
 }
 
 bool verification_metadata_is_available(const TorrentDocument& document)
@@ -472,7 +541,7 @@ struct VerificationFilePreflight
 };
 
 Result<std::vector<VerificationFilePreflight>>
-inspect_verification_files(const VerifyRequest& request)
+inspect_verification_files(const VerifyRequest& request, const CancellationToken& cancellation)
 {
     const auto& files = request.document.info().files();
     const bool single_file = files.size() == 1U;
@@ -482,6 +551,10 @@ inspect_verification_files(const VerifyRequest& request)
     result.reserve(files.size());
     for (const auto& file : files)
     {
+        if (cancellation.is_cancelled())
+        {
+            return Result<std::vector<VerificationFilePreflight>>::failure(cancelled_verify());
+        }
         if (file.attributes().padding)
         {
             result.push_back({file.length(), FileVerificationFinding::None});
@@ -566,6 +639,10 @@ inspect_verification_files(const VerifyRequest& request)
         }
         result.push_back({file.length(), FileVerificationFinding::None});
     }
+    if (cancellation.is_cancelled())
+    {
+        return Result<std::vector<VerificationFilePreflight>>::failure(cancelled_verify());
+    }
     return Result<std::vector<VerificationFilePreflight>>::success(std::move(result));
 }
 
@@ -576,7 +653,8 @@ Error verification_layout_error()
 
 Result<VerificationPieceLayouts>
 verification_piece_layouts(const TorrentInfo& info, const lt::torrent_info& metadata,
-                           const std::vector<VerificationFilePreflight>& preflight)
+                           const std::vector<VerificationFilePreflight>& preflight,
+                           const CancellationToken& cancellation)
 {
     VerificationPieceLayouts layouts(static_cast<std::size_t>(metadata.num_pieces()));
     const auto piece_length = static_cast<std::uint64_t>(metadata.piece_length());
@@ -586,6 +664,10 @@ verification_piece_layouts(const TorrentInfo& info, const lt::torrent_info& meta
         const auto& backend_files = metadata.files();
         for (const auto backend_file_index : backend_files.file_range())
         {
+            if (cancellation.is_cancelled())
+            {
+                return Result<VerificationPieceLayouts>::failure(cancelled_verify());
+            }
             if (backend_files.pad_file_at(backend_file_index))
             {
                 continue;
@@ -608,6 +690,10 @@ verification_piece_layouts(const TorrentInfo& info, const lt::torrent_info& meta
             std::uint64_t file_offset{};
             for (int file_piece = 0; file_piece < piece_count; ++file_piece)
             {
+                if (cancellation.is_cancelled())
+                {
+                    return Result<VerificationPieceLayouts>::failure(cancelled_verify());
+                }
                 const auto piece = first_piece + file_piece;
                 if (piece < 0 || static_cast<std::size_t>(piece) >= layouts.size() ||
                     file_offset >= file.length())
@@ -629,6 +715,10 @@ verification_piece_layouts(const TorrentInfo& info, const lt::torrent_info& meta
             }
             ++logical_file_index;
         }
+        if (cancellation.is_cancelled())
+        {
+            return Result<VerificationPieceLayouts>::failure(cancelled_verify());
+        }
         if (logical_file_index != info.files().size())
         {
             return Result<VerificationPieceLayouts>::failure(verification_layout_error());
@@ -638,6 +728,10 @@ verification_piece_layouts(const TorrentInfo& info, const lt::torrent_info& meta
 
     for (std::size_t piece = 0; piece < layouts.size(); ++piece)
     {
+        if (cancellation.is_cancelled())
+        {
+            return Result<VerificationPieceLayouts>::failure(cancelled_verify());
+        }
         const auto piece_begin = static_cast<std::uint64_t>(piece) * piece_length;
         const auto piece_end = (std::min)(piece_begin + piece_length, info.pieces().total_size());
         std::uint64_t file_begin{};
@@ -664,6 +758,10 @@ verification_piece_layouts(const TorrentInfo& info, const lt::torrent_info& meta
             }
             file_begin = file_end;
         }
+    }
+    if (cancellation.is_cancelled())
+    {
+        return Result<VerificationPieceLayouts>::failure(cancelled_verify());
     }
     return Result<VerificationPieceLayouts>::success(std::move(layouts));
 }
@@ -778,6 +876,10 @@ Result<CreateResult> create_from_storage(const CreateRequest& request, const Tas
                                          lt::file_storage files, std::uint64_t payload_bytes,
                                          FilterReport&& filter_report)
 {
+    if (context.cancellation.is_cancelled())
+    {
+        return Result<CreateResult>::failure(cancelled_create());
+    }
     if (payload_bytes > static_cast<std::uint64_t>(lt::file_storage::max_file_size))
     {
         return Result<CreateResult>::failure(
@@ -821,24 +923,51 @@ Result<CreateResult> create_from_storage(const CreateRequest& request, const Tas
 
     lt::error_code hash_error;
     lt::settings_pack hashing_settings;
-    auto* disk_io_constructor = request.disk_io_mode == core::DiskIoMode::Posix
-                                    ? &lt::posix_disk_io_constructor
-                                    : &lt::mmap_disk_io_constructor;
-    lt::set_piece_hashes(
-        creator, request.content_root.parent_path().u8string(), hashing_settings,
-        disk_io_constructor,
-        [&context, piece_count = creator.num_pieces(), piece_length,
-         payload_bytes](lt::piece_index_t piece) {
-            if (context.on_progress)
-            {
-                const auto completed = static_cast<std::uint64_t>(static_cast<int>(piece)) + 1U;
-                const auto completed_bytes =
-                    std::min(payload_bytes, completed * static_cast<std::uint64_t>(piece_length));
-                context.on_progress({"hashing", completed, static_cast<std::uint64_t>(piece_count),
-                                     completed_bytes, payload_bytes});
-            }
-        },
-        hash_error);
+    const auto hashing_disk_io = disk_io_constructor(request.disk_io_mode);
+    try
+    {
+        lt::set_piece_hashes(
+            creator, request.content_root.parent_path().u8string(), hashing_settings,
+            hashing_disk_io,
+            [&context, piece_count = creator.num_pieces(), piece_length,
+             payload_bytes](lt::piece_index_t piece) {
+                throw_if_cancelled(context.cancellation);
+                if (context.on_progress)
+                {
+                    const auto completed = static_cast<std::uint64_t>(static_cast<int>(piece)) + 1U;
+                    const auto completed_bytes = std::min(
+                        payload_bytes, completed * static_cast<std::uint64_t>(piece_length));
+                    context.on_progress({"hashing", completed,
+                                         static_cast<std::uint64_t>(piece_count), completed_bytes,
+                                         payload_bytes});
+                }
+                throw_if_cancelled(context.cancellation);
+            },
+            hash_error);
+    }
+    catch (const CancellationInterrupt&)
+    {
+        return Result<CreateResult>::failure(cancelled_create());
+    }
+    catch (const std::system_error& exception)
+    {
+        return Result<CreateResult>::failure(
+            {ErrorCode::IoFailure,
+             "could not hash create content: " + exception.code().message(),
+             {}});
+    }
+    catch (const std::exception& exception)
+    {
+        return Result<CreateResult>::failure(
+            {ErrorCode::Internal,
+             "could not hash create content: " + std::string(exception.what()),
+             {}});
+    }
+    catch (...)
+    {
+        return Result<CreateResult>::failure(
+            {ErrorCode::Internal, "could not hash create content", {}});
+    }
     if (hash_error)
     {
         return Result<CreateResult>::failure(
@@ -846,8 +975,7 @@ Result<CreateResult> create_from_storage(const CreateRequest& request, const Tas
     }
     if (context.cancellation.is_cancelled())
     {
-        return Result<CreateResult>::failure(
-            {ErrorCode::Cancelled, "torrent creation was cancelled", {}});
+        return Result<CreateResult>::failure(cancelled_create());
     }
 
     if (torrent_engine_fault_is_active(TorrentEngineFault::CreateMetadataEncoding))
@@ -875,6 +1003,23 @@ Result<CreateResult> create_from_storage(const CreateRequest& request, const Tas
              "could not generate torrent metadata: " + error.code().message(),
              {}});
     }
+    catch (const std::exception& error)
+    {
+        return Result<CreateResult>::failure(
+            {ErrorCode::Internal,
+             "could not generate torrent metadata: " + std::string(error.what()),
+             {}});
+    }
+    catch (...)
+    {
+        return Result<CreateResult>::failure(
+            {ErrorCode::Internal, "could not generate torrent metadata", {}});
+    }
+
+    if (context.cancellation.is_cancelled())
+    {
+        return Result<CreateResult>::failure(cancelled_create());
+    }
 
     auto hashes = info_hashes(encoded, request.options.format());
     if (!hashes)
@@ -883,20 +1028,15 @@ Result<CreateResult> create_from_storage(const CreateRequest& request, const Tas
     }
 
     PendingFile pending(temporary_sibling(request.target_path));
+    auto write_result = write_generated_torrent(pending.path(), encoded, context.cancellation);
+    if (!write_result)
     {
-        std::ofstream output(pending.path(), std::ios::binary | std::ios::trunc);
-        if (!output)
-        {
-            return Result<CreateResult>::failure(
-                {ErrorCode::IoFailure, "could not create temporary torrent file", {}});
-        }
-        output.write(encoded.data(), static_cast<std::streamsize>(encoded.size()));
-        output.close();
-        if (!output)
-        {
-            return Result<CreateResult>::failure(
-                {ErrorCode::IoFailure, "could not write temporary torrent file", {}});
-        }
+        return Result<CreateResult>::failure(std::move(write_result).error());
+    }
+
+    if (context.cancellation.is_cancelled())
+    {
+        return Result<CreateResult>::failure(cancelled_create());
     }
 
     const auto commit_error =
@@ -1024,8 +1164,13 @@ struct DirectorySummary
     std::uint64_t bytes{};
 };
 
-Result<DirectorySummary> summarize_directory(const std::filesystem::path& root)
+Result<DirectorySummary> summarize_directory(const std::filesystem::path& root,
+                                             const CancellationToken& cancellation)
 {
+    if (cancellation.is_cancelled())
+    {
+        return Result<DirectorySummary>::failure(cancelled_create());
+    }
     std::error_code error;
     DirectorySummary summary;
     std::filesystem::recursive_directory_iterator iterator(root, error);
@@ -1037,6 +1182,10 @@ Result<DirectorySummary> summarize_directory(const std::filesystem::path& root)
     }
     for (; iterator != end; iterator.increment(error))
     {
+        if (cancellation.is_cancelled())
+        {
+            return Result<DirectorySummary>::failure(cancelled_create());
+        }
         if (error)
         {
             return Result<DirectorySummary>::failure(
@@ -1067,11 +1216,20 @@ Result<DirectorySummary> summarize_directory(const std::filesystem::path& root)
             summary.bytes += size;
         }
     }
+    if (cancellation.is_cancelled())
+    {
+        return Result<DirectorySummary>::failure(cancelled_create());
+    }
     return Result<DirectorySummary>::success(summary);
 }
 
-Result<PreparedDirectory> prepare_regular_directory(const CreateRequest& request)
+Result<PreparedDirectory> prepare_regular_directory(const CreateRequest& request,
+                                                    const CancellationToken& cancellation)
 {
+    if (cancellation.is_cancelled())
+    {
+        return Result<PreparedDirectory>::failure(cancelled_create());
+    }
     std::error_code error;
     std::uint64_t payload_bytes{};
     FilterReport filter_report;
@@ -1087,6 +1245,10 @@ Result<PreparedDirectory> prepare_regular_directory(const CreateRequest& request
 
     for (; entry != end; entry.increment(error))
     {
+        if (cancellation.is_cancelled())
+        {
+            return Result<PreparedDirectory>::failure(cancelled_create());
+        }
         if (error)
         {
             return Result<PreparedDirectory>::failure(
@@ -1106,7 +1268,7 @@ Result<PreparedDirectory> prepare_regular_directory(const CreateRequest& request
             const auto rule = file_filter.matched_rule(relative_name, true);
             if (!rule.empty())
             {
-                auto summary = summarize_directory(entry->path());
+                auto summary = summarize_directory(entry->path(), cancellation);
                 if (!summary)
                 {
                     return Result<PreparedDirectory>::failure(std::move(summary).error());
@@ -1175,6 +1337,11 @@ Result<PreparedDirectory> prepare_regular_directory(const CreateRequest& request
         payload_bytes += size;
     }
 
+    if (cancellation.is_cancelled())
+    {
+        return Result<PreparedDirectory>::failure(cancelled_create());
+    }
+
     if (payload_bytes == 0)
     {
         return Result<PreparedDirectory>::failure(
@@ -1189,7 +1356,8 @@ Result<PreparedDirectory> prepare_regular_directory(const CreateRequest& request
         const auto flags = creation_flags(request.options.format()) | lt::create_torrent::symlinks;
         lt::add_files(
             files, request.content_root.u8string(),
-            [&request](const std::string& path) {
+            [&request, &cancellation](const std::string& path) {
+                throw_if_cancelled(cancellation);
                 std::error_code predicate_error;
                 const auto candidate = std::filesystem::u8path(path);
                 const auto relative = candidate.lexically_relative(request.content_root);
@@ -1206,6 +1374,7 @@ Result<PreparedDirectory> prepare_regular_directory(const CreateRequest& request
                     relative.generic_u8string(), std::filesystem::is_directory(status));
             },
             flags);
+        throw_if_cancelled(cancellation);
 
         std::vector<lt::file_index_t> sorted_indices;
         sorted_indices.reserve(static_cast<std::size_t>(files.num_files()));
@@ -1222,6 +1391,7 @@ Result<PreparedDirectory> prepare_regular_directory(const CreateRequest& request
         lt::file_storage normalized_files;
         for (const auto index : sorted_indices)
         {
+            throw_if_cancelled(cancellation);
             const auto file_path = files.file_path(index);
             auto normalized_file_path = file_path;
             std::replace(normalized_file_path.begin(), normalized_file_path.end(), '\\', '/');
@@ -1267,12 +1437,32 @@ Result<PreparedDirectory> prepare_regular_directory(const CreateRequest& request
             files.canonicalize();
         }
     }
+    catch (const CancellationInterrupt&)
+    {
+        return Result<PreparedDirectory>::failure(cancelled_create());
+    }
     catch (const std::system_error& exception)
     {
         return Result<PreparedDirectory>::failure(
             {ErrorCode::IoFailure,
              "could not enumerate create content: " + exception.code().message(),
              {}});
+    }
+    catch (const std::exception& exception)
+    {
+        return Result<PreparedDirectory>::failure(
+            {ErrorCode::Internal,
+             "could not enumerate create content: " + std::string(exception.what()),
+             {}});
+    }
+    catch (...)
+    {
+        return Result<PreparedDirectory>::failure(
+            {ErrorCode::Internal, "could not enumerate create content", {}});
+    }
+    if (cancellation.is_cancelled())
+    {
+        return Result<PreparedDirectory>::failure(cancelled_create());
     }
     std::sort(filter_report.entries.begin(), filter_report.entries.end(),
               [](const auto& left, const auto& right) {
@@ -1285,7 +1475,7 @@ Result<PreparedDirectory> prepare_regular_directory(const CreateRequest& request
 Result<CreateResult> create_regular_directory(const CreateRequest& request,
                                               const TaskContext& context)
 {
-    auto prepared = prepare_regular_directory(request);
+    auto prepared = prepare_regular_directory(request, context.cancellation);
     if (!prepared)
     {
         return Result<CreateResult>::failure(std::move(prepared).error());
@@ -1317,8 +1507,7 @@ Result<CreatePlan> LibtorrentAdapter::plan_create(const CreatePlanRequest& reque
     }
     if (context.cancellation.is_cancelled())
     {
-        return Result<CreatePlan>::failure(
-            {ErrorCode::Cancelled, "create plan calculation was cancelled", {}});
+        return Result<CreatePlan>::failure(cancelled_plan());
     }
 
     std::uint64_t payload_bytes{};
@@ -1337,8 +1526,8 @@ Result<CreatePlan> LibtorrentAdapter::plan_create(const CreatePlanRequest& reque
     }
     else if (std::filesystem::is_directory(status))
     {
-        auto prepared =
-            prepare_regular_directory(CreateRequest{request.content_root, {}, request.options});
+        auto prepared = prepare_regular_directory(
+            CreateRequest{request.content_root, {}, request.options}, context.cancellation);
         if (!prepared)
         {
             return Result<CreatePlan>::failure(std::move(prepared).error());
@@ -1348,12 +1537,18 @@ Result<CreatePlan> LibtorrentAdapter::plan_create(const CreatePlanRequest& reque
         files = std::move(directory.files);
         filter_report = std::move(directory.filter_report);
     }
+
     else
     {
         return Result<CreatePlan>::failure(
             {ErrorCode::ValidationFailed,
              "create request validation failed",
              {{"create.content_root", "must be a regular file or directory"}}});
+    }
+
+    if (context.cancellation.is_cancelled())
+    {
+        return Result<CreatePlan>::failure(cancelled_plan());
     }
 
     const auto piece_length = request.options.piece_length_for(payload_bytes);
@@ -1383,6 +1578,63 @@ Result<CreatePlan> LibtorrentAdapter::plan_create(const CreatePlanRequest& reque
              "could not prepare create plan: " + exception.code().message(),
              {}});
     }
+    catch (const std::exception& exception)
+    {
+        return Result<CreatePlan>::failure(
+            {ErrorCode::Internal,
+             "could not prepare create plan: " + std::string(exception.what()),
+             {}});
+    }
+    catch (...)
+    {
+        return Result<CreatePlan>::failure(
+            {ErrorCode::Internal, "could not prepare create plan", {}});
+    }
+}
+
+Result<void> write_generated_torrent(const std::filesystem::path& path,
+                                     const std::vector<char>& bytes,
+                                     const CancellationToken& cancellation)
+{
+    if (cancellation.is_cancelled())
+    {
+        return Result<void>::failure(cancelled_create());
+    }
+
+    errno = 0;
+    std::ofstream output(path, std::ios::binary | std::ios::trunc);
+    if (!output)
+    {
+        return Result<void>::failure(
+            {ErrorCode::IoFailure, "could not create temporary torrent file", {}});
+    }
+    std::size_t offset{};
+    while (offset < bytes.size())
+    {
+        if (cancellation.is_cancelled())
+        {
+            return Result<void>::failure(cancelled_create());
+        }
+        const auto chunk = (std::min)(bytes.size() - offset, cancellation_io_chunk_bytes);
+        output.write(bytes.data() + offset, static_cast<std::streamsize>(chunk));
+        if (!output)
+        {
+            return Result<void>::failure(
+                {ErrorCode::IoFailure, "could not write temporary torrent file", {}});
+        }
+        offset += chunk;
+    }
+    output.close();
+    if (!output)
+    {
+        return Result<void>::failure(
+            {ErrorCode::IoFailure, "could not write temporary torrent file", {}});
+    }
+    if (cancellation.is_cancelled())
+    {
+        return Result<void>::failure(cancelled_create());
+    }
+    return Result<void>::success();
 }
 
 Result<VerificationBackendCapabilities> libtorrent_verification_backend_capabilities()
@@ -1613,6 +1865,10 @@ Result<CreateResult> LibtorrentAdapter::create(const CreateRequest& request,
         return Result<CreateResult>::failure(
             {ErrorCode::Conflict, "create target already exists", {}});
     }
+    if (context.cancellation.is_cancelled())
+    {
+        return Result<CreateResult>::failure(cancelled_create());
+    }
     if (std::filesystem::is_regular_file(status))
     {
         const auto size = std::filesystem::file_size(request.content_root, error);
@@ -1649,11 +1905,19 @@ Result<VerificationReport> LibtorrentAdapter::verify(const VerifyRequest& reques
              "torrent document requires unsupported verification capabilities",
              {}});
     }
+    if (context.cancellation.is_cancelled())
+    {
+        return Result<VerificationReport>::failure(cancelled_verify());
+    }
 
     auto budget = validate_verification_resource_budget(request);
     if (!budget)
     {
         return Result<VerificationReport>::failure(budget.error());
+    }
+    if (context.cancellation.is_cancelled())
+    {
+        return Result<VerificationReport>::failure(cancelled_verify());
     }
 
     auto metadata = verification_metadata(request.document);
@@ -1661,21 +1925,33 @@ Result<VerificationReport> LibtorrentAdapter::verify(const VerifyRequest& reques
     {
         return Result<VerificationReport>::failure(metadata.error());
     }
+    if (context.cancellation.is_cancelled())
+    {
+        return Result<VerificationReport>::failure(cancelled_verify());
+    }
 
-    auto preflight = inspect_verification_files(request);
+    auto preflight = inspect_verification_files(request, context.cancellation);
     if (!preflight)
     {
         return Result<VerificationReport>::failure(preflight.error());
     }
     const auto file_preflight = std::move(preflight).value();
+    if (context.cancellation.is_cancelled())
+    {
+        return Result<VerificationReport>::failure(cancelled_verify());
+    }
     auto torrent_metadata = std::move(metadata).value();
-    auto layouts =
-        verification_piece_layouts(request.document.info(), *torrent_metadata, file_preflight);
+    auto layouts = verification_piece_layouts(request.document.info(), *torrent_metadata,
+                                              file_preflight, context.cancellation);
     if (!layouts)
     {
         return Result<VerificationReport>::failure(layouts.error());
     }
     const auto piece_layouts = std::move(layouts).value();
+    if (context.cancellation.is_cancelled())
+    {
+        return Result<VerificationReport>::failure(cancelled_verify());
+    }
     const bool single_file = request.document.info().files().size() == 1U;
     std::unique_ptr<VerificationProgressPublisher> progress;
     if (request.on_progress)
@@ -1703,6 +1979,10 @@ Result<VerificationReport> LibtorrentAdapter::verify(const VerifyRequest& reques
     {
         return Result<VerificationReport>::failure(applied_budget.error());
     }
+    if (context.cancellation.is_cancelled())
+    {
+        return Result<VerificationReport>::failure(cancelled_verify());
+    }
     if (progress)
     {
         alert_mask |= lt::alert_category::piece_progress;
@@ -1711,9 +1991,7 @@ Result<VerificationReport> LibtorrentAdapter::verify(const VerifyRequest& reques
                      static_cast<int>(static_cast<std::uint32_t>(alert_mask)));
 
     lt::session_params session_parameters(settings);
-    session_parameters.disk_io_constructor = request.disk_io_mode == core::DiskIoMode::Posix
-                                                 ? &lt::posix_disk_io_constructor
-                                                 : &lt::mmap_disk_io_constructor;
+    session_parameters.disk_io_constructor = disk_io_constructor(request.disk_io_mode);
     lt::session session(session_parameters);
     lt::add_torrent_params parameters;
     parameters.ti = std::move(torrent_metadata);
@@ -1722,6 +2000,10 @@ Result<VerificationReport> LibtorrentAdapter::verify(const VerifyRequest& reques
     std::size_t logical_file_index{};
     for (const auto index : parameters.ti->files().file_range())
     {
+        if (context.cancellation.is_cancelled())
+        {
+            return Result<VerificationReport>::failure(cancelled_verify());
+        }
         if (request.document.info().format() == TorrentFormat::V2 &&
             parameters.ti->files().pad_file_at(index))
         {
@@ -1758,6 +2040,10 @@ Result<VerificationReport> LibtorrentAdapter::verify(const VerifyRequest& reques
 
     lt::error_code add_error;
     const auto handle = session.add_torrent(std::move(parameters), add_error);
+    if (context.cancellation.is_cancelled())
+    {
+        return Result<VerificationReport>::failure(cancelled_verify());
+    }
     if (add_error)
     {
         return Result<VerificationReport>::failure(
@@ -1777,8 +2063,7 @@ Result<VerificationReport> LibtorrentAdapter::verify(const VerifyRequest& reques
     {
         if (context.cancellation.is_cancelled())
         {
-            return Result<VerificationReport>::failure(
-                {ErrorCode::Cancelled, "torrent verification was cancelled", {}});
+            return Result<VerificationReport>::failure(cancelled_verify());
         }
 
         session.wait_for_alert(lt::milliseconds(50));
@@ -1805,10 +2090,18 @@ Result<VerificationReport> LibtorrentAdapter::verify(const VerifyRequest& reques
                 checked = true;
             }
         }
+        if (context.cancellation.is_cancelled())
+        {
+            return Result<VerificationReport>::failure(cancelled_verify());
+        }
         if (progress)
         {
             if (checked)
             {
+                if (context.cancellation.is_cancelled())
+                {
+                    return Result<VerificationReport>::failure(cancelled_verify());
+                }
                 const auto completed_status = handle.status(lt::torrent_handle::query_pieces);
                 progress->complete(
                     verification_piece_states(completed_status, piece_layouts.size()));
@@ -1820,11 +2113,14 @@ Result<VerificationReport> LibtorrentAdapter::verify(const VerifyRequest& reques
         }
         if (context.cancellation.is_cancelled())
         {
-            return Result<VerificationReport>::failure(
-                {ErrorCode::Cancelled, "torrent verification was cancelled", {}});
+            return Result<VerificationReport>::failure(cancelled_verify());
         }
     }
 
+    if (context.cancellation.is_cancelled())
+    {
+        return Result<VerificationReport>::failure(cancelled_verify());
+    }
     const auto status = handle.status(lt::torrent_handle::query_pieces);
     return Result<VerificationReport>::success(
         make_verification_report(request.document, status, file_preflight, piece_layouts));

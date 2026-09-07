@@ -23,7 +23,7 @@ The **Create** page is your starting point for generating a new `.torrent` file 
 - **Input & Output**: Select the source folder/file and choose where to save the output `.torrent`. Toggle the overwrite safeguard if the destination file already exists.
 - **Settings Group**:
   - **Format**: Choose between **V1** (maximum compatibility with legacy clients), **V2** (modern BitTorrent v2 standard with SHA-256 piece trees), or **Hybrid** (recommended; compatible with all clients).
-  - **Piece Size**: Set to **Automatic** (optimal piece size calculated from payload volume) or choose a fixed size from 16 KiB to 16 MiB.
+  - **Piece Size**: Set to **Automatic** (optimal piece size calculated from payload volume) or choose a power-of-two size from 16 KiB to 16 MiB. Advanced uses the same dropdown for creation defaults. Presets override these defaults; sizes are stored in KiB (8 MiB is 8192 KiB).
   - **File Ordering**: Choose between Lexicographical, Natural, Canonical Alignment, or Breadth-First.
   - **File Filter**: Choose **Disabled**, **Common system artifacts**, or **Custom exclusion rules**.
     Custom rules use one Glob pattern per line and replace the built-in common-artifact list.
@@ -31,9 +31,38 @@ The **Create** page is your starting point for generating a new `.torrent` file 
   - **Private Torrent**: Mark the torrent as private to disable DHT, PEX, and local peer discovery for private trackers.
 - **Fields Group**: Add Tracker announce tiers, HTTP/HTTPS Web Seeds, comments, creator signature, and custom info source tags.
 - **Filter report**: After a directory create or dry run, view the relative paths and byte summaries of entries excluded by the effective filter.
+- **Creator override**: The Create page shows the effective creator value. **Use custom creator**
+  enables the current preset value as a temporary override; if no preset value exists, it starts
+  from the config default or the built-in `TorrentCraft` value. Clearing the checkbox skips the
+  preset creator field and falls back to config or the built-in default.
 - **Dry Run & Progress**: Test and validate creation settings without writing to disk, and monitor real-time hashing progress with a cancellation option.
 
 > **Preset Integration**: Fields automatically populate from your active preset and global defaults. Any manual adjustments made on the Create page take precedence for the current session without overwriting your saved preset.
+
+The Advanced page's **Default preset** is stored in the shared top-level `default_preset` key.
+When Create has no explicit preset selection, both CLI and GUI start with `config.defaults` and
+overlay that fallback preset on top. An explicit preset selection replaces `default_preset`; CLI
+flags and GUI form edits are then applied at their respective final layers. See [Creation setting
+override flow](./config#how-creation-settings-are-resolved) for the shared resolution chain.
+
+The creator checkbox is intentionally more specific than the general field precedence:
+
+~~~mermaid
+flowchart TD
+    CreatorToggle["Use custom creator checkbox"] --> Checked{"Checked?"}
+    Checked -- "No" --> ConfigCreator["config.defaults.created_by"]
+    Checked -- "Yes" --> PresetCreator["Active preset created_by"]
+    PresetCreator --> HasPresetCreator{"Preset value exists?"}
+    HasPresetCreator -- "Yes" --> CreatorResult["Use preset creator"]
+    HasPresetCreator -- "No" --> ConfigCreator
+    ConfigCreator --> HasConfigCreator{"Config value exists?"}
+    HasConfigCreator -- "Yes" --> CreatorResult
+    HasConfigCreator -- "No" --> BuiltInCreator["Built-in TorrentCraft creator"]
+~~~
+
+When the checkbox is cleared, the active preset's `created_by` is deliberately skipped. When it
+is checked, the active preset may provide the temporary creator override; missing values still
+fall back through config and the built-in value.
 
 ---
 
@@ -65,7 +94,7 @@ The **Inspect** page provides instant, read-only analysis of a `.torrent` file w
 ![Inspect page](/screenshots/Inspect.png)
 
 ### Information Displayed:
-- **Summary Header**: Displays torrent name, protocol format (V1 / V2 / Hybrid), privacy state, total piece count, piece length, total payload size, creator, and available Info Hashes (SHA-1 and SHA-256).
+- **Summary Header**: Displays torrent name, protocol format (V1 / V2 / Hybrid), privacy state, total piece count, piece length in human-readable IEC units (for example, 8 MiB), total payload size, creator, and available Info Hashes (SHA-1 and SHA-256).
 - **Logical File Tree**: Browse the full directory hierarchy stored inside the torrent with folder expand/collapse and file size labels.
 - **Tracker & Metadata Lists**: Inspect all configured tracker announce tiers, web seeds, and raw metadata fields.
 - **Diagnostics & Warnings**: Identifies non-standard structures, legacy encodings, or potential compatibility issues.
@@ -82,6 +111,7 @@ The **Verify** page compares a local folder or file against a `.torrent` file by
 - **Visual Per-File Status**: Expands the full file table with clear status badges (e.g. *Verified*, *Mismatch*, *Missing*, *Pending*).
 - **Resource Management**: Uses the worker thread count, memory cache buffer, and disk I/O modes configured in the **Advanced** tab.
 - **Safe Cancellation**: If you close the window or cancel while verification is underway, a confirmation prompt prevents accidental data loss, and diagnostic results remain visible.
+- **Cancellable Hashing**: Cancellation is cooperative at piece boundaries; a live cancellation token does not force a slower disk backend, so the configured mmap/default path remains available.
 
 ---
 
@@ -113,7 +143,7 @@ The **Advanced** tab is the central settings hub for managing global configurati
 - **Default Save Location**:
   - Choose where new torrents are saved by default: *Current directory*, *Recent location*, or a *Specified directory*.
 - **Creation Defaults**:
-  - Set default protocol format, automatic piece size, file order, private state, file-filter policy, tracker tiers, and creator signatures for all new torrents.
+  - Set default protocol format, automatic or fixed piece size, file order, private state, file-filter policy, tracker tiers, and creator signatures for all new torrents.
   - The global **File Filter** default is used when the selected preset does not declare its own filter object.
   - Set the **Default Preset** to load at GUI startup.
 - **Performance & I/O**:
@@ -141,7 +171,7 @@ The top-level **Preset** menu provides:
 When creating a torrent, settings are resolved in this precedence:
 
 ```text
-Manual edits on Create page > Selected Preset > Global Config Defaults > Built-in Engine Defaults
+Manual edits on Create page > Selected Preset (or `default_preset`) > Global Config Defaults > Built-in Engine Defaults
 ```
 
 ---

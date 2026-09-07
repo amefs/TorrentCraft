@@ -60,8 +60,19 @@ torrentcraft create ./payload -o ./payload.torrent --preset release
 ### Precedence Order
 
 ```text
-CLI options > Selected Preset > Config Defaults > Built-in Engine Defaults
+Explicit CLI options > Explicit Preset > Default Preset > Config Defaults > Built-in Engine Defaults
 ```
+
+The optional top-level `default_preset` config key is used only when no `--preset` or
+`--preset-file` is supplied. It is a shared CLI/GUI create fallback and overlays the config
+defaults; an explicit preset replaces it.
+
+For `created_by`, the selected preset value, including a `default_preset` fallback,
+overrides the config default. The CLI `--created-by` option is the explicit
+highest-level override, and an explicitly empty value remains meaningful. See
+[Creation setting resolution](./config#how-creation-settings-are-resolved) for the
+full resolution diagram.
+
 
 ## File-filter override semantics
 

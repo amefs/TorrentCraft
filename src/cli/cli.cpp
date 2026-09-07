@@ -47,6 +47,27 @@ using torrentutils::frontend::VerifyResourceSettings;
     return std::filesystem::u8path(value);
 }
 
+[[nodiscard]] std::optional<std::filesystem::path>
+executable_directory_from_argv0(const char* const value)
+{
+    if (value == nullptr || *value == '\0')
+    {
+        return std::nullopt;
+    }
+    const auto path = path_from_utf8(value);
+    if (!path.has_parent_path())
+    {
+        return std::nullopt;
+    }
+    std::error_code error;
+    const auto absolute_path = std::filesystem::absolute(path, error);
+    if (error)
+    {
+        return std::nullopt;
+    }
+    return absolute_path.parent_path();
+}
+
 struct CliFileFilterOverrides
 {
     std::optional<torrentutils::core::FileFilterMode> mode;
@@ -964,7 +985,8 @@ void apply_cli_file_filter_overrides(CreationSettingsPatch& settings,
 
 [[nodiscard]] Result<ResolvedCreationSettings>
 resolve_create_settings(const CreateArguments& arguments,
-                        std::optional<std::uint64_t>& memory_working_set_limit_bytes)
+                        std::optional<std::uint64_t>& memory_working_set_limit_bytes,
+                        const std::optional<std::filesystem::path>& executable_directory)
 {
     memory_working_set_limit_bytes.reset();
     CreationSettingsPatch effective;
@@ -979,7 +1001,7 @@ resolve_create_settings(const CreateArguments& arguments,
         }
         const auto paths = torrentutils::frontend::default_config_search_paths(
             arguments.config_path, working_directory);
-        auto discovered = torrentutils::frontend::discover_config(paths);
+        auto discovered = torrentutils::frontend::discover_config(paths, executable_directory);
         if (!discovered)
         {
             return Result<ResolvedCreationSettings>::failure(std::move(discovered).error());
@@ -1003,6 +1025,18 @@ resolve_create_settings(const CreateArguments& arguments,
             config.emplace(std::move(loaded).value());
             effective = config->parsed().defaults;
             memory_working_set_limit_bytes = config->parsed().memory_working_set_limit_bytes;
+        }
+    }
+    if (config && !arguments.preset_name && !arguments.preset_file)
+    {
+        const auto& parsed = config->parsed();
+        if (parsed.default_preset)
+        {
+            const auto iterator = parsed.presets.find(*parsed.default_preset);
+            if (iterator != parsed.presets.end())
+            {
+                effective = torrentutils::frontend::overlay_settings(effective, iterator->second);
+            }
         }
     }
     if (arguments.preset_name)
@@ -1105,7 +1139,9 @@ struct ConfigInvocation
     return true;
 }
 
-[[nodiscard]] Result<ConfigFile> load_management_config(const ConfigInvocation& invocation)
+[[nodiscard]] Result<ConfigFile>
+load_management_config(const ConfigInvocation& invocation,
+                       const std::optional<std::filesystem::path>& executable_directory)
 {
     std::error_code error;
     const auto working_directory = std::filesystem::current_path(error);
@@ -1116,7 +1152,7 @@ struct ConfigInvocation
     }
     const auto paths = torrentutils::frontend::default_config_search_paths(invocation.config_path,
                                                                            working_directory);
-    auto discovered = torrentutils::frontend::discover_config(paths);
+    auto discovered = torrentutils::frontend::discover_config(paths, executable_directory);
     if (!discovered)
     {
         return Result<ConfigFile>::failure(std::move(discovered).error());
@@ -1158,8 +1194,10 @@ struct ConfigInvocation
     return document.dump(2);
 }
 
-[[nodiscard]] int run_config_command(const std::vector<std::string>& args, std::ostream& output,
-                                     std::ostream& diagnostics)
+[[nodiscard]] int
+run_config_command(const std::vector<std::string>& args, std::ostream& output,
+                   std::ostream& diagnostics,
+                   const std::optional<std::filesystem::path>& executable_directory)
 {
     if (help_requested(args))
     {
@@ -1192,7 +1230,7 @@ struct ConfigInvocation
         }
         const auto paths = torrentutils::frontend::default_config_search_paths(
             invocation.config_path, working_directory);
-        auto discovered = torrentutils::frontend::discover_config(paths);
+        auto discovered = torrentutils::frontend::discover_config(paths, executable_directory);
         if (!discovered)
         {
             print_error(discovered.error(), invocation.json, diagnostics);
@@ -1280,7 +1318,7 @@ struct ConfigInvocation
 
     if (subcommand == "show")
     {
-        auto loaded = load_management_config(invocation);
+        auto loaded = load_management_config(invocation, executable_directory);
         if (!loaded)
         {
             print_error(loaded.error(), invocation.json, diagnostics);
@@ -1317,7 +1355,7 @@ struct ConfigInvocation
             print_error(key.error(), invocation.json, diagnostics);
             return error_exit_code(key.error().code);
         }
-        auto loaded = load_management_config(invocation);
+        auto loaded = load_management_config(invocation, executable_directory);
         if (!loaded)
         {
             print_error(loaded.error(), invocation.json, diagnostics);
@@ -1354,7 +1392,7 @@ struct ConfigInvocation
             print_error(key.error(), invocation.json, diagnostics);
             return error_exit_code(key.error().code);
         }
-        auto loaded = load_management_config(invocation);
+        auto loaded = load_management_config(invocation, executable_directory);
         if (!loaded)
         {
             print_error(loaded.error(), invocation.json, diagnostics);
@@ -1411,8 +1449,10 @@ struct ConfigInvocation
     return 2;
 }
 
-[[nodiscard]] int run_preset_command(const std::vector<std::string>& args, std::ostream& output,
-                                     std::ostream& diagnostics)
+[[nodiscard]] int
+run_preset_command(const std::vector<std::string>& args, std::ostream& output,
+                   std::ostream& diagnostics,
+                   const std::optional<std::filesystem::path>& executable_directory)
 {
     if (help_requested(args))
     {
@@ -1448,7 +1488,7 @@ struct ConfigInvocation
         }
         else
         {
-            auto loaded = load_management_config(invocation);
+            auto loaded = load_management_config(invocation, executable_directory);
             if (loaded)
             {
                 config.emplace(std::move(loaded).value());
@@ -1489,7 +1529,7 @@ struct ConfigInvocation
             diagnostics << "error: preset show requires exactly one name\n";
             return 2;
         }
-        auto loaded = load_management_config(invocation);
+        auto loaded = load_management_config(invocation, executable_directory);
         if (!loaded)
         {
             print_error(loaded.error(), invocation.json, diagnostics);
@@ -1531,7 +1571,7 @@ struct ConfigInvocation
             diagnostics << "error: preset add requires exactly one file\n";
             return 2;
         }
-        auto loaded = load_management_config(invocation);
+        auto loaded = load_management_config(invocation, executable_directory);
         if (!loaded)
         {
             print_error(loaded.error(), invocation.json, diagnostics);
@@ -1605,7 +1645,7 @@ struct ConfigInvocation
             diagnostics << "error: preset remove requires exactly one name\n";
             return 2;
         }
-        auto loaded = load_management_config(invocation);
+        auto loaded = load_management_config(invocation, executable_directory);
         if (!loaded)
         {
             print_error(loaded.error(), invocation.json, diagnostics);
@@ -2199,8 +2239,10 @@ void print_field_table(const Json& entries, std::ostream& output)
     return 0;
 }
 
-[[nodiscard]] int run_verify_command(const std::vector<std::string>& args, std::ostream& output,
-                                     std::ostream& diagnostics)
+[[nodiscard]] int
+run_verify_command(const std::vector<std::string>& args, std::ostream& output,
+                   std::ostream& diagnostics,
+                   const std::optional<std::filesystem::path>& executable_directory)
 {
     if (help_requested(args))
     {
@@ -2403,7 +2445,7 @@ void print_field_table(const Json& entries, std::ostream& output)
         }
         const auto paths =
             torrentutils::frontend::default_config_search_paths(config_path, working_directory);
-        auto discovered = torrentutils::frontend::discover_config(paths);
+        auto discovered = torrentutils::frontend::discover_config(paths, executable_directory);
         if (!discovered)
         {
             print_error(discovered.error(), json, diagnostics);
@@ -2718,8 +2760,88 @@ void print_field_table(const Json& entries, std::ostream& output)
     return status.type();
 }
 
-[[nodiscard]] int run_create_command(const std::vector<std::string>& args, std::ostream& output,
-                                     std::ostream& diagnostics)
+[[nodiscard]] bool inferred_option_takes_value(const std::string_view argument) noexcept
+{
+    constexpr std::array<std::string_view, 22> options{
+        "-o",
+        "--output",
+        "--memory-working-set-limit",
+        "--progress",
+        "--config",
+        "--preset",
+        "--preset-file",
+        "--format",
+        "--piece-size",
+        "--file-order",
+        "--filter-mode",
+        "--exclude",
+        "--tracker",
+        "--tier",
+        "--web-seed",
+        "--comment",
+        "--created-by",
+        "--source",
+        "--creation-date",
+        "--verify-workers",
+        "--verify-memory",
+        "--depth",
+    };
+    return std::find(options.begin(), options.end(), argument) != options.end();
+}
+
+struct InferredArguments
+{
+    std::vector<std::string> paths;
+    std::vector<std::string> options;
+    bool output_specified{};
+};
+
+[[nodiscard]] InferredArguments collect_inferred_arguments(const int argc, const char* const argv[])
+{
+    InferredArguments result;
+    for (int index = 1; index < argc; ++index)
+    {
+        const std::string argument = argv[index];
+        result.options.push_back(argument);
+        if (argument == "-o" || argument == "--output")
+        {
+            result.output_specified = true;
+        }
+        if (inferred_option_takes_value(argument) && index + 1 < argc)
+        {
+            result.options.emplace_back(argv[++index]);
+        }
+        else if (argument.empty() || argument.front() == '-')
+        {
+            continue;
+        }
+        else
+        {
+            result.paths.push_back(argument);
+            result.options.pop_back();
+        }
+    }
+    return result;
+}
+
+[[nodiscard]] std::vector<std::string> inferred_command_arguments(
+    const InferredArguments& inferred, const std::vector<std::string>& positional,
+    const std::optional<std::filesystem::path>& default_target = std::nullopt)
+{
+    auto result = positional;
+    if (default_target && !inferred.output_specified)
+    {
+        result.emplace_back("-o");
+        result.emplace_back(default_target->u8string());
+    }
+    result.insert(result.end(), inferred.options.begin(), inferred.options.end());
+    return result;
+}
+
+[[nodiscard]] int
+run_create_command(const std::vector<std::string>& args, std::ostream& output,
+                   std::ostream& diagnostics,
+                   const std::optional<std::filesystem::path>& executable_directory)
 {
     if (help_requested(args))
     {
@@ -2744,7 +2866,8 @@ void print_field_table(const Json& entries, std::ostream& output)
     }
 
     std::optional<std::uint64_t> config_memory_working_set_limit_bytes;
-    auto settings = resolve_create_settings(parsed.create, config_memory_working_set_limit_bytes);
+    auto settings = resolve_create_settings(parsed.create, config_memory_working_set_limit_bytes,
+                                            executable_directory);
     if (!settings)
     {
         print_error(settings.error(), parsed.create.json, diagnostics);
@@ -2825,28 +2948,28 @@ void print_field_table(const Json& entries, std::ostream& output)
     return 0;
 }
 
-[[nodiscard]] int run_inferred_command(const int argc, const char* const argv[],
-                                       std::ostream& output, std::ostream& diagnostics)
+[[nodiscard]] int
+run_inferred_command(const int argc, const char* const argv[], std::ostream& output,
+                     std::ostream& diagnostics,
+                     const std::optional<std::filesystem::path>& executable_directory)
 {
-    std::vector<std::string> paths;
-    std::vector<std::string> flags;
-    for (int index = 1; index < argc; ++index)
+    const auto inferred = collect_inferred_arguments(argc, argv);
+    const auto& paths = inferred.paths;
+
+    if (paths.empty())
     {
-        const std::string argument = argv[index];
-        if (argument == "--json" || argument == "--quiet" || argument == "--overwrite" ||
-            argument == "--dry-run" || argument == "--private" || argument == "--no-private" ||
-            argument == "--public")
+        if (help_requested(inferred.options))
         {
-            flags.push_back(argument);
+            output << kUsage;
+            return 0;
         }
-        else if (!argument.empty() && argument.front() == '-')
+        for (const auto& argument : inferred.options)
         {
-            diagnostics << "error: unknown option: " << argument << '\n';
-            return 2;
-        }
-        else
-        {
-            paths.push_back(argument);
+            if (!argument.empty() && argument.front() == '-')
+            {
+                diagnostics << "error: unknown option: " << argument << '\n';
+                return 2;
+            }
         }
     }
 
@@ -2854,15 +2977,12 @@ void print_field_table(const Json& entries, std::ostream& output)
     {
         if (is_torrent_path(paths[0]))
         {
-            auto args = flags;
-            args.push_back(paths[0]);
+            const auto args = inferred_command_arguments(inferred, {paths[0]});
             return run_inspect_command(args, output, diagnostics);
         }
-        auto args = flags;
-        args.push_back(paths[0]);
-        args.push_back("-o");
-        args.push_back(default_create_target(paths[0]).u8string());
-        return run_create_command(args, output, diagnostics);
+        const auto args =
+            inferred_command_arguments(inferred, {paths[0]}, default_create_target(paths[0]));
+        return run_create_command(args, output, diagnostics, executable_directory);
     }
 
     if (paths.size() == 2U)
@@ -2873,10 +2993,8 @@ void print_field_table(const Json& entries, std::ostream& output)
         {
             const std::string& torrent = first_torrent ? paths[0] : paths[1];
             const std::string& content = first_torrent ? paths[1] : paths[0];
-            auto args = flags;
-            args.push_back(torrent);
-            args.push_back(content);
-            return run_verify_command(args, output, diagnostics);
+            const auto args = inferred_command_arguments(inferred, {torrent, content});
+            return run_verify_command(args, output, diagnostics, executable_directory);
         }
         if (!first_torrent && !second_torrent)
         {
@@ -2887,22 +3005,16 @@ void print_field_table(const Json& entries, std::ostream& output)
             {
                 const auto target = path_from_utf8(paths[0]) /
                                     (path_from_utf8(paths[1]).stem().u8string() + ".torrent");
-                auto args = flags;
-                args.push_back(paths[1]);
-                args.push_back("-o");
-                args.push_back(target.u8string());
-                return run_create_command(args, output, diagnostics);
+                const auto args = inferred_command_arguments(inferred, {paths[1]}, target);
+                return run_create_command(args, output, diagnostics, executable_directory);
             }
             if (second_type == std::filesystem::file_type::directory &&
                 first_type == std::filesystem::file_type::regular)
             {
                 const auto target = path_from_utf8(paths[1]) /
                                     (path_from_utf8(paths[0]).stem().u8string() + ".torrent");
-                auto args = flags;
-                args.push_back(paths[0]);
-                args.push_back("-o");
-                args.push_back(target.u8string());
-                return run_create_command(args, output, diagnostics);
+                const auto args = inferred_command_arguments(inferred, {paths[0]}, target);
+                return run_create_command(args, output, diagnostics, executable_directory);
             }
         }
     }
@@ -3566,6 +3678,7 @@ void print_trackers_human(const torrentutils::core::TrackerList& trackers, std::
 
 int run(const int argc, const char* const argv[], std::ostream& output, std::ostream& diagnostics)
 {
+    const auto executable_directory = executable_directory_from_argv0(argc > 0 ? argv[0] : nullptr);
     if (argc == 1)
     {
         output << kUsage;
@@ -3595,7 +3708,7 @@ int run(const int argc, const char* const argv[], std::ostream& output, std::ost
     if (command == "verify")
     {
         const std::vector<std::string> args(argv + 2, argv + argc);
-        return run_verify_command(args, output, diagnostics);
+        return run_verify_command(args, output, diagnostics, executable_directory);
     }
     if (command == "validate")
     {
@@ -3620,19 +3733,19 @@ int run(const int argc, const char* const argv[], std::ostream& output, std::ost
     if (command == "config")
     {
         const std::vector<std::string> args(argv + 2, argv + argc);
-        return run_config_command(args, output, diagnostics);
+        return run_config_command(args, output, diagnostics, executable_directory);
     }
     if (command == "preset")
     {
         const std::vector<std::string> args(argv + 2, argv + argc);
-        return run_preset_command(args, output, diagnostics);
+        return run_preset_command(args, output, diagnostics, executable_directory);
     }
     if (command == "create")
     {
         const std::vector<std::string> args(argv + 2, argv + argc);
-        return run_create_command(args, output, diagnostics);
+        return run_create_command(args, output, diagnostics, executable_directory);
     }
-    return run_inferred_command(argc, argv, output, diagnostics);
+    return run_inferred_command(argc, argv, output, diagnostics, executable_directory);
 }
 
 void set_console_utf8_native(const bool value) noexcept

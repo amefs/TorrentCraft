@@ -82,6 +82,7 @@ struct GuiPreferences
 
 struct ParsedConfig
 {
+    std::optional<std::string> default_preset;
     CreationSettingsPatch defaults;
     std::map<std::string, CreationSettingsPatch> presets;
     std::optional<VerifyResourceSettings> verify;
@@ -128,6 +129,7 @@ enum class ConfigScope
 {
     Defaults,
     Preset,
+    DefaultPreset,
     Verify,
     DiskIo,
     MemoryWorkingSetLimit

@@ -99,6 +99,7 @@ TEST_CASE("given_default_token_when_queried_then_it_is_not_cancelled",
     const torrentutils::core::CancellationToken token;
 
     REQUIRE_FALSE(token.is_cancelled());
+    REQUIRE_FALSE(token.can_be_cancelled());
 }
 
 TEST_CASE("given_multiple_tokens_when_source_is_cancelled_then_all_observe_request",
@@ -107,6 +108,9 @@ TEST_CASE("given_multiple_tokens_when_source_is_cancelled_then_all_observe_reque
     torrentutils::core::CancellationSource source;
     const auto first = source.token();
     const auto second = source.token();
+
+    REQUIRE(first.can_be_cancelled());
+    REQUIRE(second.can_be_cancelled());
 
     source.cancel();
     source.cancel();

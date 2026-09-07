@@ -380,7 +380,7 @@ def main() -> int:
     parser.add_argument("--installed-dir", type=Path, required=True)
     parser.add_argument("--platform", required=True)
     parser.add_argument("--vcpkg-root", type=Path)
-    parser.add_argument("--version", default="1.1.0")
+    parser.add_argument("--version", default="1.1.1")
     parser.add_argument("--include-gui", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)

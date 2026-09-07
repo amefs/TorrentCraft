@@ -713,6 +713,26 @@ core::Result<ParsedConfig> parse_config_json(const std::string_view input)
         {
             issues.push_back({"frontend.config.gui", "must be an object"});
         }
+        const auto default_preset = outcome.document.find("default_preset");
+        if (default_preset != outcome.document.end())
+        {
+            if (!default_preset->is_string())
+            {
+                issues.push_back({"frontend.config.default_preset", "must be a string"});
+            }
+            else
+            {
+                config.default_preset = default_preset->get<std::string>();
+            }
+        }
+        else if (gui != outcome.document.end() && gui->is_object())
+        {
+            const auto legacy_default_preset = gui->find("default_preset");
+            if (legacy_default_preset != gui->end() && legacy_default_preset->is_string())
+            {
+                config.default_preset = legacy_default_preset->get<std::string>();
+            }
+        }
 
         const auto verify = outcome.document.find("verify");
         if (verify != outcome.document.end())

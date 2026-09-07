@@ -40,7 +40,8 @@ jobs:
             range="${{ github.event.before }}...${{ github.sha }}"
           fi
           git diff --check "$range" -- \
-            ':(exclude)cmake/vcpkg-patches/qtbase-glib-static-linkage.patch'
+            ':(exclude)cmake/vcpkg-patches/qtbase-glib-static-linkage.patch' \
+            ':(exclude)cmake/vcpkg-ports/libtorrent/cleanup-mmap-jobs-when-callback-throws.patch'
   semver-contract:
     name: semantic-version-contract
     runs-on: ubuntu-24.04

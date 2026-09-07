@@ -75,17 +75,18 @@ A private comparison key is used only for same-tier deduplication.
 \`torrentcraft.json\` used by CLI and GUI. It maps to typed create requests and
 does not become Core data.
 
-**Configuration discovery** checks, in order: explicit \`--config PATH\`, the
-current directory's \`torrentcraft.json\`, and the user configuration directory.
-A selected file that is malformed causes an error rather than silently falling
-back to another file.
+**Configuration discovery** checks, in order: explicit `--config PATH`, the
+current directory's `torrentcraft.json`, `torrentcraft.json` beside the running
+executable, and the user configuration directory. A selected file that is malformed
+causes an error rather than silently falling back to another file.
 
 **Named preset** is a reusable entry under \`presets.<name>\`, selected with
 \`--preset NAME\`.
 
-**Overlay merge** applies settings in the order CLI arguments, named preset,
-configuration defaults, and Core defaults. A higher layer replaces a complete
-value at the same key.
+**Overlay merge** applies settings in the order explicit CLI arguments, an explicit
+preset or the configured default preset, configuration defaults, and Core defaults.
+An explicit preset replaces the default-preset fallback rather than merging with it;
+a higher layer replaces a complete value at the same key.
 
 **Canonical configuration path** is the platform user configuration location
 shared by CLI and GUI. The current working directory is only a discovery fallback,
@@ -127,6 +128,26 @@ for transient progress display. It is not a retained report of every piece.
 
 **Shared piece mismatch** is a mismatched piece overlapping multiple logical files.
 Each affected file records its overlap; no single file is assigned exclusive blame.
+
+## Cancellation and hashing
+
+**Cancellation request** is the control-thread action that asks a running operation
+to stop. It is an intent signal; the worker remains busy until it reaches a safe
+cancellation checkpoint and returns cancellation completion.
+
+**Safe cancellation checkpoint** is a bounded point at which an operation may inspect
+its token and return without corrupting backend state or leaving an owned temporary
+output. File I/O uses bounded chunks where supported, while libtorrent creation
+checks cancellation at piece callbacks.
+
+**Adaptive hashing disk I/O** is the create/verify policy where an absent mode uses
+libtorrent's platform default, explicit POSIX remains opt-in, and explicit mmap falls
+back to the platform default when unavailable. A live cancellation token does not
+force the slower POSIX backend.
+
+**Commit linearization point** is the instant atomic target replacement begins.
+Cancellation wins before that point; after it, the replacement commits and the
+operation reports success.
 
 ## File filtering
 
