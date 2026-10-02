@@ -23,6 +23,7 @@
 #include <QFileInfo>
 #include <QFontDatabase>
 #include <QGridLayout>
+#include <QGroupBox>
 #include <QHeaderView>
 #include <QIcon>
 #include <QInputDialog>
@@ -33,9 +34,12 @@
 #include <QModelIndex>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QScrollArea>
+#include <QScrollBar>
 #include <QSignalSpy>
 #include <QSpinBox>
 #include <QStatusBar>
+#include <QTabWidget>
 #include <QTableView>
 #include <QTemporaryDir>
 #include <QTextBrowser>
@@ -459,6 +463,62 @@ class GuiLogoTest final : public QObject
         QVERIFY(style->findData(QStringLiteral("Fusion")) >= 0);
         QVERIFY(!style_label->text().isEmpty());
         QVERIFY(!font_label->text().isEmpty());
+    }
+
+    void multilineFieldsScaleWithTheActiveFont()
+    {
+        MainWindow window;
+        window.show();
+        QCoreApplication::processEvents();
+
+        const auto verify_height = [&window](const char* name, const int visible_lines) {
+            const auto* editor = window.findChild<QPlainTextEdit*>(name);
+            QVERIFY(editor != nullptr);
+            QVERIFY(editor->minimumHeight() >= editor->fontMetrics().lineSpacing() * visible_lines);
+            QVERIFY(editor->height() >= editor->minimumHeight());
+        };
+
+        verify_height("editCreateComment", 1);
+        verify_height("editModifyComment", 1);
+        verify_height("editCreateWebSeeds", 1);
+        verify_height("editModifyWebSeeds", 1);
+        verify_height("editModifyDhtNodes", 1);
+        verify_height("editAdvancedDefaultTrackerTiers", 3);
+        verify_height("editAdvancedDefaultWebSeeds", 3);
+    }
+
+    void constrainedHeightUsesTabScrollAreas()
+    {
+        MainWindow window;
+        window.resize(700, 600);
+        window.show();
+        QCoreApplication::processEvents();
+        QCOMPARE(window.size(), QSize(700, 600));
+
+        auto* tabs = window.findChild<QTabWidget*>("tabMain");
+        QVERIFY(tabs != nullptr);
+        struct TabLayout
+        {
+            const char* tab_name;
+            const char* scroll_name;
+            const char* group_name;
+        };
+        for (const auto& [tab_name, scroll_name, group_name] : std::initializer_list<TabLayout>{
+                 {"Create", "scrollCreate", "grpCreateSettings"},
+                 {"Modify", "scrollModify", "grpModifyFields"},
+                 {"Advanced", "scrollAdvanced", "grpAdvancedDefaults"}})
+        {
+            auto* tab = window.findChild<QWidget*>(tab_name);
+            auto* scroll = window.findChild<QScrollArea*>(scroll_name);
+            auto* content_group = window.findChild<QGroupBox*>(group_name);
+            QVERIFY(tab != nullptr);
+            QVERIFY(scroll != nullptr);
+            QVERIFY(content_group != nullptr);
+            tabs->setCurrentWidget(tab);
+            QCoreApplication::processEvents();
+            QVERIFY(scroll->verticalScrollBar()->maximum() > 0);
+            QVERIFY(content_group->height() >= content_group->minimumSizeHint().height());
+        }
     }
 
     void guiLoadsCanonicalUserConfigWhenProjectConfigIsAbsent()
@@ -1143,7 +1203,7 @@ class GuiLogoTest final : public QObject
         QVERIFY(!window.close());
         QVERIFY(window.isVisible());
         QTRY_VERIFY(!runner->is_running());
-        QVERIFY(!window.isVisible());
+        QTRY_VERIFY(!window.isVisible());
     }
 
     void closeWhileTaskRunningCanBeCancelled()

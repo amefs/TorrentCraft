@@ -4,7 +4,7 @@ namespace torrentutils::core {
 
 std::string_view version() noexcept
 {
-    return "1.1.1";
+    return "1.1.2";
 }
 
 } // namespace torrentutils::core

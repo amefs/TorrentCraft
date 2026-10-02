@@ -12,7 +12,7 @@ inline constexpr std::uint32_t kVersionMajor = 1;
 inline constexpr std::uint32_t kVersionMinor = 1;
 
 /** Compile-time patch component of the Core SDK version. */
-inline constexpr std::uint32_t kVersionPatch = 0;
+inline constexpr std::uint32_t kVersionPatch = 2;
 
 /**
  * Returns the Core SDK version in dotted decimal form.
