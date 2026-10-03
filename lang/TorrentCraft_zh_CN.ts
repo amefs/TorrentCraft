@@ -34,8 +34,8 @@
     </message>
     <message>
         <location filename="../src/gui/AboutDialog.ui" line="87"/>
-        <source>Version 1.1.1</source>
-        <translation>版本 1.1.1</translation>
+        <source>Version 1.1.2</source>
+        <translation>版本 1.1.2</translation>
     </message>
     <message>
         <location filename="../src/gui/AboutDialog.ui" line="93"/>
@@ -210,8 +210,8 @@
     </message>
     <message>
         <location filename="../src/gui/AboutDialog.ui" line="291"/>
-        <source>1.1.1</source>
-        <translation>1.1.1</translation>
+        <source>1.1.2</source>
+        <translation>1.1.2</translation>
     </message>
     <message>
         <location filename="../src/gui/AboutDialog.ui" line="296"/>

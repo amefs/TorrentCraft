@@ -113,6 +113,14 @@ void configure_static_linux_qt_platform_theme()
 #endif
 }
 
+#ifndef _WIN32
+[[nodiscard]] bool has_graphical_display()
+{
+    return !qEnvironmentVariableIsEmpty("DISPLAY") ||
+           !qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY");
+}
+#endif
+
 void qt_message_handler(const QtMsgType type, const QMessageLogContext& context,
                         const QString& message)
 {
@@ -241,6 +249,12 @@ try
 {
     if (argc > 1)
     {
+        return torrentcraft::cli::run(argc, argv, std::cout, std::cerr);
+    }
+    if (!has_graphical_display())
+    {
+        std::cerr << "note: no graphical display detected (DISPLAY/WAYLAND_DISPLAY unset); "
+                     "showing CLI usage\n";
         return torrentcraft::cli::run(argc, argv, std::cout, std::cerr);
     }
     return run_gui();

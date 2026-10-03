@@ -33,6 +33,7 @@
 #include <QInputDialog>
 #include <QItemSelectionModel>
 #include <QLabel>
+#include <QLayout>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QMetaObject>
@@ -44,6 +45,7 @@
 #include <QStyleFactory>
 #include <QSysInfo>
 #include <QTableView>
+#include <QTextDocument>
 #include <QTranslator>
 #include <QTreeWidgetItem>
 #include <QUrl>
@@ -859,6 +861,8 @@ MainWindow::MainWindow(GuiLogController* logger, QWidget* parent)
       tracker_model_(std::make_unique<QStandardItemModel>(this)), translator_(new QTranslator(this))
 {
     ui_->setupUi(this);
+    apply_multiline_field_heights();
+    apply_scroll_layout_constraints();
     ui_->btnCreateEditFilterRules->setEnabled(false);
     ui_->btnAdvancedDefaultEditFilterRules->setEnabled(false);
     ui_->cmbAdvancedStyle->addItem(tr("Default"), QString());
@@ -1298,6 +1302,39 @@ MainWindow::~MainWindow()
     logger_->set_failure_callback({});
     task_runner_->cancel();
     delete ui_;
+}
+
+void MainWindow::apply_multiline_field_heights()
+{
+    const auto editor_height = [](const QPlainTextEdit* editor, const int visible_lines) {
+        const auto document_margin = static_cast<int>(editor->document()->documentMargin() * 2.0);
+        return editor->fontMetrics().lineSpacing() * visible_lines + editor->frameWidth() * 2 +
+               document_margin;
+    };
+    for (auto* editor : {ui_->editCreateComment, ui_->editModifyComment, ui_->editCreateWebSeeds,
+                         ui_->editModifyWebSeeds, ui_->editModifyDhtNodes})
+    {
+        editor->setMinimumHeight(editor_height(editor, 1));
+    }
+    for (auto* editor : {ui_->editAdvancedDefaultTrackerTiers, ui_->editAdvancedDefaultWebSeeds})
+    {
+        editor->setMinimumHeight(editor_height(editor, 3));
+    }
+}
+
+void MainWindow::apply_scroll_layout_constraints()
+{
+    const std::initializer_list<QLayout*> layouts{
+        ui_->vboxCreateFile,       ui_->vboxCreateInput,        ui_->vboxCreateOutput,
+        ui_->vboxCreateSettings,   ui_->vboxCreateFields,       ui_->vboxModifyFile,
+        ui_->vboxModifyInput,      ui_->vboxModifyOutput,       ui_->vboxModifyFields,
+        ui_->gridModifyClear,      ui_->formAdvancedConfigFile, ui_->formAdvancedSave,
+        ui_->formAdvancedDefaults, ui_->formAdvancedIo,         ui_->formAdvancedDisplay,
+        ui_->formAdvancedLogging};
+    for (auto* layout : layouts)
+    {
+        layout->setSizeConstraint(QLayout::SetMinimumSize);
+    }
 }
 
 void MainWindow::closeEvent(QCloseEvent* event)
@@ -3407,6 +3444,7 @@ void MainWindow::populate_advanced_configuration()
     const auto style_index = ui_->cmbAdvancedStyle->findData(optional_string(gui.style));
     ui_->cmbAdvancedStyle->setCurrentIndex(style_index < 0 ? 0 : style_index);
     apply_gui_display_preferences(gui);
+    apply_multiline_field_heights();
     ui_->cmbAdvancedDefaultPreset->clear();
     ui_->cmbAdvancedDefaultPreset->addItem(tr("Defaults"), QString());
     for (const auto& [name, settings] : parsed.presets)

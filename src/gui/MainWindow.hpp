@@ -62,6 +62,8 @@ class MainWindow final : public QMainWindow
     void load_tracker_torrent();
     void save_tracker_torrent();
     void apply_language(QAction* action);
+    void apply_multiline_field_heights();
+    void apply_scroll_layout_constraints();
     void apply_memory_working_set_limit();
     void reload_configuration();
     void initialize_configuration();

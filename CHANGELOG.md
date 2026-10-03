@@ -2,6 +2,22 @@
 
 All notable user-visible changes are recorded here.
 
+## [1.1.2] - 2026-10-02
+
+### Fixed
+
+- Fall back to CLI usage when the GUI cannot connect to a display, allowing one binary to serve
+  both graphical and headless environments.
+- Scale Create/Modify multiline editors with the active font, preserve their useful minimum sizes,
+  and allow constrained pages to scroll without compressing controls.
+
+### Verification and release policy
+
+- The GitHub Actions `v1.1.2` tag workflow publishes the release after static Linux/Windows builds,
+  tests, SBOM generation, security audit, and checksum validation pass.
+- Binary signing remains deferred for 1.1.2. SHA-256, provenance, SBOM, security, and LGPL
+  sidecars remain part of the release evidence.
+
 ## [1.1.1] - 2026-09-07
 
 ### Fixed
