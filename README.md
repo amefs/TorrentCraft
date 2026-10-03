@@ -1,31 +1,51 @@
 # TorrentCraft
 
-TorrentCraft is a C++17 toolkit for reading, creating, editing, validating, and verifying
-BitTorrent metadata. It provides:
+[![Documentation](https://img.shields.io/badge/Docs-Read%20the%20Manual-1F8ACB?logo=read-the-docs&style=for-the-badge)](https://amefs.github.io/TorrentCraft/)
 
-- the dependency-free public domain and foundation model;
-- the TorrentUtils Core SDK and installable CMake package;
-- a Qt-free `torrentcraft` command-line application;
-- a Qt Widgets `torrentcraft-gui` desktop application.
+TorrentCraft is a cross-platform BitTorrent tool for creating and managing torrents. It offers a visual desktop app and a command-line interface, sharing the same torrent engine, configuration, presets, and commands.
 
-## Current release
+## Get started
 
-TorrentCraft 1.1.1 is the current maintenance release. It preserves the 1.1.0
-file-filtering features while improving bounded GUI cancellation, cancellable hashing
-performance, and cleanup of interrupted mmap jobs. GitHub Actions publishes the release
-from a validated `v1.1.1` tag with static Linux and Windows CLI/GUI assets plus platform
-support bundles containing checksums, provenance, SBOM, security, and Qt LGPL materials.
+### Command line
+
+Create a torrent from a folder and inspect its metadata:
+
+~~~bash
+torrentcraft create ./my-folder -o ./my-folder.torrent
+torrentcraft inspect ./my-folder.torrent
+~~~
+
+The GUI application can also run every CLI command with the same arguments: pass a command to `torrentcraft-gui` or `torrentcraft-gui.exe` to use CLI functionality without opening the desktop window. The separate CLI binary is smaller and is a good choice for command-line-only systems where disk space matters.
+
+### Desktop app
+
+![TorrentCraft desktop app with presets and torrent creation controls](docs/public/screenshots/Preset.png)
+
+Use the GUI to create, inspect, verify, and edit torrents; manage trackers; and save reusable presets. The GUI is the easiest option for interactive desktop use.
+
+Read the [CLI getting-started guide](https://amefs.github.io/TorrentCraft/cli/getting-started) or the [GUI guide](https://amefs.github.io/TorrentCraft/cli/gui) for command examples and feature details.
+
+## Which release files should I download?
+
+[Download the standalone binaries from GitHub Releases](https://github.com/amefs/TorrentCraft/releases). Each release has Linux x86_64 and Windows x86_64 builds:
+
+| File name | Includes | Best for |
+| --- | --- | --- |
+| `TorrentCraft-<version>-linux-musl-x86_64-gui` | Desktop app and all CLI commands | Most Linux desktop users |
+| `TorrentCraft-<version>-linux-musl-x86_64-cli` | CLI only | Small installations, scripts, and headless systems |
+| `TorrentCraft-<version>-windows-x86_64-gui.exe` | Desktop app and all CLI commands | Most Windows desktop users |
+| `TorrentCraft-<version>-windows-x86_64-cli.exe` | CLI only | PowerShell, Command Prompt, scripts, and headless systems |
+
+Choose the **GUI** for interactive use. It can also run any CLI command, so you do not need the separate CLI binary unless you prefer its smaller size. Choose the **CLI** for terminal-only environments or automation. The matching `TorrentCraft-<version>-<platform>-support` archive (`.tar.gz` for Linux, `.zip` for Windows) is optional for running the binaries; download it alongside the binary if you want the release checksums and verification materials.
 
 ## Features
 
-- V1, V2, and Hybrid torrent metadata.
-- Safe logical paths, metadata editing, tracker tiers, web seeds, and BEP 47 links.
-- Deterministic file ordering and piece-length policies.
-- Atomic creation and save operations.
-- Shared configuration and presets for CLI and GUI.
-- Optional directory file filtering for common operating-system artifacts or custom Glob rules.
-- English and Simplified Chinese user interfaces.
-- Static Linux musl and Windows release builds.
+- Create V1, V2, and Hybrid torrents.
+- Inspect torrent metadata and file trees; verify local files against torrent data.
+- Edit torrent metadata and manage tracker lists.
+- Use shared configuration and presets from either interface.
+- Exclude common system files or define custom Glob filters.
+- English and Simplified Chinese interfaces.
 
 ## Requirements
 
@@ -67,7 +87,7 @@ cmake --install out/build/linux-clang-release \
 A downstream CMake project can consume the installed package:
 
 ~~~cmake
-find_package(TorrentUtilsCore 1.1.1 EXACT CONFIG REQUIRED)
+find_package(TorrentUtilsCore CONFIG REQUIRED)
 target_link_libraries(my_target PRIVATE TorrentUtils::Core)
 ~~~
 
@@ -77,35 +97,16 @@ The public umbrella header is:
 #include <torrentutils/core/core.hpp>
 ~~~
 
-## Command-line and GUI documentation
+## Documentation
 
-Start with the [CLI getting-started guide](docs/cli/getting-started.md).
-The [GUI guide](docs/cli/gui.md) covers creation, inspection, verification,
-metadata, tracker editing, configuration, presets, drag-and-drop, and system
-font and icon integration.
+[Read the online manual](https://amefs.github.io/TorrentCraft/) for CLI commands, GUI workflows, configuration, and presets.
 
-The documentation site can be built locally with Node.js:
+To build the documentation site locally with Node.js:
 
 ~~~bash
 npm install
 npm run docs:build
 ~~~
-
-## Static release builds
-
-The release workflow builds and validates static Linux musl and Windows packages.
-It also produces checksums, provenance, dependency license inventories, SBOMs,
-security reports, and Qt LGPL relinking materials. Release helpers are kept under
-[ci/release](ci/release), while the public workflow definitions are under
-[.github/workflows](.github/workflows).
-
-Static releases are published on the repository's Releases page. The Linux and
-Windows CLI/GUI executables are the only flat assets. Each platform also has one
-support bundle containing its compliance materials, test results, source archive,
-provenance, SBOM, security reports, and `SHA256SUMS`. Download the two executables
-and the matching platform bundle, extract the bundle beside them, and run
-`sha256sum -c SHA256SUMS` (or the equivalent PowerShell hash check) before
-installing a release.
 
 ## Project vocabulary
 
