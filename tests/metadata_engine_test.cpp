@@ -158,6 +158,7 @@ TEST_CASE("given_full_v1_fixture_when_decoded_then_domain_snapshot_is_complete",
     REQUIRE(value.info().files().size() == 1);
     REQUIRE(value.info().files().front().path().to_string() == "test.bin");
     REQUIRE(value.info().files().front().length() == 4);
+    REQUIRE(value.info().layout() == FileLayout::SingleFile);
     REQUIRE(value.info().pieces().piece_length() == 16384);
     REQUIRE(value.info().pieces().v1_piece_hashes().size() == 1);
 
@@ -190,6 +191,7 @@ TEST_CASE("given_v1_multifile_fixture_when_decoded_then_all_paths_and_lengths_ar
     REQUIRE(info.pieces().total_size() == 7);
     REQUIRE(info.pieces().v1_piece_hashes().size() == 1);
     REQUIRE(info.files().size() == 2);
+    REQUIRE(info.layout() == FileLayout::Directory);
     REQUIRE(info.files()[0].path().to_string() == "a.bin");
     REQUIRE(info.files()[0].length() == 3);
     REQUIRE(info.files()[1].path().to_string() == "dir/b.bin");
@@ -419,14 +421,18 @@ TEST_CASE(
     REQUIRE(renamed);
     REQUIRE(renamed.value().info().name() == "renamed.bin");
     REQUIRE(renamed.value().info().files().front().path().to_string() == "renamed.bin");
+    REQUIRE(single.value().info().layout() == FileLayout::SingleFile);
+    REQUIRE(renamed.value().info().layout() == FileLayout::SingleFile);
 
     auto multi = decode_torrent(fixture("valid-v1-multifile.torrent"), MetadataReadMode::Strict);
     REQUIRE(multi);
+    REQUIRE(multi.value().info().layout() == FileLayout::Directory);
     const auto original_paths = multi.value().info().files();
     auto renamed_multi =
         patch_info_identity(multi.value(), {InfoIdentityField::Name, false, "renamed-root", false});
     REQUIRE(renamed_multi);
     REQUIRE(renamed_multi.value().info().name() == "renamed-root");
+    REQUIRE(renamed_multi.value().info().layout() == FileLayout::Directory);
     REQUIRE(renamed_multi.value().info().files().size() == original_paths.size());
     for (std::size_t index = 0; index < original_paths.size(); ++index)
     {
@@ -478,6 +484,9 @@ TEST_CASE("given_v2_fixture_with_piece_layer_when_decoded_then_hash_and_file_tre
     REQUIRE(value.info().pieces().total_size() == 20000);
     REQUIRE(value.info().pieces().v1_piece_hashes().empty());
     REQUIRE(value.info().files().size() == 1);
+    // The info name ("v2 bundle") differs from the single file-tree key, so this is a one-file
+    // directory layout rather than a v2 single-file layout.
+    REQUIRE(value.info().layout() == FileLayout::Directory);
     REQUIRE(value.info().files().front().path().to_string() == "large.bin");
     REQUIRE(require_optional(value.info().files().front().pieces_root()).to_hex() ==
             "a684d57c62ca0d689198aaf1f35cf63bbebc6aff3e75ac7c5c63fe72a9814413");
@@ -499,6 +508,7 @@ TEST_CASE("given_v2_multifile_fixture_when_decoded_then_file_tree_paths_are_mapp
     const auto& info = document.value().info();
     REQUIRE(info.format() == TorrentFormat::V2);
     REQUIRE(info.name() == "multi-v2");
+    REQUIRE(info.layout() == FileLayout::Directory);
     REQUIRE(require_optional(info.info_hashes().v2()).to_hex() ==
             "0b0c2d2d48eac569fa628aa2f22d060489c5e1bf4952b9261e9c169fc665611f");
     REQUIRE(info.pieces().total_size() == 10);

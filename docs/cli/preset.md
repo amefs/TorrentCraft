@@ -4,6 +4,7 @@ Presets are reusable creation configuration templates stored under `presets.<nam
 
 ```text
 torrentcraft preset list|show <name>|add <file>|remove <name> [options]
+torrentcraft preset add --from-torrent <torrent> [--name NAME] [--fields LIST|all] [options]
 ```
 
 ## 1. List & Show Presets
@@ -43,6 +44,42 @@ torrentcraft preset add ./preset_release.json
 
 - The preset name is automatically derived from the filename stem (e.g. `preset_release.json` becomes `release`).
 - If a preset with the same name already exists, add `--force` to overwrite it.
+
+### Import a preset from an existing torrent
+
+You can also create a preset directly from an existing `.torrent` file. TorrentCraft extracts its reusable creation settings and leaves behind content-specific data (torrent name, file list, piece hashes, info hashes, creation date, DHT nodes, and collections).
+
+```bash
+# Import the default reusable settings and name the preset after the file stem
+torrentcraft preset add --from-torrent ./release.torrent
+
+# Preview what would be saved (including full tracker URLs) without writing
+torrentcraft preset add --from-torrent ./release.torrent --dry-run
+
+# Pick specific fields and set a custom preset name
+torrentcraft preset add --from-torrent ./release.torrent --name tracker-a \
+  --fields trackers,piece-size,private,source
+```
+
+| Field | Imported value | Included by default |
+| --- | --- | --- |
+| `trackers` | Announce tiers (`announce-list`, or single `announce`) | Yes |
+| `piece-size` | Fixed `piece length` (must be a power of two from 16 KiB to 16 MiB) | Yes |
+| `private` | `info.private` (`false` when absent) | Yes |
+| `source` | `info.source` (a top-level `source` field is ignored) | Yes |
+| `web-seeds` | HTTP/HTTPS `url-list` entries | Yes |
+| `format` | `v1`, `v2`, or `hybrid` as declared by the torrent | Yes |
+| `comment` | Top-level `comment` | No |
+| `created-by` | Top-level `created by` | No |
+
+How importing works:
+
+- **Unselected fields** are omitted from the saved preset, so they continue to inherit from `default_preset`, global config defaults, and built-in defaults.
+- **Missing or unsupported fields** in the torrent (for example, no trackers or web seeds, unreadable text, or a non-standard piece size) are skipped with a warning—even if you listed them in `--fields`. The command fails only if none of the requested fields can be imported.
+- **Non-standard metadata is tolerated**: unknown or `x-*` extension keys are ignored, invalid tracker or web seed URLs are skipped while valid ones are kept, and non-UTF-8 text simply makes that text field unavailable (each reported as a warning). Only unreadable or structurally broken torrents (corrupt bencode, invalid `info` dictionary or piece hashes, unsafe file paths) are rejected.
+- **`--json` output** returns the saved `settings` along with `load_warnings` and `skipped_fields`.
+- **Passkeys are preserved**: tracker URLs (including private passkeys) are saved as-is into `torrentcraft.json`.
+- **Desktop GUI**: You can do the same in the GUI via **Preset → Import From File**, pick a `.torrent` file, and check the fields you want to keep in the **Import from torrent** dialog (see [Desktop GUI](./gui#preset-management-workflow)).
 
 ## 3. Remove a Preset (`remove`)
 
@@ -91,6 +128,9 @@ mode and patterns.
 | --- | --- |
 | `--config PATH` | Custom path to `torrentcraft.json`. |
 | `--force` | Force overwrite an existing preset when adding. |
+| `--from-torrent PATH` | Add a preset from a torrent template's reusable settings. |
+| `--name NAME` | Preset name for `add` (default: file name stem). |
+| `--fields LIST\|all` | Comma-separated template fields to adopt with `--from-torrent`. |
 | `--dry-run` | Validate changes without writing to disk. |
 | `--backup` | Create a `.bak` backup copy before writing. |
 | `--json` | Emit structured JSON output. |

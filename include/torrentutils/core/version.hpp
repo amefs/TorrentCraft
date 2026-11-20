@@ -9,10 +9,10 @@ namespace torrentutils::core {
 inline constexpr std::uint32_t kVersionMajor = 1;
 
 /** Compile-time minor component of the Core SDK version. */
-inline constexpr std::uint32_t kVersionMinor = 1;
+inline constexpr std::uint32_t kVersionMinor = 2;
 
 /** Compile-time patch component of the Core SDK version. */
-inline constexpr std::uint32_t kVersionPatch = 2;
+inline constexpr std::uint32_t kVersionPatch = 0;
 
 /**
  * Returns the Core SDK version in dotted decimal form.

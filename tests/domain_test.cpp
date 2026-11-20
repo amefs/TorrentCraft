@@ -301,6 +301,45 @@ TEST_CASE("given_format_specific_piece_layouts_when_info_created_then_invariants
     REQUIRE(hybrid.value().info_hashes().v2().has_value());
 }
 
+TEST_CASE("given_single_file_or_directory_shape_when_info_created_then_layout_is_derived",
+          "[unit][domain][info][layout]")
+{
+    auto v1_hashes = InfoHashes::create(TorrentFormat::V1, sha1(1), std::nullopt);
+    auto v1_pieces = PieceInfo::create(TorrentFormat::V1, 16, 16, {sha1(2)});
+    REQUIRE(v1_hashes.has_value());
+    REQUIRE(v1_pieces.has_value());
+
+    auto single_file =
+        TorrentInfo::create("payload.bin", TorrentFormat::V1, std::move(v1_hashes).value(),
+                            std::move(v1_pieces).value(), {v1_file("payload.bin", 16)});
+    REQUIRE(single_file.has_value());
+    REQUIRE(single_file.value().layout() == FileLayout::SingleFile);
+
+    // A directory holding a single payload file whose path differs from the info name stays a
+    // directory layout rather than collapsing to a single-file layout.
+    auto one_file_hashes = InfoHashes::create(TorrentFormat::V1, sha1(1), std::nullopt);
+    auto one_file_pieces = PieceInfo::create(TorrentFormat::V1, 16, 16, {sha1(2)});
+    REQUIRE(one_file_hashes.has_value());
+    REQUIRE(one_file_pieces.has_value());
+    auto one_file_directory =
+        TorrentInfo::create("payload", TorrentFormat::V1, std::move(one_file_hashes).value(),
+                            std::move(one_file_pieces).value(), {v1_file("inner.bin", 16)});
+    REQUIRE(one_file_directory.has_value());
+    REQUIRE(one_file_directory.value().layout() == FileLayout::Directory);
+
+    REQUIRE(v1_info("payload").layout() == FileLayout::Directory);
+
+    auto v2_hashes = InfoHashes::create(TorrentFormat::V2, std::nullopt, sha256(3));
+    auto v2_pieces = PieceInfo::create(TorrentFormat::V2, kV2PieceLength, 16);
+    REQUIRE(v2_hashes.has_value());
+    REQUIRE(v2_pieces.has_value());
+    auto v2_single =
+        TorrentInfo::create("payload.bin", TorrentFormat::V2, std::move(v2_hashes).value(),
+                            std::move(v2_pieces).value(), {v2_file("payload.bin", 16, 4)});
+    REQUIRE(v2_single.has_value());
+    REQUIRE(v2_single.value().layout() == FileLayout::SingleFile);
+}
+
 TEST_CASE("given_unknown_format_or_short_v2_piece_length_when_piece_info_created_then_rejected",
           "[unit][domain][info]")
 {

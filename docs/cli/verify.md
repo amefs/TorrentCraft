@@ -21,6 +21,17 @@ torrentcraft verify ./payload.torrent ./payload \
   --verify-memory 64MiB
 ```
 
+## Content Input Follows the Torrent File Layout
+
+`verify` matches your `<content>` path against the file layout recorded in the torrent, rather than the number of files inside it:
+
+- A **single-file** torrent expects `<content>` to point directly to that local file.
+- A **directory** torrent expects `<content>` to point to the local folder that holds the torrent's files—*even if that folder contains only a single file*.
+
+If the path type does not match the torrent's layout (for example, passing a folder to a single-file torrent, or passing an individual file inside a directory torrent), the command rejects it with error `verify.content_root` and exit code `3`. TorrentCraft never guesses, strips, or rewrites the path you provide. If the target path simply does not exist on disk yet, `verify` still completes normally and reports the files as *Missing* (exit code `6`).
+
+Trailing path separators on `<content>` are normalized automatically (so `./payload/` and `./payload` behave identically), while passing the filesystem root itself (`/` or `C:\`) is rejected. Individual files inside the torrent are opened through standard OS path resolution, matching qBittorrent, libtorrent, and Transmission: symlinks pointing to regular files are followed and verified, dangling symlinks are reported as *Missing*, and special non-regular files (such as device nodes or sockets) fail validation with `not_regular_file`.
+
 ## Per-File Results & Scripting Behavior
 
 Verification inspects data integrity per logical file:

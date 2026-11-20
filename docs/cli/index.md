@@ -13,10 +13,10 @@ If you prefer a graphical interface, see [Desktop GUI](./gui).
 | [`tree`](./tree) | Visualize the logical file tree structure stored inside a torrent. |
 | [`verify`](./verify) | Check local files and directories against a torrent to ensure data integrity. |
 | [`validate`](./validate) | Verify that a `.torrent` file is well-formed and compliant without checking payload data. |
-| [`tracker`](./tracker) | List, add, remove, or replace tracker URLs and tier structures. |
+| [`tracker`](./tracker) | List, add, remove, replace, or rewrite tracker URLs and tier structures. |
 | [`metadata`](./metadata) | View, update, or clear top-level metadata and identity fields (comment, creator, source, etc.). |
 | [`config`](./config) | Inspect, initialize, and modify the shared `torrentcraft.json` configuration file. |
-| [`preset`](./preset) | Manage named creation presets for quickly applying reusable settings. |
+| [`preset`](./preset) | Manage named creation presets or import reusable settings from an existing torrent. |
 | [`completion`](./completion) | Generate shell autocompletion scripts for Bash, Zsh, or Fish. |
 
 > **Smart Path Inference**: If the first argument passed to `torrentcraft` is a file or directory path rather than a command name, TorrentCraft will intelligently infer what you want to do (e.g. running `torrentcraft sample.torrent` automatically inspects it). See [Path Inference](./path-inference) for details.

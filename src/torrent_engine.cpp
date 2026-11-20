@@ -1,4 +1,5 @@
 #include "libtorrent_adapter.hpp"
+#include "utf8.hpp"
 
 #include <cstdint>
 #include <string_view>
@@ -8,72 +9,10 @@
 namespace torrentutils::core {
 namespace {
 
-[[nodiscard]] bool is_valid_utf8(const std::string& value) noexcept
-{
-    const auto* bytes = reinterpret_cast<const unsigned char*>(value.data());
-    std::size_t index = 0;
-    while (index < value.size())
-    {
-        const auto first = bytes[index];
-        if (first <= 0x7FU)
-        {
-            ++index;
-            continue;
-        }
-
-        std::size_t count = 0;
-        std::uint32_t code_point = 0;
-        std::uint32_t minimum = 0;
-        if ((first & 0xE0U) == 0xC0U)
-        {
-            count = 2;
-            code_point = first & 0x1FU;
-            minimum = 0x80;
-        }
-        else if ((first & 0xF0U) == 0xE0U)
-        {
-            count = 3;
-            code_point = first & 0x0FU;
-            minimum = 0x800;
-        }
-        else if ((first & 0xF8U) == 0xF0U)
-        {
-            count = 4;
-            code_point = first & 0x07U;
-            minimum = 0x10000;
-        }
-        else
-        {
-            return false;
-        }
-
-        if (index + count > value.size())
-        {
-            return false;
-        }
-        for (std::size_t offset = 1; offset < count; ++offset)
-        {
-            const auto next = bytes[index + offset];
-            if ((next & 0xC0U) != 0x80U)
-            {
-                return false;
-            }
-            code_point = (code_point << 6U) | (next & 0x3FU);
-        }
-        if (code_point < minimum || code_point > 0x10FFFFU ||
-            (code_point >= 0xD800U && code_point <= 0xDFFFU))
-        {
-            return false;
-        }
-        index += count;
-    }
-    return true;
-}
-
 void append_invalid_utf8_issue(const std::optional<std::string>& text, const char* field,
                                std::vector<FieldIssue>& issues)
 {
-    if (text && !is_valid_utf8(*text))
+    if (text && !detail::is_valid_utf8(*text))
     {
         issues.push_back({field, "must contain valid UTF-8"});
     }

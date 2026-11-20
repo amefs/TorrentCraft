@@ -2,7 +2,7 @@
 
 [![Documentation](https://img.shields.io/badge/Docs-Read%20the%20Manual-1F8ACB?logo=read-the-docs&style=for-the-badge)](https://amefs.github.io/TorrentCraft/)
 
-TorrentCraft is a cross-platform BitTorrent tool for creating and managing torrents. It offers a visual desktop app and a command-line interface, sharing the same torrent engine, configuration, presets, and commands.
+TorrentCraft is a cross-platform BitTorrent tool for creating and managing torrents. It offers a visual desktop app and a command-line interface, sharing the same torrent engine, configuration, presets, tracker editing, and commands.
 
 ## Get started
 
@@ -21,7 +21,7 @@ The GUI application can also run every CLI command with the same arguments: pass
 
 ![TorrentCraft desktop app with presets and torrent creation controls](docs/public/screenshots/Preset.png)
 
-Use the GUI to create, inspect, verify, and edit torrents; manage trackers; and save reusable presets. The GUI is the easiest option for interactive desktop use.
+Use the GUI to create, inspect, verify, and edit torrents; replace or rewrite trackers; and import or save reusable presets. The GUI is the easiest option for interactive desktop use.
 
 Read the [CLI getting-started guide](https://amefs.github.io/TorrentCraft/cli/getting-started) or the [GUI guide](https://amefs.github.io/TorrentCraft/cli/gui) for command examples and feature details.
 
@@ -41,8 +41,10 @@ Choose the **GUI** for interactive use. It can also run any CLI command, so you 
 ## Features
 
 - Create V1, V2, and Hybrid torrents.
-- Inspect torrent metadata and file trees; verify local files against torrent data.
-- Edit torrent metadata and manage tracker lists.
+- Inspect torrent metadata and file trees; verify local files using the layout recorded in the torrent.
+- Edit torrent metadata and manage, replace, or rewrite tracker URLs in ordered batches.
+- Import reusable creation settings from an existing torrent or save named presets.
+- Cancel long-running CLI create, verify, and tracker rewrite operations with Ctrl+C cleanup.
 - Use shared configuration and presets from either interface.
 - Exclude common system files or define custom Glob filters.
 - English and Simplified Chinese interfaces.
@@ -71,9 +73,9 @@ cmake --build --preset linux-clang-debug
 ctest --preset linux-clang-debug
 ~~~
 
-Other presets cover Clang and GCC release builds, sanitizers, coverage, the Qt GUI,
-and MSVC builds on Windows. The presets enable warnings as errors and include the
-install-tree consumer test.
+Other presets cover Clang and GCC release builds, ASan/UBSan, TSan, coverage,
+libFuzzer, the Qt GUI, and MSVC builds on Windows. The presets enable warnings as
+errors and include the install-tree consumer test.
 
 To install the SDK:
 

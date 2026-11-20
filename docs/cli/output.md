@@ -41,6 +41,8 @@ Adding `--json` produces structured JSON envelopes:
 }
 ```
 
+If a filesystem path contains non-UTF-8 bytes (for example on Linux), invalid byte sequences are replaced with `U+FFFD` when serializing JSON, ensuring `--json` output is always valid UTF-8 and never fails after an operation has already finished.
+
 ## File-filter reports
 
 For a directory create, both a successful write and `--dry-run` expose the entries excluded
@@ -77,3 +79,10 @@ TorrentCraft uses stable, standardized exit codes categorized similarly to HTTP 
 | `8` | **I/O Error** | Disk read/write failure or unreadable file system block. |
 | `9` | **Resource Limit** | Process memory limit exceeded or worker budget exhausted. |
 | `10` | **Internal Error** | Unhandled internal exception or unsupported operation. |
+
+## Cancelling with Ctrl+C
+
+Pressing **Ctrl+C** during `create`, `verify`, or `tracker rewrite` stops the operation cleanly at the next safe checkpoint, removes any temporary output files, and exits with code `7`. An interrupted `tracker rewrite` keeps the files it has already finished updating and includes `"cancelled": true` (with `"ok": false`) in `--json` output. Press **Ctrl+C** a second time to force an immediate exit.
+
+- **Interactive Windows terminals**: Always run CLI commands with `torrentcraft.exe`. Although `torrentcraft-gui.exe` also accepts CLI arguments, it is linked as a GUI subsystem binary—the shell returns to the prompt without waiting for it and does not forward Ctrl+C. If you do run a command through `torrentcraft-gui.exe`, press **Ctrl+Break** to cancel (in PowerShell with PSReadLine, Ctrl+Break also enters the script debugger; type `c` and press Enter to leave it).
+- **Calling from scripts on Windows**: Automation scripts (such as Python `subprocess`) should always invoke `torrentcraft.exe`. Because `torrentcraft-gui.exe` reattaches its streams to the console window, pipe capture and `--json` parsing are not reliable with the GUI binary. To cancel a running `torrentcraft.exe` process from a script on Windows, launch it in a new process group (`CREATE_NEW_PROCESS_GROUP`), send `CTRL_BREAK_EVENT`, and wait for exit code `7`.

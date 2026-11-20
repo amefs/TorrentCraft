@@ -34,8 +34,8 @@
     </message>
     <message>
         <location filename="../src/gui/AboutDialog.ui" line="87"/>
-        <source>Version 1.1.2</source>
-        <translation>Version 1.1.2</translation>
+        <source>Version 1.2.0</source>
+        <translation>Version 1.2.0</translation>
     </message>
     <message>
         <location filename="../src/gui/AboutDialog.ui" line="93"/>
@@ -210,8 +210,8 @@
     </message>
     <message>
         <location filename="../src/gui/AboutDialog.ui" line="291"/>
-        <source>1.1.2</source>
-        <translation>1.1.2</translation>
+        <source>1.2.0</source>
+        <translation>1.2.0</translation>
     </message>
     <message>
         <location filename="../src/gui/AboutDialog.ui" line="296"/>
@@ -659,16 +659,6 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="555"/>
-        <source>Select torrent folder</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="557"/>
-        <source>Select output folder</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="../src/gui/MainWindow.cpp" line="583"/>
         <source>Select configuration file</source>
         <translation type="unfinished"></translation>
@@ -955,91 +945,6 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1511"/>
-        <source>Torrent folder loaded; select one file for tracker editing.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1521"/>
-        <source>Loading tracker list</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1527"/>
-        <source>The tracker task did not return a result.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1548"/>
-        <source>Tracker list loaded</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1595"/>
-        <source>No torrent files</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1596"/>
-        <source>The selected folder contains no torrent files.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1609"/>
-        <source>Converting tracker files</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1673"/>
-        <source>Tracker batch complete</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1674"/>
-        <source>Processed %1 torrent file(s)%2.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1676"/>
-        <source> No files were written.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1684"/>
-        <source>No torrent loaded</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1685"/>
-        <source>Load a torrent file before converting trackers.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1717"/>
-        <source>No tracker edit result was produced.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1727"/>
-        <source>Tracker changes require a rebuild. No file was written.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1732"/>
-        <source>Tracker changes are valid; dry run wrote nothing.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1736"/>
-        <source>No tracker save result was produced.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1745"/>
-        <source>Tracker torrent saved</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="../src/gui/MainWindow.cpp" line="1755"/>
         <source>Cancellation requested</source>
         <translation type="unfinished"></translation>
@@ -1121,8 +1026,13 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="2124"/>
-        <source>JSON files (*.json);;All files (*)</source>
+        <location filename="../src/gui/MainWindow.cpp"/>
+        <source>Presets and torrents (*.json *.torrent);;JSON files (*.json);;Torrent files (*.torrent);;All files (*)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.cpp"/>
+        <source>The torrent import task did not return a result.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1223,26 +1133,6 @@
         <translation>Torrent files (*.torrent)</translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1740"/>
-        <source>Filename</source>
-        <translation>Filename</translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1740"/>
-        <source>Size</source>
-        <translation>Size</translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1740"/>
-        <source>Status</source>
-        <translation>Status</translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1754"/>
-        <source>Unavailable</source>
-        <translation>Unavailable</translation>
-    </message>
-    <message>
         <location filename="../src/gui/MainWindow.cpp" line="2684"/>
         <source>pieces/s</source>
         <translation>pieces/s</translation>
@@ -1266,7 +1156,6 @@
     <message><source>DHT nodes</source><translation>DHT nodes</translation></message>
     <message><source>Trackers</source><translation>Trackers</translation></message>
     <message><source>No editable fields changed.</source><translation>No editable fields changed.</translation></message>
-
     <message>
         <location filename="../src/gui/MainWindow.cpp" line="592"/>
         <source>Defaults</source>
@@ -1338,15 +1227,6 @@ Filtered %1 entries (%2 bytes):</translation>
     </message>
     <message><source>Source</source><translation>Source</translation></message>
     <message><source>Tracker changes require re-creating the torrent.</source><translation>Tracker changes require re-creating the torrent.</translation></message>
-    <message>
-        <source>
-
-Failed %1 file(s):</source>
-        <translation>
-
-Failed %1 file(s):</translation>
-    </message>
-    <message><source>Tracker batch completed with errors</source><translation>Tracker batch completed with errors</translation></message>
 </context>
 <context>
     <name>NotificationDialog</name>
@@ -1388,6 +1268,107 @@ Failed %1 file(s):</translation>
         <location filename="../src/gui/PresetPreviewDialog.cpp" line="10"/>
         <source>Preset preview: %1</source>
         <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>TemplateFieldDialog</name>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Import from torrent: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Select the settings to adopt as a preset. Unselected settings keep the default values. Name, files, piece hashes and creation date are never imported.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Trackers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Piece size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Private</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Source</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Web seeds</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Format</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Comment</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Created by</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Tier %1: %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>%1 KiB</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Yes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>No</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Not present in this torrent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Unsupported piece size (%1 bytes); must be a power of two from 16 KiB to 16 MiB</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Present but unreadable in this torrent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Ignored non-standard metadata: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>%1: ignored %n invalid entries</source>
+        <translation>
+            <numerusform>%1: ignored %n invalid entry</numerusform>
+            <numerusform>%1: ignored %n invalid entries</numerusform>
+        </translation>
     </message>
 </context>
 <context>
@@ -1978,6 +1959,12 @@ Failed %1 file(s):</translation>
     <message>
         <location filename="../src/gui/MainWindow.ui" line="729"/>
         <location filename="../src/gui/MainWindow.ui" line="740"/>
+        <source>Strict</source>
+        <translation>Strict</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui" line="729"/>
+        <location filename="../src/gui/MainWindow.ui" line="740"/>
         <source>Reject leniently loaded torrents</source>
         <translation>Reject leniently loaded torrents</translation>
     </message>
@@ -2145,13 +2132,34 @@ Failed %1 file(s):</translation>
     </message>
     <message>
         <location filename="../src/gui/MainWindow.ui" line="783"/>
-        <source>Select content directory to verify</source>
-        <translation>Select content directory to verify</translation>
+        <source>Select content to verify</source>
+        <translation>Select content to verify</translation>
     </message>
     <message>
         <location filename="../src/gui/MainWindow.ui" line="788"/>
-        <source>Content directory to verify</source>
-        <translation>Content directory to verify</translation>
+        <source>Content to verify</source>
+        <translation>Content to verify</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui" line="804"/>
+        <source>Select the single content file for a single-file torrent.</source>
+        <translation>Select the single content file for a single-file torrent.</translation>
+    </message>
+    <message>
+        <source>Select content file</source>
+        <translation>Select content file</translation>
+    </message>
+    <message>
+        <source>Content layout mismatch</source>
+        <translation>Content layout mismatch</translation>
+    </message>
+    <message>
+        <source>The loaded torrent uses a single-file layout. Select the matching content file, not a folder.</source>
+        <translation>The loaded torrent uses a single-file layout. Select the matching content file, not a folder.</translation>
+    </message>
+    <message>
+        <source>The loaded torrent uses a directory layout. Select the matching content folder, not a file.</source>
+        <translation>The loaded torrent uses a directory layout. Select the matching content folder, not a file.</translation>
     </message>
     <message>
         <location filename="../src/gui/MainWindow.ui" line="808"/>
@@ -2569,6 +2577,41 @@ Failed %1 file(s):</translation>
     <message><source>Interface style</source><translation>Interface style</translation></message>
     <message><source>Font:</source><translation>Font:</translation></message>
     <message><source>Interface font</source><translation>Interface font</translation></message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui"/>
+        <source>Include subfolders</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui"/>
+        <source>Also list torrents in subfolders; output folders mirror the subfolder layout</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui"/>
+        <source>Replace list</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui"/>
+        <source>Replace every torrent&apos;s tracker list with the list below</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui"/>
+        <source>Drop a folder here or click Select folder</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui"/>
+        <source>Rewrite (find and replace)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui"/>
+        <source>Find and replace text in each torrent&apos;s own tracker URLs, keeping passkeys</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>FilterRulesDialog</name>
@@ -2599,5 +2642,337 @@ Failed %1 file(s):</translation>
     <message><source>License text</source><translation>License text</translation></message>
     <message><source>License: %1</source><translation>License: %1</translation></message>
     <message><source>Close</source><translation>Close</translation></message>
+</context>
+<context>
+    <name>TrackerRewritePanel</name>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Preview all</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Check every listed torrent and show the result in the Status column</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Tracker rewrite preview</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Unchanged</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Changed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Merged (duplicate)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Invalid</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Tier</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Original URL</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Result</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Status</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Select a torrent in the list below to preview the rewrite.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Preview: %1 (enter valid rules to see the result)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Preview: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>%1: %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Rules run top to bottom. With .* on, $1 inserts a group.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Rules apply from top to bottom. With .* on, Find is a regular expression and $1 inserts a captured group.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>+ Add rule</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Add another find and replace rule</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>%1.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Find</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Find text for rule %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Replace</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Replacement for rule %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Match case</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Match case for rule %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Use regular expression</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Use regular expression for rule %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Remove rule</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Remove rule %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Rule %1: %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>TrackerPage</name>
+    <message>
+        <source>Tier</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Tracker</source>
+        <translation type="unfinished">Tracker</translation>
+    </message>
+    <message>
+        <source>Select torrent folder</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select output folder</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ready</source>
+        <translation>Ready</translation>
+    </message>
+    <message>
+        <source>Invalid tracker list</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Loading torrent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rebuild required</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Preview</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Torrent folder loaded; select one file for tracker editing.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Loading tracker list</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The tracker task did not return a result.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Tracker list loaded</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No torrent files</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The selected folder contains no torrent files.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Converting tracker files</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Tracker batch complete</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source> No files were written.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No torrent loaded</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Load a torrent file before converting trackers.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No tracker edit result was produced.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Tracker changes require a rebuild. No file was written.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Tracker changes are valid; dry run wrote nothing.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No tracker save result was produced.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Tracker torrent saved</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Filename</source>
+        <translation>Filename</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>Size</translation>
+    </message>
+    <message>
+        <source>Status</source>
+        <translation>Status</translation>
+    </message>
+    <message>
+        <source>Unavailable</source>
+        <translation>Unavailable</translation>
+    </message>
+    <message>
+        <source>
+
+Failed %1 file(s):</source>
+        <translation>
+
+Failed %1 file(s):</translation>
+    </message>
+    <message>
+        <source>
+- …and %1 more</source>
+        <translation>
+- …and %1 more</translation>
+    </message>
+    <message><source>Tracker batch completed with errors</source><translation>Tracker batch completed with errors</translation></message>
+    <message>
+        <source>Invalid rewrite rules</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Enter at least one valid rewrite rule.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Will change (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Updated</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No change</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Failed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Processed %1 torrent file(s); %2 changed.%3</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Will fail</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Previewing tracker rewrite</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rewrite preview: %1 of %2 torrent(s) would change, %3 would fail.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

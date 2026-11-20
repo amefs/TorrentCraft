@@ -15,8 +15,8 @@ TorrentCraft 是一套现代化、高性能的 BitTorrent 种子制作与管理�
 - **查看与浏览（Inspect & Tree）**：无需下载或读取原始数据，即可秒级解析种子元数据、Info Hash（SHA-1 / SHA-256）及层级折叠的文件目录树。
 - **内容完整性校验（Verify）**：高效比对本地文件与种子内容是否一致，支持多线程并发哈希计算与内存占用限制。
 - **种子格式校验（Validate）**：快速检查种子文件本身的语法正确性与规范合规性。
-- **安全修改元数据与 Tracker（Modify & Tracker）**：支持在不重新哈希文件的情况下，安全更新 Tracker 服务器列表与层级、注释、发布者信息、Web Seed 等；内置自动备份与 Dry-run（试运行）防错机制。
-- **统一配置与预设模板（Config & Presets）**：可将常用的制作参数（如常用 Tracker 列表、Piece 大小、私有种子标记等）保存为命名预设，随时一键调用。
+- **安全修改元数据与 Tracker（Modify & Tracker）**：无需重新计算文件哈希，即可安全更新 Tracker 列表与层级、注释、制作者、Web Seed 等信息；支持按规则批量改写 Tracker 域名并保留每个种子各自的 passkey，内置自动备份与试运行（Dry Run）保护。
+- **统一配置与预设模板（Config & Presets）**：可将常用的制作参数（如 Tracker 列表、分块大小、私有标记、文件过滤规则等）保存为命名预设，也支持直接从现有 `.torrent` 种子中提取设置并保存为预设。
 
 ## 快速导航
 
@@ -28,6 +28,6 @@ TorrentCraft 是一套现代化、高性能的 BitTorrent 种子制作与管理�
 | **创建制作新种子** | [创建种子](/zh/cli/create) |
 | **查看种子信息或打印文件树** | [查看种子](/zh/cli/inspect) · [打印文件树](/zh/cli/tree) |
 | **比对本地文件与种子完整性** | [验证内容](/zh/cli/verify) |
-| **批量添加、删除或替换 Tracker** | [管理 Tracker](/zh/cli/tracker) |
+| **添加、替换或批量改写 Tracker 地址（保留 passkey）** | [管理 Tracker](/zh/cli/tracker) |
 | **修改种子的元数据字段** | [编辑元数据](/zh/cli/metadata) |
-| **管理预设模板与全局设置** | [管理预设](/zh/cli/preset) · [管理配置](/zh/cli/config) |
+| **管理预设、从种子导入预设或修改全局配置** | [管理预设](/zh/cli/preset) · [管理配置](/zh/cli/config) |

@@ -14,6 +14,10 @@
 #include <utility>
 #include <vector>
 
+#ifdef Q_OS_LINUX
+#include <xcb/xcb.h>
+#endif
+
 #ifdef _WIN32
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -68,11 +72,14 @@ void enable_virtual_terminal_output(const DWORD standard_handle)
     }
 }
 
-void prepare_cli_console()
+/** Returns whether the process attached to its parent shell's console. */
+[[nodiscard]] bool prepare_cli_console()
 {
+    bool attached_to_parent = false;
     if (::GetConsoleOutputCP() == 0)
     {
-        if (!::AttachConsole(ATTACH_PARENT_PROCESS))
+        attached_to_parent = ::AttachConsole(ATTACH_PARENT_PROCESS) != 0;
+        if (!attached_to_parent)
         {
             ::AllocConsole();
         }
@@ -90,6 +97,7 @@ void prepare_cli_console()
         std::cout.clear();
         std::cerr.clear();
     }
+    return attached_to_parent;
 }
 
 void finish_cli_console()
@@ -114,10 +122,51 @@ void configure_static_linux_qt_platform_theme()
 }
 
 #ifndef _WIN32
+// The Linux release GUI links only Qt's XCB platform plugin. A reachable
+// X11/XWayland server is therefore required even when WAYLAND_DISPLAY is set,
+// so the XCB probe is never skipped on Linux. Other non-Windows platforms keep
+// the environment-variable based check.
 [[nodiscard]] bool has_graphical_display()
 {
+#ifdef Q_OS_LINUX
+    const auto display = qgetenv("DISPLAY");
+    if (display.isEmpty())
+    {
+        return false;
+    }
+
+    int screen{};
+    auto* connection = xcb_connect(display.constData(), &screen);
+    if (connection == nullptr)
+    {
+        return false;
+    }
+    const auto connected = xcb_connection_has_error(connection) == 0;
+    xcb_disconnect(connection);
+    return connected;
+#else
     return !qEnvironmentVariableIsEmpty("DISPLAY") ||
            !qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY");
+#endif
+}
+
+void report_unavailable_display()
+{
+#ifdef Q_OS_LINUX
+    if (qEnvironmentVariableIsEmpty("DISPLAY"))
+    {
+        std::cerr << "note: torrentcraft-gui needs a reachable X11/XCB display but DISPLAY is "
+                     "unset; showing CLI usage\n";
+    }
+    else
+    {
+        std::cerr << "note: torrentcraft-gui needs a reachable X11/XCB display but the one in "
+                     "DISPLAY is unreachable; showing CLI usage\n";
+    }
+#else
+    std::cerr << "note: no graphical display detected (DISPLAY/WAYLAND_DISPLAY unset); "
+                 "showing CLI usage\n";
+#endif
 }
 #endif
 
@@ -213,7 +262,9 @@ try
         return run_gui();
     }
 
-    prepare_cli_console();
+    // The shell does not wait for this GUI-subsystem program, so it keeps reading keys and
+    // Ctrl+C never reaches us; long operations tell the user to use Ctrl+Break instead.
+    torrentcraft::cli::set_console_shared_with_shell(prepare_cli_console());
     torrentcraft::cli::initialize_console_output();
 
     std::vector<std::string> arguments;
@@ -253,8 +304,7 @@ try
     }
     if (!has_graphical_display())
     {
-        std::cerr << "note: no graphical display detected (DISPLAY/WAYLAND_DISPLAY unset); "
-                     "showing CLI usage\n";
+        report_unavailable_display();
         return torrentcraft::cli::run(argc, argv, std::cout, std::cerr);
     }
     return run_gui();

@@ -243,8 +243,7 @@ void parse_piece_size(const Json& object, CreationSettingsPatch& output,
         output.piece_size = PieceSizeSetting{};
         return;
     }
-    if (kib < static_cast<std::int64_t>(kMinimumPieceSizeKib) ||
-        kib > static_cast<std::int64_t>(kMaximumPieceSizeKib) || (kib & (kib - 1)) != 0)
+    if (kib < 0 || !is_supported_fixed_piece_size_kib(static_cast<std::uint64_t>(kib)))
     {
         issues.push_back(
             {prefix + ".piece_size", "must be a power of two between 16 and 16384 KiB"});
@@ -554,6 +553,11 @@ void append_legacy_encoding_diagnostic(const Json& object,
 }
 
 } // namespace
+
+bool is_supported_fixed_piece_size_kib(const std::uint64_t kib) noexcept
+{
+    return kib >= kMinimumPieceSizeKib && kib <= kMaximumPieceSizeKib && (kib & (kib - 1U)) == 0U;
+}
 
 std::optional<std::uint64_t> parse_memory_size(const std::string_view value)
 {

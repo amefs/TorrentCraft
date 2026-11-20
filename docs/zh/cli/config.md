@@ -16,7 +16,7 @@ torrentcraft config path|show|init|get <key>|set <key> <value> [options]
    - **Linux / macOS**：`$XDG_CONFIG_HOME/torrentcraft/torrentcraft.json`（未设置 XDG 时使用 `$HOME/.config/torrentcraft/torrentcraft.json`）
    - **Windows**：`%APPDATA%\torrentcraft\torrentcraft.json`
 
-显式指定的路径或已发现的配置文件具有权威性。如果文件中存在格式错误或未知字段，命令会立即报错提示，绝不会静默忽略或回退。
+显式指定的路径或已发现的配置文件具有权威性。如果文件中存在格式错误或未知字段，命令会立即报错提示，绝不会静默忽略或回退。配置文件大小上限为 **1 MiB**（写入前会按格式化缩进后的实际文本检查大小，超出上限的修改会被直接拒绝，不会写出之后无法加载的文件）。
 
 ## 常用操作
 

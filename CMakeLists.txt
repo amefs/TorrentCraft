@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(TorrentUtilsCore VERSION 1.1.2 LANGUAGES CXX)
+project(TorrentUtilsCore VERSION 1.2.0 LANGUAGES CXX)
 
 if(WIN32)
     file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/generated")
@@ -13,6 +13,12 @@ endif()
 option(
     TORRENTUTILS_BUILD_GUI
     "Build the TorrentCraft Qt Widgets GUI"
+    OFF
+)
+
+option(
+    TORRENTUTILS_BUILD_FUZZERS
+    "Build libFuzzer targets (Clang only; use the linux-clang-fuzz preset)"
     OFF
 )
 
@@ -107,7 +113,7 @@ target_include_directories(
 )
 torrentutils_set_project_warnings(torrentutils_foundation)
 
-add_library(torrentutils_domain STATIC src/domain.cpp src/file_filter.cpp)
+add_library(torrentutils_domain STATIC src/domain.cpp src/file_filter.cpp src/utf8.cpp)
 add_library(TorrentUtils::Domain ALIAS torrentutils_domain)
 
 set_target_properties(
@@ -139,6 +145,7 @@ add_library(
         src/torrent_engine.cpp
         src/torrent_engine_fault_injection.cpp
         src/tracker_engine.cpp
+        src/tracker_rewrite.cpp
         src/verification_progress_publisher.cpp
         src/verification_admission_controller.cpp
         src/verification_resource_budget.cpp
@@ -164,6 +171,7 @@ target_include_directories(
 find_package(LibtorrentRasterbar CONFIG REQUIRED)
 find_package(indicators CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(re2 CONFIG REQUIRED)
 target_link_libraries(
     torrentutils_core
     PUBLIC
@@ -172,6 +180,7 @@ target_link_libraries(
         "$<INSTALL_INTERFACE:LibtorrentRasterbar::torrent-rasterbar>"
     PRIVATE
         "$<BUILD_INTERFACE:nlohmann_json::nlohmann_json>"
+        re2::re2
 )
 torrentutils_set_project_warnings(torrentutils_core)
 
@@ -180,6 +189,8 @@ add_library(
     STATIC
         src/config_store.cpp
         src/frontend.cpp
+        src/torrent_template.cpp
+        src/tracker_batch.cpp
 )
 add_library(TorrentUtils::Frontend ALIAS torrentutils_frontend)
 
@@ -205,7 +216,18 @@ target_link_libraries(
 )
 torrentutils_set_project_warnings(torrentutils_frontend)
 
-add_library(torrentcraft_cli STATIC src/cli/cli.cpp)
+add_library(
+    torrentcraft_cli STATIC
+    src/cli/cli.cpp
+    src/cli/cli_common.cpp
+    src/cli/cli_config.cpp
+    src/cli/cli_create.cpp
+    src/cli/cli_inspect.cpp
+    src/cli/cli_metadata.cpp
+    src/cli/cli_tracker.cpp
+    src/cli/cli_verify.cpp
+    src/cli/interrupt.cpp
+)
 target_compile_features(torrentcraft_cli PRIVATE cxx_std_17)
 target_include_directories(torrentcraft_cli PRIVATE "${PROJECT_SOURCE_DIR}/src/cli")
 target_link_libraries(
@@ -280,9 +302,17 @@ if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
 
+if(TORRENTUTILS_BUILD_FUZZERS)
+    add_subdirectory(tests/fuzz)
+endif()
+
 if(TORRENTUTILS_BUILD_GUI)
     find_package(Qt6 6.4 REQUIRED COMPONENTS Widgets Svg LinguistTools)
     find_package(Git QUIET)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        find_package(PkgConfig REQUIRED)
+        pkg_check_modules(XCB REQUIRED IMPORTED_TARGET xcb)
+    endif()
 
     if(NOT TORRENTCRAFT_GIT_COMMIT AND Git_FOUND)
         execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${PROJECT_SOURCE_DIR}" rev-parse --short=7 HEAD
@@ -398,8 +428,35 @@ if(TORRENTUTILS_BUILD_GUI)
         find_package(Catch2 CONFIG QUIET)
     endif()
     set(TORRENTCRAFT_CATCH2_VERSION "${Catch2_VERSION}")
+    # RE2 and Abseil install ABI-style CMake package versions; prefer the release recorded in
+    # vcpkg's per-package SBOM and fall back to the CMake version elsewhere.
+    function(torrentcraft_vcpkg_release_version out_var spdx_dir package fallback)
+        set(_release "${fallback}")
+        if(EXISTS "${spdx_dir}/vcpkg.spdx.json")
+            file(READ "${spdx_dir}/vcpkg.spdx.json" _spdx)
+            string(JSON _count ERROR_VARIABLE _error LENGTH "${_spdx}" packages)
+            if(NOT _error AND _count GREATER 0)
+                math(EXPR _last "${_count} - 1")
+                foreach(_index RANGE ${_last})
+                    string(JSON _name ERROR_VARIABLE _error GET "${_spdx}" packages ${_index} name)
+                    if(NOT _error AND _name STREQUAL package)
+                        string(JSON _release ERROR_VARIABLE _error
+                            GET "${_spdx}" packages ${_index} versionInfo)
+                        string(REGEX REPLACE "#[0-9]+$" "" _release "${_release}")
+                        break()
+                    endif()
+                endforeach()
+            endif()
+        endif()
+        set(${out_var} "${_release}" PARENT_SCOPE)
+    endfunction()
+    torrentcraft_vcpkg_release_version(TORRENTCRAFT_RE2_VERSION "${re2_DIR}" re2 "${re2_VERSION}")
+    torrentcraft_vcpkg_release_version(TORRENTCRAFT_ABSEIL_VERSION "${absl_DIR}/../abseil" abseil
+        "${absl_VERSION}")
     foreach(_torrentcraft_version
             TORRENTCRAFT_NLOHMANN_JSON_VERSION
+            TORRENTCRAFT_RE2_VERSION
+            TORRENTCRAFT_ABSEIL_VERSION
             TORRENTCRAFT_INDICATORS_VERSION
             TORRENTCRAFT_OPENSSL_VERSION
             TORRENTCRAFT_BOOST_VERSION
@@ -431,6 +488,10 @@ if(TORRENTUTILS_BUILD_GUI)
         src/gui/TrackerEditDialog.cpp src/gui/TrackerEditDialog.hpp
         src/gui/NotificationDialog.cpp src/gui/NotificationDialog.hpp
         src/gui/PresetPreviewDialog.cpp src/gui/PresetPreviewDialog.hpp
+        src/gui/TemplateFieldDialog.cpp src/gui/TemplateFieldDialog.hpp
+        src/gui/TrackerRewritePanel.cpp src/gui/TrackerRewritePanel.hpp
+        src/gui/TrackerPage.cpp src/gui/TrackerPage.hpp
+        src/gui/GuiHelpers.cpp src/gui/GuiHelpers.hpp
         src/gui/MainWindow.ui src/gui/AboutDialog.ui src/gui/LicenseDialog.ui
         src/gui/NotificationDialog.ui src/gui/OperationCloseDialog.ui
         src/gui/FilterRulesDialog.ui
@@ -464,6 +525,8 @@ if(TORRENTUTILS_BUILD_GUI)
         "qt|qtbase|qtbase/copyright"
         "libtorrent|libtorrent|libtorrent/copyright"
         "nlohmann-json|nlohmann-json|nlohmann-json/copyright"
+        "re2|re2|re2/copyright"
+        "abseil|abseil|abseil/copyright"
         "indicators|indicators|indicators/copyright"
         "openssl|openssl|openssl/copyright"
         "boost|boost-headers|boost-headers/copyright"
@@ -504,6 +567,9 @@ if(TORRENTUTILS_BUILD_GUI)
     target_compile_features(torrentcraft-gui PRIVATE cxx_std_17)
     target_include_directories(torrentcraft-gui PRIVATE "${PROJECT_SOURCE_DIR}/src/cli")
     target_link_libraries(torrentcraft-gui PRIVATE torrentcraft_gui_lib torrentcraft_cli)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        target_link_libraries(torrentcraft-gui PRIVATE PkgConfig::XCB)
+    endif()
     if(NOT QT6_IS_SHARED_LIBS_BUILD)
         if(WIN32)
             qt_import_plugins(torrentcraft-gui
@@ -598,6 +664,48 @@ if(TORRENTUTILS_BUILD_GUI)
         else()
             add_test(NAME torrentcraft_gui_smoke
                 COMMAND torrentcraft_gui_tests -platform ${torrentcraft_gui_test_platform})
+            if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+                add_test(NAME torrentcraft_gui_no_display
+                    COMMAND torrentcraft-gui)
+                set_tests_properties(torrentcraft_gui_no_display PROPERTIES
+                    ENVIRONMENT "DISPLAY=;WAYLAND_DISPLAY="
+                    PASS_REGULAR_EXPRESSION
+                        "needs a reachable X11/XCB display but DISPLAY is unset.*showing CLI usage"
+                    TIMEOUT 120)
+                add_test(NAME torrentcraft_gui_wayland_only
+                    COMMAND torrentcraft-gui)
+                set_tests_properties(torrentcraft_gui_wayland_only PROPERTIES
+                    ENVIRONMENT "DISPLAY=;WAYLAND_DISPLAY=wayland-0"
+                    PASS_REGULAR_EXPRESSION
+                        "needs a reachable X11/XCB display but DISPLAY is unset.*showing CLI usage"
+                    TIMEOUT 120)
+                add_test(NAME torrentcraft_gui_no_display_usage
+                    COMMAND torrentcraft-gui)
+                set_tests_properties(torrentcraft_gui_no_display_usage PROPERTIES
+                    ENVIRONMENT "DISPLAY=;WAYLAND_DISPLAY="
+                    PASS_REGULAR_EXPRESSION "Usage:"
+                    TIMEOUT 120)
+                add_test(NAME torrentcraft_gui_unreachable_display
+                    COMMAND torrentcraft-gui)
+                set_tests_properties(torrentcraft_gui_unreachable_display PROPERTIES
+                    ENVIRONMENT "DISPLAY=unix:65535;WAYLAND_DISPLAY="
+                    PASS_REGULAR_EXPRESSION
+                        "needs a reachable X11/XCB display but the one in DISPLAY is unreachable.*showing CLI usage"
+                    TIMEOUT 120)
+                add_test(NAME torrentcraft_gui_unreachable_display_wayland
+                    COMMAND torrentcraft-gui)
+                set_tests_properties(torrentcraft_gui_unreachable_display_wayland PROPERTIES
+                    ENVIRONMENT "DISPLAY=unix:65535;WAYLAND_DISPLAY=wayland-0"
+                    PASS_REGULAR_EXPRESSION
+                        "needs a reachable X11/XCB display but the one in DISPLAY is unreachable.*showing CLI usage"
+                    TIMEOUT 120)
+                add_test(NAME torrentcraft_gui_cli_dispatch
+                    COMMAND torrentcraft-gui --help)
+                set_tests_properties(torrentcraft_gui_cli_dispatch PROPERTIES
+                    ENVIRONMENT "DISPLAY=unix:65535;WAYLAND_DISPLAY="
+                    PASS_REGULAR_EXPRESSION "Usage:"
+                    TIMEOUT 120)
+            endif()
         endif()
         set_tests_properties(torrentcraft_gui_smoke PROPERTIES
             ENVIRONMENT "${torrentcraft_gui_test_environment}"

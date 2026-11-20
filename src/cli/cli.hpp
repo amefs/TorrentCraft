@@ -15,4 +15,10 @@ void set_console_output_cp(unsigned int value) noexcept;
 /** Windows startup hook: configure the attached console for UTF-8 output. */
 void initialize_console_output() noexcept;
 
+/**
+ * Windows GUI binary startup hook: the CLI writes to its parent shell's console, and that shell
+ * does not wait for it, so long operations tell the user to cancel with Ctrl+Break.
+ */
+void set_console_shared_with_shell(bool value) noexcept;
+
 } // namespace torrentcraft::cli

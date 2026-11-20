@@ -38,6 +38,8 @@ retained encoded `info` span rather than from a re-encoded tree.
 | `invalid-v2-piece-layer.torrent` | `InvalidTorrent` | Piece-layer Merkle root mismatch |
 | `invalid-utf8-comment.torrent` | lenient warning / strict `InvalidTorrent` | Raw invalid optional text retention |
 | `invalid-utf8-creator.torrent` | lenient warning / strict `InvalidTorrent` | Raw invalid creator retention |
+| `unsupported-piece-size-v1.torrent` | strict + lenient success | V1 single-file torrent with a 32 MiB piece length, a single announce URL, comment and creator; exercises torrent template piece-size rejection |
+| `partially-invalid-template-v1.torrent` | lenient success / strict `InvalidTorrent` | V1 torrent with invalid tracker and web seed entries beside valid ones and an invalid UTF-8 info source; exercises lenient torrent template adoption |
 | `invalid-utf8-source.torrent` | lenient warning / strict `InvalidTorrent` | Raw invalid source retention |
 | `invalid-utf8-name.torrent` | lenient unavailable-name warning / strict `InvalidTorrent` | Raw invalid required text retention |
 

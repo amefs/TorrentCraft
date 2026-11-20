@@ -15,6 +15,20 @@ namespace detail {
 struct MetadataEngineAccess;
 } // namespace detail
 
+/**
+ * Logical torrent file layout expressed by the info dictionary.
+ *
+ * The layout is authoritative torrent structure, not a property of how many payload files happen
+ * to exist: a directory torrent that holds a single payload file still uses a Directory layout.
+ */
+enum class FileLayout
+{
+    /** Single-file layout; the content root is one regular file. */
+    SingleFile,
+    /** Directory layout; the content root is a directory holding the relative file paths. */
+    Directory,
+};
+
 /** BEP 47 file attributes represented by the Domain model. */
 struct FileAttributes
 {
@@ -96,19 +110,26 @@ class TorrentInfo
     [[nodiscard]] const InfoHashes& info_hashes() const noexcept;
     [[nodiscard]] const PieceInfo& pieces() const noexcept;
     [[nodiscard]] const std::vector<FileEntry>& files() const noexcept;
+    [[nodiscard]] FileLayout layout() const noexcept;
     [[nodiscard]] bool is_private() const noexcept;
 
   private:
     friend struct detail::MetadataEngineAccess;
 
     TorrentInfo(std::string name, TorrentFormat format, InfoHashes info_hashes, PieceInfo pieces,
-                std::vector<FileEntry> files, bool is_private);
+                std::vector<FileEntry> files, FileLayout layout, bool is_private);
+
+    [[nodiscard]] static Result<TorrentInfo>
+    create_with_layout(std::string name, TorrentFormat format, InfoHashes info_hashes,
+                       PieceInfo pieces, std::vector<FileEntry> files,
+                       std::optional<FileLayout> layout, bool is_private);
 
     std::string name_;
     TorrentFormat format_;
     InfoHashes info_hashes_;
     PieceInfo pieces_;
     std::vector<FileEntry> files_;
+    FileLayout layout_{FileLayout::Directory};
     bool is_private_{};
 };
 

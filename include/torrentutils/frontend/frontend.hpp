@@ -5,3 +5,5 @@
 
 #include <torrentutils/frontend/config.hpp>
 #include <torrentutils/frontend/settings.hpp>
+#include <torrentutils/frontend/torrent_template.hpp>
+#include <torrentutils/frontend/tracker_batch.hpp>

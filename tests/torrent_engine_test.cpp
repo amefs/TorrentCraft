@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <limits>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -1490,8 +1491,9 @@ TEST_CASE("given_short_v1_single_file_when_verified_then_length_mismatch_is_repo
     REQUIRE(file.findings == FileVerificationFinding::LengthMismatch);
 }
 
-TEST_CASE("given_directory_at_regular_file_path_when_verified_then_not_regular_file_is_reported",
-          "[integration][torrent-engine][verify][finding]")
+TEST_CASE("given_directory_at_single_file_content_root_when_verified_then_content_root_is_"
+          "rejected",
+          "[integration][torrent-engine][verify][layout]")
 {
     const TempDirectory temp;
     const auto content = temp.path() / "payload.bin";
@@ -1500,20 +1502,337 @@ TEST_CASE("given_directory_at_regular_file_path_when_verified_then_not_regular_f
 
     const auto result = engine.verify({v1_document(), content});
 
+    REQUIRE_FALSE(result);
+    REQUIRE(result.error().code == ErrorCode::ValidationFailed);
+    REQUIRE(result.error().issues.size() == 1);
+    REQUIRE(result.error().issues.front().field == "verify.content_root");
+    REQUIRE(result.error().issues.front().message.find("regular file") != std::string::npos);
+}
+
+TEST_CASE("given_v1_directory_torrent_with_one_file_when_verified_then_root_directory_is_required",
+          "[integration][torrent-engine][verify][layout]")
+{
+    const TempDirectory temp;
+    const auto content = temp.path() / "payload";
+    const auto torrent = temp.path() / "payload.torrent";
+    std::filesystem::create_directory(content);
+    {
+        std::ofstream output(content / "only.bin", std::ios::binary);
+        output << "0123456789abcdef";
+        REQUIRE(output);
+    }
+    CreateOptionsInput input;
+    input.format = TorrentFormat::V1;
+    input.piece_length_strategy = PieceLengthStrategy::Fixed;
+    input.fixed_piece_length = 16U * 1024U;
+    auto options = CreateOptions::create(std::move(input));
+    REQUIRE(options);
+    const TorrentEngine engine;
+    const auto created = engine.create({content, torrent, std::move(options).value(), false});
+    REQUIRE(created);
+    std::ifstream torrent_input(torrent, std::ios::binary);
+    REQUIRE(torrent_input);
+    std::vector<std::uint8_t> encoded{std::istreambuf_iterator<char>(torrent_input),
+                                      std::istreambuf_iterator<char>()};
+    auto document = detail::decode_torrent(std::move(encoded), detail::MetadataReadMode::Strict);
+    REQUIRE(document);
+    REQUIRE(document.value().info().layout() == FileLayout::Directory);
+    REQUIRE(document.value().info().files().size() == 1U);
+    REQUIRE(document.value().info().files().front().path().segments() ==
+            std::vector<std::string>{"only.bin"});
+
+    const auto from_root = engine.verify({document.value(), content});
+    REQUIRE(from_root);
+    REQUIRE(from_root.value().outcome == VerificationOutcome::Verified);
+    REQUIRE(from_root.value().files.size() == 1U);
+    REQUIRE(from_root.value().files.front().path.segments() ==
+            std::vector<std::string>{"only.bin"});
+    REQUIRE(from_root.value().files.front().findings == FileVerificationFinding::None);
+
+    const auto from_inner = engine.verify({document.value(), content / "only.bin"});
+    REQUIRE_FALSE(from_inner);
+    REQUIRE(from_inner.error().code == ErrorCode::ValidationFailed);
+    REQUIRE(from_inner.error().issues.size() == 1);
+    REQUIRE(from_inner.error().issues.front().field == "verify.content_root");
+    REQUIRE(from_inner.error().issues.front().message.find("directory") != std::string::npos);
+}
+
+TEST_CASE("given_v2_directory_torrent_with_one_file_when_verified_then_root_directory_is_required",
+          "[integration][torrent-engine][verify][layout][v2]")
+{
+    const TempDirectory temp;
+    const auto content = temp.path() / "payload";
+    const auto torrent = temp.path() / "payload.torrent";
+    std::filesystem::create_directory(content);
+    {
+        std::ofstream output(content / "only.bin", std::ios::binary);
+        output << std::string(20000, 'x');
+        REQUIRE(output);
+    }
+    CreateOptionsInput input;
+    input.format = TorrentFormat::V2;
+    input.piece_length_strategy = PieceLengthStrategy::Fixed;
+    input.fixed_piece_length = 16U * 1024U;
+    auto options = CreateOptions::create(std::move(input));
+    REQUIRE(options);
+    const TorrentEngine engine;
+    const auto created = engine.create({content, torrent, std::move(options).value(), false});
+    REQUIRE(created);
+    std::ifstream torrent_input(torrent, std::ios::binary);
+    REQUIRE(torrent_input);
+    std::vector<std::uint8_t> encoded{std::istreambuf_iterator<char>(torrent_input),
+                                      std::istreambuf_iterator<char>()};
+    auto document = detail::decode_torrent(std::move(encoded), detail::MetadataReadMode::Strict);
+    REQUIRE(document);
+    REQUIRE(document.value().info().layout() == FileLayout::Directory);
+    REQUIRE(document.value().info().files().size() == 1U);
+
+    const auto from_root = engine.verify({document.value(), content});
+    REQUIRE(from_root);
+    REQUIRE(from_root.value().outcome == VerificationOutcome::Verified);
+
+    const auto from_inner = engine.verify({document.value(), content / "only.bin"});
+    REQUIRE_FALSE(from_inner);
+    REQUIRE(from_inner.error().code == ErrorCode::ValidationFailed);
+    REQUIRE(from_inner.error().issues.front().field == "verify.content_root");
+    REQUIRE(from_inner.error().issues.front().message.find("directory") != std::string::npos);
+}
+
+TEST_CASE("given_symlinked_single_file_content_when_verified_then_target_bytes_are_verified",
+          "[integration][torrent-engine][verify][symlink]")
+{
+    const TempDirectory temp;
+    const auto real = temp.path() / "real.bin";
+    {
+        std::ofstream output(real, std::ios::binary);
+        output << "0123456789abcdef";
+        REQUIRE(output);
+    }
+    const auto link = temp.path() / "payload.bin";
+    std::error_code symlink_error;
+    std::filesystem::create_symlink(real.filename(), link, symlink_error);
+    if (symlink_error)
+    {
+        SKIP("filesystem symlink creation is unavailable: " + symlink_error.message());
+    }
+    auto piece_hash = Sha1Digest::from_hex("fe5567e8d769550852182cdf69d74bb16dff8e29");
+    REQUIRE(piece_hash);
+    const TorrentEngine engine;
+
+    const auto result = engine.verify({v1_document(std::move(piece_hash).value()), link});
+
+    REQUIRE(result);
+    REQUIRE(result.value().outcome == VerificationOutcome::Verified);
+    REQUIRE(result.value().files.size() == 1);
+    REQUIRE(result.value().files.front().findings == FileVerificationFinding::None);
+}
+
+TEST_CASE("given_symlinked_directory_entry_when_verified_then_target_bytes_are_verified",
+          "[integration][torrent-engine][verify][symlink]")
+{
+    const TempDirectory temp;
+    const auto content = temp.path() / "payload";
+    std::filesystem::create_directory(content);
+    {
+        std::ofstream output(content / "target-a.bin", std::ios::binary);
+        output << "01234567";
+        REQUIRE(output);
+    }
+    {
+        std::ofstream output(content / "target-b.bin", std::ios::binary);
+        output << "89abcdef";
+        REQUIRE(output);
+    }
+    std::error_code symlink_error;
+    std::filesystem::create_symlink("target-a.bin", content / "a.bin", symlink_error);
+    if (symlink_error)
+    {
+        SKIP("filesystem symlink creation is unavailable: " + symlink_error.message());
+    }
+    std::filesystem::create_symlink("target-b.bin", content / "b.bin", symlink_error);
+    REQUIRE_FALSE(symlink_error);
+    auto piece_hash = Sha1Digest::from_hex("fe5567e8d769550852182cdf69d74bb16dff8e29");
+    REQUIRE(piece_hash);
+    const TorrentEngine engine;
+
+    const auto result =
+        engine.verify({v1_two_file_document(std::move(piece_hash).value()), content});
+
+    REQUIRE(result);
+    REQUIRE(result.value().outcome == VerificationOutcome::Verified);
+    REQUIRE(result.value().files.size() == 2);
+    for (const auto& file : result.value().files)
+    {
+        REQUIRE(file.findings == FileVerificationFinding::None);
+    }
+}
+
+TEST_CASE("given_dangling_symlink_entry_when_verified_then_missing_is_reported",
+          "[integration][torrent-engine][verify][symlink]")
+{
+    const TempDirectory temp;
+    const auto content = temp.path() / "payload";
+    std::filesystem::create_directory(content);
+    {
+        std::ofstream output(content / "b.bin", std::ios::binary);
+        output << "89abcdef";
+        REQUIRE(output);
+    }
+    std::error_code symlink_error;
+    std::filesystem::create_symlink("missing.bin", content / "a.bin", symlink_error);
+    if (symlink_error)
+    {
+        SKIP("filesystem symlink creation is unavailable: " + symlink_error.message());
+    }
+    auto piece_hash = Sha1Digest::from_hex("fe5567e8d769550852182cdf69d74bb16dff8e29");
+    REQUIRE(piece_hash);
+    const TorrentEngine engine;
+
+    const auto result =
+        engine.verify({v1_two_file_document(std::move(piece_hash).value()), content});
+
     REQUIRE(result);
     REQUIRE(result.value().outcome == VerificationOutcome::Incomplete);
-    REQUIRE(result.value().expected_bytes == 16);
-    REQUIRE(result.value().hashed_bytes == 0);
-    REQUIRE(result.value().verified_bytes == 0);
-    REQUIRE(result.value().mismatched_bytes == 0);
-    REQUIRE(result.value().files.size() == 1);
-    const auto& file = result.value().files.front();
-    REQUIRE(file.path.segments() == std::vector<std::string>{"payload.bin"});
-    REQUIRE(file.expected_bytes == 16);
-    REQUIRE(file.hashed_bytes == 0);
-    REQUIRE(file.verified_bytes == 0);
-    REQUIRE(file.mismatched_bytes == 0);
-    REQUIRE(file.findings == FileVerificationFinding::NotRegularFile);
+    REQUIRE(result.value().files.size() == 2);
+    REQUIRE(result.value().files[0].findings == FileVerificationFinding::Missing);
+}
+
+TEST_CASE("given_symlink_to_directory_entry_when_verified_then_not_regular_file_is_reported",
+          "[integration][torrent-engine][verify][symlink]")
+{
+    const TempDirectory temp;
+    const auto content = temp.path() / "payload";
+    std::filesystem::create_directory(content);
+    std::filesystem::create_directory(content / "adir");
+    {
+        std::ofstream output(content / "b.bin", std::ios::binary);
+        output << "89abcdef";
+        REQUIRE(output);
+    }
+    std::error_code symlink_error;
+    std::filesystem::create_symlink("adir", content / "a.bin", symlink_error);
+    if (symlink_error)
+    {
+        SKIP("filesystem symlink creation is unavailable: " + symlink_error.message());
+    }
+    auto piece_hash = Sha1Digest::from_hex("fe5567e8d769550852182cdf69d74bb16dff8e29");
+    REQUIRE(piece_hash);
+    const TorrentEngine engine;
+
+    const auto result =
+        engine.verify({v1_two_file_document(std::move(piece_hash).value()), content});
+
+    REQUIRE(result);
+    REQUIRE(result.value().outcome == VerificationOutcome::Incomplete);
+    REQUIRE(result.value().files.size() == 2);
+    REQUIRE(result.value().files[0].findings == FileVerificationFinding::NotRegularFile);
+}
+
+TEST_CASE("given_symlink_loop_entry_when_verified_then_io_failure_is_reported",
+          "[integration][torrent-engine][verify][symlink][io]")
+{
+    const TempDirectory temp;
+    const auto content = temp.path() / "payload";
+    std::filesystem::create_directory(content);
+    {
+        std::ofstream output(content / "b.bin", std::ios::binary);
+        output << "89abcdef";
+        REQUIRE(output);
+    }
+    std::error_code symlink_error;
+    std::filesystem::create_symlink("a.bin", content / "a.bin", symlink_error);
+    if (symlink_error)
+    {
+        SKIP("filesystem symlink creation is unavailable: " + symlink_error.message());
+    }
+    auto piece_hash = Sha1Digest::from_hex("fe5567e8d769550852182cdf69d74bb16dff8e29");
+    REQUIRE(piece_hash);
+    const TorrentEngine engine;
+
+    const auto result =
+        engine.verify({v1_two_file_document(std::move(piece_hash).value()), content});
+
+    // A link loop never verifies. Platforms that report ELOOP surface it as an unrecoverable error;
+    // others classify the unresolvable link as a recoverable finding.
+    if (!result)
+    {
+        REQUIRE(result.error().code == ErrorCode::IoFailure);
+    }
+    else
+    {
+        REQUIRE(result.value().outcome == VerificationOutcome::Incomplete);
+        REQUIRE(result.value().files.size() == 2);
+        REQUIRE(result.value().files[0].findings != FileVerificationFinding::None);
+    }
+}
+
+TEST_CASE("given_single_file_content_root_with_trailing_separator_when_verified_then_file_is_"
+          "verified",
+          "[integration][torrent-engine][verify][layout]")
+{
+    const TempDirectory temp;
+    const auto content = temp.path() / "payload.bin";
+    {
+        std::ofstream output(content, std::ios::binary);
+        output << "0123456789abcdef";
+        REQUIRE(output);
+    }
+    auto piece_hash = Sha1Digest::from_hex("fe5567e8d769550852182cdf69d74bb16dff8e29");
+    REQUIRE(piece_hash);
+    auto trailing = content;
+    trailing += "/";
+    const TorrentEngine engine;
+
+    const auto result = engine.verify({v1_document(std::move(piece_hash).value()), trailing});
+
+    REQUIRE(result);
+    REQUIRE(result.value().outcome == VerificationOutcome::Verified);
+}
+
+TEST_CASE("given_directory_content_root_with_trailing_separator_when_verified_then_files_are_"
+          "verified",
+          "[integration][torrent-engine][verify][layout]")
+{
+    const TempDirectory temp;
+    const auto content = temp.path() / "payload";
+    std::filesystem::create_directory(content);
+    {
+        std::ofstream output(content / "a.bin", std::ios::binary);
+        output << "01234567";
+        REQUIRE(output);
+    }
+    {
+        std::ofstream output(content / "b.bin", std::ios::binary);
+        output << "89abcdef";
+        REQUIRE(output);
+    }
+    auto piece_hash = Sha1Digest::from_hex("fe5567e8d769550852182cdf69d74bb16dff8e29");
+    REQUIRE(piece_hash);
+    auto trailing = content;
+    trailing += "//";
+    const TorrentEngine engine;
+
+    const auto result =
+        engine.verify({v1_two_file_document(std::move(piece_hash).value()), trailing});
+
+    REQUIRE(result);
+    REQUIRE(result.value().outcome == VerificationOutcome::Verified);
+    REQUIRE(result.value().files.size() == 2);
+}
+
+TEST_CASE("given_filesystem_root_content_root_when_verified_then_request_is_rejected",
+          "[integration][torrent-engine][verify][layout]")
+{
+    const VerifyRequest request{v1_document(), std::filesystem::path("/")};
+    const TorrentEngine engine;
+
+    const auto result = engine.verify(request);
+
+    REQUIRE_FALSE(result);
+    REQUIRE(result.error().code == ErrorCode::ValidationFailed);
+    REQUIRE(result.error().issues.size() == 1);
+    REQUIRE(result.error().issues.front().field == "verify.content_root");
+    REQUIRE(result.error().issues.front().message == "must name a content file or directory");
 }
 
 TEST_CASE("given_matching_v1_piece_spanning_two_files_when_verified_then_overlap_is_exact",
@@ -2594,6 +2913,70 @@ TEST_CASE("given_unwritable_target_directory_when_created_then_write_failure_lea
     REQUIRE(temporary_sibling_count(target) == 0);
 }
 
+TEST_CASE("given_create_target_parent_is_regular_file_when_created_then_write_failure_leaves_no_"
+          "output",
+          "[integration][torrent-engine][create][io]")
+{
+    // Deterministic equivalent of an unwritable target directory that does not rely on the
+    // filesystem enforcing write permissions (which root bypasses).
+    const TempDirectory temp;
+    const auto content = temp.path() / "payload.bin";
+    const auto blocker = temp.path() / "blocker";
+    const auto target = blocker / "payload.torrent";
+    {
+        std::ofstream output(blocker, std::ios::binary);
+        output << "not a directory";
+        REQUIRE(output);
+    }
+    {
+        std::ofstream output(content, std::ios::binary);
+        output << "0123456789abcdef";
+        REQUIRE(output);
+    }
+    CreateOptionsInput input;
+    input.format = TorrentFormat::V1;
+    input.piece_length_strategy = PieceLengthStrategy::Fixed;
+    input.fixed_piece_length = 16U * 1024U;
+    auto options = CreateOptions::create(std::move(input));
+    REQUIRE(options);
+    const TorrentEngine engine;
+
+    const auto result = engine.create({content, target, std::move(options).value(), false});
+
+    REQUIRE_FALSE(result);
+    REQUIRE(result.error().code == ErrorCode::IoFailure);
+    REQUIRE(result.error().message == "could not create temporary torrent file");
+}
+
+TEST_CASE("given_create_content_root_is_symlink_loop_when_created_then_error_leaves_no_output",
+          "[integration][torrent-engine][create][io]")
+{
+    // Deterministic create read failure that does not rely on the filesystem enforcing read
+    // permissions (which root bypasses).
+    const TempDirectory temp;
+    const auto content = temp.path() / "payload.bin";
+    const auto target = temp.path() / "payload.torrent";
+    std::error_code symlink_error;
+    std::filesystem::create_symlink("payload.bin", content, symlink_error);
+    if (symlink_error)
+    {
+        SKIP("filesystem symlink creation is unavailable: " + symlink_error.message());
+    }
+    CreateOptionsInput input;
+    input.format = TorrentFormat::V1;
+    input.piece_length_strategy = PieceLengthStrategy::Fixed;
+    input.fixed_piece_length = 16U * 1024U;
+    auto options = CreateOptions::create(std::move(input));
+    REQUIRE(options);
+    const TorrentEngine engine;
+
+    const auto result = engine.create({content, target, std::move(options).value(), false});
+
+    REQUIRE_FALSE(result);
+    REQUIRE(result.error().code == ErrorCode::IoFailure);
+    REQUIRE_FALSE(std::filesystem::exists(target));
+}
+
 TEST_CASE("given_regular_file_when_created_as_v2_then_only_v2_info_hash_is_committed",
           "[integration][torrent-engine][create]")
 {
@@ -3357,6 +3740,26 @@ TEST_CASE("given_verification_resource_budget_when_created_then_it_validates_eac
     REQUIRE_FALSE(invalid);
     REQUIRE(invalid.error().code == ErrorCode::ValidationFailed);
     REQUIRE(invalid.error().issues.front().field == "verify.resource_budget.hashing_workers");
+
+    const auto rejected_field = [&input](void (*mutate)(VerificationResourceBudgetInput&)) {
+        auto changed = input;
+        changed.hashing_workers = 1;
+        mutate(changed);
+        const auto result = VerificationResourceBudget::create(changed);
+        REQUIRE_FALSE(result);
+        return result.error().issues.front().field;
+    };
+    CHECK(rejected_field([](VerificationResourceBudgetInput& value) {
+              value.checking_memory_bytes = 0;
+          }) == "verify.resource_budget.checking_memory_bytes");
+    CHECK(rejected_field([](VerificationResourceBudgetInput& value) {
+              value.checking_memory_bytes = (std::numeric_limits<std::uint64_t>::max)();
+          }) == "verify.resource_budget.checking_memory_bytes");
+    CHECK(rejected_field([](VerificationResourceBudgetInput& value) {
+              value.max_logical_files = 0;
+          }) == "verify.resource_budget.max_logical_files");
+    CHECK(rejected_field([](VerificationResourceBudgetInput& value) { value.max_pieces = 0; }) ==
+          "verify.resource_budget.max_pieces");
 }
 
 TEST_CASE("given_budget_below_torrent_piece_count_when_verified_then_backend_work_is_not_started",

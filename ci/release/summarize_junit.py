@@ -24,6 +24,10 @@ EXPECTED_SKIP_REASON_PREFIXES = (
         "the test filesystem does not enforce unreadable file permissions",
     ),
     (
+        "unreadable_directory_permissions_unenforced",
+        "the test filesystem does not enforce unreadable directory permissions",
+    ),
+    (
         "unwritable_directory_permissions_unenforced",
         "the test filesystem does not enforce unwritable directory permissions",
     ),
@@ -63,6 +67,26 @@ EXPECTED_CTEST_SKIP_TEST_CATEGORIES = (
     (
         "given_unwritable_target_directory_when_created_then_write_failure_leaves_no_output",
         "unwritable_directory_permissions_unenforced",
+    ),
+    (
+        "given_unusable_config_files_when_loaded_then_errors_are_classified",
+        "unreadable_file_permissions_unenforced",
+    ),
+    (
+        "given_unwritable_locations_when_config_is_created_or_saved_then_errors_are_reported",
+        "unwritable_directory_permissions_unenforced",
+    ),
+    (
+        "given_unreadable_folder_when_enumerated_then_an_io_failure_is_reported",
+        "unreadable_directory_permissions_unenforced",
+    ),
+    (
+        "given_directory_symlink_when_enumerated_recursively_then_it_is_not_followed",
+        "directory_symlink_creation_unavailable",
+    ),
+    (
+        "given_symlinked_torrent_when_applied_in_place_then_dry_run_and_write_both_fail",
+        "symlink_creation_unavailable",
     ),
     (
         "given_unicode_content_path_when_created_then_torrent_is_written",

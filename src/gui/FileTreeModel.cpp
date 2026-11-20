@@ -208,6 +208,36 @@ void FileTreeModel::update_status_aggregates(const std::string& path,
 void FileTreeModel::set_files(const std::vector<torrentutils::core::FileEntry>& files,
                               const bool show_padding_files)
 {
+    root_name_.clear();
+    prefix_root_ = false;
+    populate(files, show_padding_files);
+}
+
+void FileTreeModel::set_files(const torrentutils::core::TorrentInfo& info,
+                              const bool show_padding_files)
+{
+    root_name_ = info.name();
+    prefix_root_ =
+        info.layout() == torrentutils::core::FileLayout::Directory && !root_name_.empty();
+    populate(info.files(), show_padding_files);
+}
+
+std::string FileTreeModel::key_for(const std::string& relative_path) const
+{
+    if (!prefix_root_ || relative_path.empty())
+    {
+        return relative_path;
+    }
+    if (relative_path == root_name_ || relative_path.rfind(root_name_ + '/', 0) == 0)
+    {
+        return relative_path;
+    }
+    return root_name_ + '/' + relative_path;
+}
+
+void FileTreeModel::populate(const std::vector<torrentutils::core::FileEntry>& files,
+                             const bool show_padding_files)
+{
     beginResetModel();
     verification_.clear();
     directory_index_.clear();
@@ -221,7 +251,7 @@ void FileTreeModel::set_files(const std::vector<torrentutils::core::FileEntry>& 
         {
             continue;
         }
-        const auto path = file.path().to_string();
+        const auto path = key_for(file.path().to_string());
         if (!file.attributes().padding)
         {
             const auto inserted =
@@ -247,8 +277,12 @@ void FileTreeModel::set_files(const std::vector<torrentutils::core::FileEntry>& 
                 continue;
             }
 
-            const auto child_key =
-                parent_prefix.empty() ? component : parent_prefix + '/' + component;
+            std::string child_key = parent_prefix;
+            if (!child_key.empty())
+            {
+                child_key += '/';
+            }
+            child_key += component;
             auto directory_iterator = directory_index_.find(parent_prefix);
             if (directory_iterator == directory_index_.end())
             {
@@ -344,7 +378,8 @@ void FileTreeModel::apply_verification_progress(
     last_progress_sequence_ = progress.sequence;
     for (const auto& file : progress.files)
     {
-        const auto iterator = verification_.find(file.path.to_string());
+        const auto key = key_for(file.path.to_string());
+        const auto iterator = verification_.find(key);
         if (iterator == verification_.end())
         {
             continue;
@@ -367,7 +402,7 @@ void FileTreeModel::apply_verification_progress(
         {
             state.phase = VerificationPhase::Checking;
         }
-        update_status_aggregates(file.path.to_string(), previous, state);
+        update_status_aggregates(key, previous, state);
     }
     emit_status_changed();
 }
@@ -398,7 +433,8 @@ void FileTreeModel::apply_verification_report(const torrentutils::core::Verifica
     }
     for (const auto& file : report.files)
     {
-        const auto iterator = verification_.find(file.path.to_string());
+        const auto key = key_for(file.path.to_string());
+        const auto iterator = verification_.find(key);
         if (iterator == verification_.end())
         {
             continue;
@@ -411,7 +447,7 @@ void FileTreeModel::apply_verification_report(const torrentutils::core::Verifica
         state.mismatched_bytes = file.mismatched_bytes;
         state.findings = file.findings;
         state.phase = VerificationPhase::Final;
-        update_status_aggregates(file.path.to_string(), previous, state);
+        update_status_aggregates(key, previous, state);
     }
     emit_status_changed();
 }

@@ -9,11 +9,16 @@ add_executable(
     metadata_engine_test.cpp
     torrent_engine_test.cpp
     tracker_engine_test.cpp
+    tracker_rewrite_test.cpp
+    tracker_batch_test.cpp
     application_service_test.cpp
     cli_progress_test.cpp
     config_store_test.cpp
     cli_test.cpp
+    cli_interrupt_test.cpp
+    utf8_test.cpp
     frontend_test.cpp
+    torrent_template_test.cpp
     verification_admission_controller_test_probe.cpp
 )
 target_link_libraries(

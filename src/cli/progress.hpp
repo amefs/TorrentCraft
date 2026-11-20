@@ -36,6 +36,13 @@ namespace torrentcraft::cli {
 
 using Json = nlohmann::json;
 
+/** Serialises JSON for CLI output. Linux paths are bytes and need not be UTF-8, so invalid
+ *  sequences are replaced with U+FFFD instead of throwing after the work has been done. */
+[[nodiscard]] inline std::string dump_json(const Json& value, const int indent = -1)
+{
+    return value.dump(indent, ' ', false, Json::error_handler_t::replace);
+}
+
 enum class ProgressMode
 {
     None,
@@ -376,6 +383,22 @@ class ProgressWriter
         emit_verify(progress);
     }
 
+    /** Ends progress output for a failed or cancelled operation without reporting completion. */
+    void abandon() noexcept
+    {
+        if (finished_)
+        {
+            return;
+        }
+        finished_ = true;
+        if (!quiet_ && mode_ == ProgressMode::Tty && stderr_is_tty_ && tty_bar_ && emitted_any_ &&
+            !rendered_terminal_)
+        {
+            // Leave the partial bar on its own line so the error message starts cleanly.
+            out_ << '\n';
+        }
+    }
+
     void finish() noexcept
     {
         if (finished_)
@@ -407,10 +430,9 @@ class ProgressWriter
             }
             else if (create_mode_)
             {
-                out_ << Json{{"stage", create_stage_},
-                             {"completed", create_total_},
-                             {"total", create_total_}}
-                            .dump()
+                out_ << dump_json(Json{{"stage", create_stage_},
+                                       {"completed", create_total_},
+                                       {"total", create_total_}})
                      << '\n';
             }
             return;
@@ -484,11 +506,9 @@ class ProgressWriter
                 : 0U;
         if (mode_ == ProgressMode::Json)
         {
-            last_json_line_ = Json{
-                {"stage", create_stage_},
-                {"completed", create_completed_},
-                {"total",
-                 create_total_}}.dump();
+            last_json_line_ = dump_json(Json{{"stage", create_stage_},
+                                             {"completed", create_completed_},
+                                             {"total", create_total_}});
             out_ << last_json_line_ << '\n';
             return;
         }
@@ -534,7 +554,7 @@ class ProgressWriter
                                  {"mismatched_bytes", file.mismatched_bytes}});
             }
             last_json_line_ =
-                Json{{"sequence", progress.sequence}, {"files", std::move(files)}}.dump();
+                dump_json(Json{{"sequence", progress.sequence}, {"files", std::move(files)}});
             out_ << last_json_line_ << '\n';
             return;
         }

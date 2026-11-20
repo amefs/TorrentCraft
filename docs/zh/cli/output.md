@@ -41,6 +41,8 @@ torrentcraft create ./payload -o ./payload.torrent --progress=plain 2> progress.
 }
 ```
 
+如果文件系统路径中包含非 UTF-8 字节（例如在 Linux 上），序列化 JSON 时会自动将无效字节替换为 `U+FFFD`，确保 `--json` 始终输出合法的 UTF-8 JSON，不会在文件操作完成后因编码问题报错中断。
+
 ## 文件过滤报告
 
 从目录制作种子时，无论成功写入还是使用 `--dry-run` 试运行，都会提供有效文件过滤器
@@ -75,3 +77,10 @@ TorrentCraft 的退出码分类借鉴了 HTTP 状态码的逻辑，语义明确�
 | `8` | **I/O 读写失败 (I/O Error)** | 磁盘读写异常或底层文件系统故障。 |
 | `9` | **资源受限 (Resource Limit)** | 内存使用超出设定的上限或工作集耗尽。 |
 | `10` | **内部错误 (Internal Error)** | 未知异常或不支持的操作。 |
+
+## 使用 Ctrl+C 取消
+
+在运行 `create`、`verify` 或 `tracker rewrite` 期间按下 **Ctrl+C**，程序会在下一个安全点平滑停止，自动清理未完成的临时文件，并以退出码 `7` 结束。被中断的 `tracker rewrite` 会保留已经处理完的文件，并在 `--json` 输出中标记 `"cancelled": true`（且 `"ok": false`）。连续按第二次 **Ctrl+C** 则会立即强制退出。
+
+- **Windows 终端交互**：日常命令行操作请使用 `torrentcraft.exe`。虽然 `torrentcraft-gui.exe` 也支持传入 CLI 参数，但它属于窗口子系统（GUI）程序——终端不会等待它执行完毕，也不会将 Ctrl+C 传递给它。如果确实通过 `torrentcraft-gui.exe` 启动了命令，请按 **Ctrl+Break** 取消（在启用了 PSReadLine 的 PowerShell 中，按 Ctrl+Break 后还会进入命令行调试器，输入 `c` 回车即可退出）。
+- **在 Windows 脚本中调用**：在自动化脚本（如 Python `subprocess`）中请务必调用 `torrentcraft.exe`。因为 `torrentcraft-gui.exe` 会将输入输出重新绑定到控制台窗口，导致标准输出管道捕获与 `--json` 解析不可靠。若需由脚本主动取消任务，可在启动 `torrentcraft.exe` 时指定 `CREATE_NEW_PROCESS_GROUP`，随后发送 `CTRL_BREAK_EVENT` 并等待进程以退出码 `7` 结束。

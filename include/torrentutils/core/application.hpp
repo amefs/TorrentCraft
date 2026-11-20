@@ -12,6 +12,7 @@
 #include <torrentutils/core/torrent_document.hpp>
 #include <torrentutils/core/torrent_engine.hpp>
 #include <torrentutils/core/tracker.hpp>
+#include <torrentutils/core/tracker_rewrite.hpp>
 #include <variant>
 #include <vector>
 
@@ -217,6 +218,11 @@ struct ReplaceTrackers
 {
     TrackerList value;
 };
+/** Rewrites every tracker URL with ordered sed-style rules; invalid results fail the edit. */
+struct RewriteTrackers
+{
+    TrackerRewriteRules rules;
+};
 struct AddTrackerToTier
 {
     std::size_t tier_index{};
@@ -256,8 +262,9 @@ struct SetPrivate
 using EditAction =
     std::variant<SetComment, ClearComment, SetCreator, ClearCreator, SetInfoSource, ClearInfoSource,
                  SetName, SetCreationTime, SetCreationTimeNow, ClearCreationTime, ReplaceWebSeeds,
-                 ReplaceDhtNodes, ReplaceTrackers, AddTrackerToTier, AddTrackerTier, RemoveTracker,
-                 MoveTracker, MoveTrackerWithinTier, MoveTrackerTier, SetPrivate>;
+                 ReplaceDhtNodes, ReplaceTrackers, RewriteTrackers, AddTrackerToTier,
+                 AddTrackerTier, RemoveTracker, MoveTracker, MoveTrackerWithinTier, MoveTrackerTier,
+                 SetPrivate>;
 
 enum class EditDisposition
 {

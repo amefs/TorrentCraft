@@ -4,7 +4,11 @@ Checks: >-
   clang-analyzer-*,
   performance-*,
   portability-*,
-  -bugprone-easily-swappable-parameters
+  -bugprone-easily-swappable-parameters,
+  -clang-analyzer-optin.core.EnumCastOutOfRange
+# EnumCastOutOfRange is disabled because it fires inside Catch2's flag enums
+# (catch_result_type.hpp), which combine values on purpose; ci/run-clang-tidy.py
+# treats every remaining finding as an error.
 WarningsAsErrors: ''
 HeaderFilterRegex: '^(include|src)/'
 FormatStyle: file

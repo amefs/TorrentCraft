@@ -1,0 +1,2 @@
+s|^udp://([^:/]+):6969|https://\1|i
+s/passkey=[a-z]+/passkey=x/

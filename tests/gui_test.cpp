@@ -6,7 +6,9 @@
 #include "LineNumberPlainTextEdit.hpp"
 #include "Logo.hpp"
 #include "MainWindow.hpp"
+#include "TemplateFieldDialog.hpp"
 #include "TrackerEditDialog.hpp"
+#include "TrackerRewritePanel.hpp"
 
 #include <QAction>
 #include <QApplication>
@@ -33,11 +35,16 @@
 #include <QMimeData>
 #include <QModelIndex>
 #include <QPlainTextEdit>
+#include <QPointer>
 #include <QPushButton>
+#include <QRadioButton>
+#include <QScopeGuard>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSignalSpy>
 #include <QSpinBox>
+#include <QSplitter>
+#include <QStackedWidget>
 #include <QStatusBar>
 #include <QTabWidget>
 #include <QTableView>
@@ -45,10 +52,13 @@
 #include <QTextBrowser>
 #include <QThread>
 #include <QTimer>
+#include <QToolButton>
 #include <QTreeWidget>
 #include <QUrl>
 #include <QWidget>
 #include <QtTest>
+#include <algorithm>
+#include <limits>
 #include <stdexcept>
 #include <torrentutils/core/application.hpp>
 #include <torrentutils/core/version.hpp>
@@ -184,6 +194,30 @@ class GuiLogoTest final : public QObject
         QVERIFY(context.find("D:/测试/file.bin") != std::string::npos);
     }
 
+    void loggerRotatesInNonAsciiFolder()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const auto folder = QDir(directory.path()).filePath(QStringLiteral("日志"));
+        QVERIFY(QDir().mkpath(folder));
+        const auto log_path = QDir(folder).filePath(QStringLiteral("会话.log"));
+        GuiLogController logger;
+        torrentutils::frontend::GuiPreferences preferences;
+        preferences.logging_enabled = true;
+        preferences.log_level = torrentutils::frontend::GuiLogLevel::Debug;
+        preferences.log_path = log_path.toUtf8().toStdString();
+        logger.configure(preferences, {});
+        // Write past the 16 MiB limit so the log rotates to "<name>.1".
+        const std::string filler(std::size_t{64} * 1024U, 'x');
+        for (int index = 0; index < 270; ++index)
+        {
+            logger.log_event(torrentutils::core::LogLevel::Info, "gui", "test", "fill",
+                             {{"data", filler}});
+        }
+        QVERIFY(logger.file_logging_active());
+        QVERIFY(QFileInfo::exists(log_path + QStringLiteral(".1")));
+    }
+
     void loggerCorrelatesOperationLifecycle()
     {
         GuiLogController logger;
@@ -306,14 +340,37 @@ class GuiLogoTest final : public QObject
         AboutDialog dialog;
         auto* tree = dialog.findChild<QTreeWidget*>("treeComponents");
         QVERIFY(tree != nullptr);
-        QCOMPARE(tree->topLevelItemCount(), 7);
+        QCOMPARE(tree->topLevelItemCount(), 9);
+        // The tracker rewrite engine and its Abseil dependency are listed with SPDX licenses.
+        const auto re2 = tree->findItems(QStringLiteral("RE2"), Qt::MatchExactly);
+        const auto abseil = tree->findItems(QStringLiteral("Abseil"), Qt::MatchExactly);
+        QCOMPARE(re2.size(), 1);
+        QCOMPARE(abseil.size(), 1);
+        QCOMPARE(re2.front()->text(2), QStringLiteral("BSD-3-Clause"));
+        QCOMPARE(abseil.front()->text(2), QStringLiteral("Apache-2.0"));
+        const auto valid_licenses = QStringList{
+            QStringLiteral("LGPL-3.0-only"), QStringLiteral("BSD-3-Clause"), QStringLiteral("MIT"),
+            QStringLiteral("Apache-2.0"), QStringLiteral("BSL-1.0")};
         for (int row = 0; row < tree->topLevelItemCount(); ++row)
         {
+            QVERIFY2(valid_licenses.contains(tree->topLevelItem(row)->text(2)),
+                     qPrintable(tree->topLevelItem(row)->text(0)));
             const auto version = tree->topLevelItem(row)->text(1);
             QVERIFY(!version.isEmpty());
             QVERIFY(version != QStringLiteral("6.x (planned)"));
             QVERIFY(version != QStringLiteral("vcpkg baseline"));
             QVERIFY(version != QStringLiteral("transitive"));
+        }
+
+        // Every bundled component also has a license entry with the same SPDX identifier.
+        auto* licenses = dialog.findChild<QTreeWidget*>("treeLicenses");
+        QVERIFY(licenses != nullptr);
+        for (int row = 0; row < tree->topLevelItemCount(); ++row)
+        {
+            const auto* component = tree->topLevelItem(row);
+            const auto matches = licenses->findItems(component->text(0), Qt::MatchExactly);
+            QVERIFY2(matches.size() == 1, qPrintable(component->text(0)));
+            QCOMPARE(matches.front()->text(1), component->text(2));
         }
     }
 
@@ -360,6 +417,75 @@ class GuiLogoTest final : public QObject
         const auto* hint = window.findChild<QLabel*>("lblVerifyContentDropArea");
         QVERIFY(hint != nullptr);
         QCOMPARE(hint->text(), QStringLiteral("[Drag and drop area]"));
+    }
+
+    void verifyContentPickersFollowTorrentLayoutAndRejectMismatch()
+    {
+        MainWindow window;
+        auto* file_button = window.findChild<QPushButton*>("btnVerifySelectContentFile");
+        auto* folder_button = window.findChild<QPushButton*>("btnVerifySelectFolder");
+        auto* torrent_input = window.findChild<QLineEdit*>("editVerifyTorrentPath");
+        auto* content_input = window.findChild<QLineEdit*>("editVerifyContentPath");
+        auto* content_group = window.findChild<QWidget*>("grpVerifyContent");
+        auto* start_button = window.findChild<QPushButton*>("btnVerifyStart");
+        auto* runner = window.findChild<GuiTaskRunner*>();
+        QVERIFY(file_button != nullptr);
+        QVERIFY(folder_button != nullptr);
+        QVERIFY(torrent_input != nullptr);
+        QVERIFY(content_input != nullptr);
+        QVERIFY(content_group != nullptr);
+        QVERIFY(start_button != nullptr);
+        QVERIFY(runner != nullptr);
+
+        // Unknown layout: both entry points stay available.
+        QVERIFY(!file_button->isHidden());
+        QVERIFY(!folder_button->isHidden());
+
+        const auto fixtures = QDir(QStringLiteral(TORRENTCRAFT_GUI_TEST_SOURCE_DIR))
+                                  .filePath(QStringLiteral("tests/fixtures/metadata"));
+        const auto single_torrent = fixtures + QStringLiteral("/valid-v1.torrent");
+        const auto multi_torrent = fixtures + QStringLiteral("/valid-v1-multifile.torrent");
+
+        torrent_input->setText(single_torrent);
+        QSignalSpy single_finished(runner, &GuiTaskRunner::finished);
+        QTest::keyClick(torrent_input, Qt::Key_Return);
+        QTRY_COMPARE(single_finished.count(), 1);
+        QVERIFY(!file_button->isHidden());
+        QVERIFY(folder_button->isHidden());
+
+        // The single-file layout rejects a directory content root and notes the mismatch.
+        QTemporaryDir content_directory;
+        QVERIFY(content_directory.isValid());
+        content_input->setText(content_directory.path());
+        QVERIFY(window.statusBar()->currentMessage().contains(QStringLiteral("single-file")));
+
+        QTimer dismiss;
+        connect(&dismiss, &QTimer::timeout, &window, [&window] {
+            for (auto* dialog : window.findChildren<QDialog*>())
+            {
+                dialog->accept();
+            }
+        });
+        dismiss.start(10);
+        start_button->click();
+        dismiss.stop();
+        QVERIFY(!runner->is_running());
+        QVERIFY(window.statusBar()->currentMessage().contains(QStringLiteral("single-file")));
+
+        // Dropping a folder sets the path exactly and never rewrites it.
+        QMimeData drop;
+        drop.setUrls({QUrl::fromLocalFile(content_directory.path())});
+        QVERIFY(send_drop(content_group, drop));
+        QCOMPARE(QDir::fromNativeSeparators(content_input->text()),
+                 QDir::fromNativeSeparators(content_directory.path()));
+
+        // A directory torrent switches the picker to the folder entry point.
+        torrent_input->setText(multi_torrent);
+        QSignalSpy multi_finished(runner, &GuiTaskRunner::finished);
+        QTest::keyClick(torrent_input, Qt::Key_Return);
+        QTRY_COMPARE(multi_finished.count(), 1);
+        QVERIFY(file_button->isHidden());
+        QVERIFY(!folder_button->isHidden());
     }
 
     void pathDropsDecodeLocalUrlsAndRejectOtherData()
@@ -584,6 +710,637 @@ class GuiLogoTest final : public QObject
                  torrentutils::frontend::GuiLanguage::SimplifiedChinese);
     }
 
+    void templateFieldDialogSelectsDefaultsAndDisablesUnavailableFields()
+    {
+        namespace frontend = torrentutils::frontend;
+        const auto fixture = QDir(QStringLiteral(TORRENTCRAFT_GUI_TEST_SOURCE_DIR))
+                                 .filePath(QStringLiteral(
+                                     "tests/fixtures/metadata/unsupported-piece-size-v1.torrent"));
+        auto loaded = frontend::load_torrent_template(
+            std::filesystem::u8path(fixture.toUtf8().toStdString()));
+        QVERIFY(loaded);
+        TemplateFieldDialog dialog(QStringLiteral("unsupported-piece-size-v1"), loaded.value());
+
+        auto* trackers = dialog.checkbox(frontend::TemplateField::Trackers);
+        auto* piece_size = dialog.checkbox(frontend::TemplateField::PieceSize);
+        auto* comment = dialog.checkbox(frontend::TemplateField::Comment);
+        auto* source = dialog.checkbox(frontend::TemplateField::Source);
+        QVERIFY(trackers != nullptr);
+        QVERIFY(piece_size != nullptr);
+        QVERIFY(comment != nullptr);
+        QVERIFY(source != nullptr);
+        QCOMPARE(trackers->objectName(), QStringLiteral("chkTemplateField_trackers"));
+        QVERIFY(trackers->isEnabled() && trackers->isChecked());
+        QVERIFY(!piece_size->isEnabled() && !piece_size->isChecked());
+        QVERIFY(piece_size->toolTip().contains(QStringLiteral("33554432")));
+        QVERIFY(!source->isEnabled());
+        QVERIFY(comment->isEnabled() && !comment->isChecked());
+        QVERIFY(dialog.findChildren<QLabel*>().size() > 0);
+
+        const auto defaults = dialog.selected_fields();
+        QVERIFY(std::find(defaults.begin(), defaults.end(), frontend::TemplateField::Trackers) !=
+                defaults.end());
+        QVERIFY(std::find(defaults.begin(), defaults.end(), frontend::TemplateField::PieceSize) ==
+                defaults.end());
+
+        comment->setChecked(true);
+        auto* buttons = dialog.findChild<QDialogButtonBox*>();
+        QVERIFY(buttons != nullptr);
+        for (auto* box : dialog.findChildren<QCheckBox*>())
+        {
+            box->setChecked(false);
+        }
+        QVERIFY(!buttons->button(QDialogButtonBox::Ok)->isEnabled());
+        comment->setChecked(true);
+        QVERIFY(buttons->button(QDialogButtonBox::Ok)->isEnabled());
+        QCOMPARE(dialog.selected_fields(),
+                 std::vector<frontend::TemplateField>{frontend::TemplateField::Comment});
+    }
+
+    void templateFieldDialogShowsLoadWarningsAndUnreadableFields()
+    {
+        namespace frontend = torrentutils::frontend;
+        const auto fixture =
+            QDir(QStringLiteral(TORRENTCRAFT_GUI_TEST_SOURCE_DIR))
+                .filePath(QStringLiteral(
+                    "tests/fixtures/metadata/partially-invalid-template-v1.torrent"));
+        auto loaded = frontend::load_torrent_template(
+            std::filesystem::u8path(fixture.toUtf8().toStdString()));
+        QVERIFY(loaded);
+        TemplateFieldDialog dialog(QStringLiteral("partially-invalid-template-v1"), loaded.value());
+
+        auto* warnings = dialog.findChild<QLabel*>(QStringLiteral("lblTemplateWarnings"));
+        QVERIFY(warnings != nullptr);
+        QVERIFY(warnings->text().contains(QStringLiteral("Trackers")));
+        QVERIFY(warnings->text().contains(QStringLiteral("Web seeds")));
+        auto* trackers = dialog.checkbox(frontend::TemplateField::Trackers);
+        auto* source = dialog.checkbox(frontend::TemplateField::Source);
+        QVERIFY(trackers != nullptr && source != nullptr);
+        QVERIFY(trackers->isEnabled() && trackers->isChecked());
+        QVERIFY(!source->isEnabled());
+        QVERIFY(source->toolTip().contains(QStringLiteral("unreadable")));
+    }
+
+    void templateFieldDialogTranslatesWithLanguage()
+    {
+        QTemporaryDir config_directory;
+        QVERIFY(config_directory.isValid());
+        QFile existing_config(config_directory.filePath(QStringLiteral("torrentcraft.json")));
+        QVERIFY(existing_config.open(QIODevice::WriteOnly | QIODevice::Text));
+        QVERIFY(existing_config.write(R"({"schema":"torrentcraft.config/v1"})") > 0);
+        existing_config.close();
+        MainWindow window;
+        auto* config_path = window.findChild<QLineEdit*>(QStringLiteral("editAdvancedConfigPath"));
+        QVERIFY(config_path != nullptr);
+        config_path->setText(config_directory.filePath(QStringLiteral("torrentcraft.json")));
+        auto* chinese = window.findChild<QAction*>(QStringLiteral("actionLanguageChinese"));
+        auto* english = window.findChild<QAction*>(QStringLiteral("actionLanguageEnglish"));
+        QVERIFY(chinese != nullptr);
+        QVERIFY(english != nullptr);
+
+        chinese->trigger();
+        QCOMPARE(TemplateFieldDialog::field_label(torrentutils::frontend::TemplateField::WebSeeds),
+                 QStringLiteral("Web Seed"));
+        english->trigger();
+        QCOMPARE(TemplateFieldDialog::field_label(torrentutils::frontend::TemplateField::WebSeeds),
+                 QStringLiteral("Web seeds"));
+    }
+
+    void trackerRewritePanelPreviewsAndReportsRuleErrors()
+    {
+        namespace core = torrentutils::core;
+        TrackerRewritePanel panel;
+        std::vector<core::TrackerTier> tiers;
+        tiers.push_back(
+            core::TrackerTier::create(
+                {core::TrackerUrl::parse("https://tracker.old.example/announce/KEY").value(),
+                 core::TrackerUrl::parse("udp://other.example:6969/announce").value()})
+                .value());
+        panel.set_preview_source(QStringLiteral("sample.torrent"),
+                                 core::TrackerList::create(std::move(tiers)).value());
+        QVERIFY(!panel.rules().has_value());
+
+        QSignalSpy changed(&panel, &TrackerRewritePanel::rulesChanged);
+        QCOMPARE(panel.rule_count(), 1);
+        QVERIFY(panel.match_case_button(0)->isChecked());
+        QVERIFY(!panel.regex_button(0)->isChecked());
+        QVERIFY(!panel.remove_button(0)->isEnabled());
+        QCOMPARE(panel.find_label(0)->buddy(), panel.find_edit(0));
+        // Rules and preview share a splitter so either can be given more room.
+        auto* splitter = panel.findChild<QSplitter*>(QStringLiteral("splitTrackerRewrite"));
+        QVERIFY(splitter != nullptr);
+        QCOMPARE(splitter->count(), 2);
+        QVERIFY(splitter->widget(0)->isAncestorOf(panel.find_edit(0)));
+        QVERIFY(splitter->widget(1)->isAncestorOf(panel.preview_table()));
+
+        // Adding a rule grows the rules pane; removing it gives the room back to the preview.
+        panel.resize(720, 600);
+        panel.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&panel));
+        // The single rule is fitted on first show.
+        QTRY_COMPARE(splitter->sizes().at(0), splitter->widget(0)->sizeHint().height());
+        const auto one_rule = splitter->sizes();
+        QCOMPARE(panel.add_rule(), 1);
+        QTRY_VERIFY(splitter->sizes().at(0) > one_rule.at(0));
+        panel.remove_button(1)->click();
+        QTRY_COMPARE(splitter->sizes(), one_rule);
+        // Plain text by default: the dots are literal.
+        panel.find_edit(0)->setText(QStringLiteral("tracker.old.example"));
+        panel.replace_edit(0)->setText(QStringLiteral("tracker.new.example"));
+        panel.refresh();
+        QVERIFY(panel.rules().has_value());
+        QVERIFY(!changed.isEmpty());
+        QCOMPARE(changed.back().at(0).toBool(), true);
+        QVERIFY(panel.error_label()->isHidden());
+
+        const auto* model = panel.preview_table()->model();
+        QCOMPARE(model->rowCount(), 2);
+        QCOMPARE(model->index(0, 0).data().toString(), QStringLiteral("1"));
+        QCOMPARE(model->index(0, 2).data().toString(),
+                 QStringLiteral("https://tracker.new.example/announce/KEY"));
+        QCOMPARE(model->index(0, 3).data().toString(), QStringLiteral("Changed"));
+        QCOMPARE(model->index(1, 3).data().toString(), QStringLiteral("Unchanged"));
+
+        // Match case is on, so a differently cased find leaves the URL alone.
+        panel.find_edit(0)->setText(QStringLiteral("TRACKER.old.example"));
+        panel.refresh();
+        QCOMPARE(model->index(0, 3).data().toString(), QStringLiteral("Unchanged"));
+        panel.match_case_button(0)->click();
+        panel.refresh();
+        QCOMPARE(model->index(0, 3).data().toString(), QStringLiteral("Changed"));
+
+        // Rows apply top to bottom; an empty row is ignored and an invalid one is named by number.
+        QCOMPARE(panel.add_rule(), 1);
+        QCOMPARE(panel.add_rule(), 2);
+        QVERIFY(panel.remove_button(0)->isEnabled());
+        panel.find_edit(2)->setText(QStringLiteral("(passkey"));
+        panel.regex_button(2)->click();
+        panel.refresh();
+        QVERIFY(!panel.rules().has_value());
+        QCOMPARE(changed.back().at(0).toBool(), false);
+        QVERIFY(!panel.error_label()->isHidden());
+        QVERIFY(panel.error_label()->text().startsWith(QStringLiteral("Rule 3:")));
+        QVERIFY(!panel.error_label()->text().contains(QStringLiteral("passkey")));
+        QVERIFY(!panel.find_edit(2)->styleSheet().isEmpty());
+
+        // Removing the bad row restores the rules; regex rows use $1 for groups.
+        panel.remove_button(2)->click();
+        QCOMPARE(panel.rule_count(), 2);
+        panel.find_edit(1)->setText(QStringLiteral("^udp://(other\\.example):6969"));
+        panel.replace_edit(1)->setText(QStringLiteral("https://$1"));
+        panel.regex_button(1)->click();
+        panel.refresh();
+        QVERIFY(panel.rules().has_value());
+        QVERIFY(panel.error_label()->isHidden());
+        QVERIFY(panel.find_edit(0)->styleSheet().isEmpty());
+        QCOMPARE(model->index(1, 2).data().toString(),
+                 QStringLiteral("https://other.example/announce"));
+
+        panel.find_edit(1)->setText(QStringLiteral("^udp:"));
+        panel.replace_edit(1)->setText(QStringLiteral("ftp:"));
+        panel.refresh();
+        QCOMPARE(model->index(1, 3).data().toString().left(8), QStringLiteral("Invalid:"));
+
+        // Clearing leaves one empty row with default toggles.
+        panel.clear();
+        QCOMPARE(panel.rule_count(), 1);
+        QVERIFY(panel.find_edit(0)->text().isEmpty());
+        QVERIFY(panel.match_case_button(0)->isChecked());
+        QVERIFY(!panel.regex_button(0)->isChecked());
+        QVERIFY(!panel.rules().has_value());
+    }
+
+    void trackerRewriteModeBatchRewritesSubfolders()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const auto fixtures = QDir(QStringLiteral(TORRENTCRAFT_GUI_TEST_SOURCE_DIR))
+                                  .filePath(QStringLiteral("tests/fixtures/metadata"));
+        QVERIFY(QDir(directory.path()).mkpath(QStringLiteral("in/sub")));
+        QVERIFY(QFile::copy(fixtures + QStringLiteral("/valid-v1.torrent"),
+                            directory.filePath(QStringLiteral("in/a.torrent"))));
+        QVERIFY(QFile::copy(fixtures + QStringLiteral("/valid-v1-multifile.torrent"),
+                            directory.filePath(QStringLiteral("in/sub/b.torrent"))));
+
+        MainWindow window;
+        auto* source = window.findChild<QLineEdit*>("editTrackerSourcePath");
+        auto* output = window.findChild<QLineEdit*>("editTrackerOutputPath");
+        auto* recursive = window.findChild<QCheckBox*>("chkTrackerRecursive");
+        auto* reload = window.findChild<QPushButton*>("btnTrackerReloadFolder");
+        auto* convert = window.findChild<QPushButton*>("btnTrackerBatchConvert");
+        auto* rewrite = window.findChild<QRadioButton*>("radTrackerRewrite");
+        auto* stack = window.findChild<QStackedWidget*>("stackTrackerMode");
+        auto* fields_splitter = window.findChild<QSplitter*>("splitTrackerFields");
+        auto* table = window.findChild<QTableView*>("tblTrackerTorrents");
+        auto* panel = window.findChild<TrackerRewritePanel*>();
+        auto* runner = window.findChild<GuiTaskRunner*>();
+        QVERIFY(source && output && recursive && reload && convert && rewrite && stack && table &&
+                panel && runner && fields_splitter);
+        // The tracker editor and the torrent list share a splitter.
+        QCOMPARE(fields_splitter->widget(0), stack);
+        QVERIFY(fields_splitter->widget(1)->isAncestorOf(table));
+        QVERIFY(!source->placeholderText().isEmpty());
+
+        QSignalSpy finished(runner, &GuiTaskRunner::finished);
+        recursive->setChecked(true);
+        source->setText(directory.filePath(QStringLiteral("in")));
+        reload->click();
+        QTRY_COMPARE(finished.count(), 1);
+        QCOMPARE(table->model()->rowCount(), 2);
+        QCOMPARE(table->model()->index(1, 0).data().toString(), QStringLiteral("sub/b.torrent"));
+
+        rewrite->setChecked(true);
+        QCOMPARE(stack->currentIndex(), 1);
+        QVERIFY(!convert->isEnabled());
+        panel->find_edit(0)->setText(QStringLiteral("tracker.example"));
+        panel->replace_edit(0)->setText(QStringLiteral("tracker.new.example"));
+        panel->refresh();
+        QVERIFY(convert->isEnabled());
+
+        // Selecting a torrent previews it without leaving the folder batch.
+        table->clicked(table->model()->index(1, 0));
+        QTRY_COMPARE(finished.count(), 2);
+        QCOMPARE(panel->preview_table()->model()->index(0, 2).data().toString(),
+                 QStringLiteral("https://tracker.new.example/announce"));
+
+        panel->preview_all_button()->click();
+        QTRY_COMPARE(finished.count(), 3);
+        QVERIFY(table->model()->index(0, 2).data().toString().startsWith(
+            QStringLiteral("Will change")));
+
+        output->setText(directory.filePath(QStringLiteral("out")));
+        QTimer dismiss;
+        QObject::connect(&dismiss, &QTimer::timeout, [] {
+            if (auto* modal = QApplication::activeModalWidget())
+            {
+                modal->close();
+            }
+        });
+        dismiss.start(20);
+        // Convert straight after an edit must use the edited rule, not the one the debounced
+        // preview compiled earlier.
+        panel->replace_edit(0)->setText(QStringLiteral("tracker.newer.example"));
+        convert->click();
+        QTRY_COMPARE(finished.count(), 4);
+        QTRY_VERIFY(QApplication::activeModalWidget() == nullptr);
+        dismiss.stop();
+        QVERIFY(QFileInfo::exists(directory.filePath(QStringLiteral("out/a.torrent"))));
+        QVERIFY(QFileInfo::exists(directory.filePath(QStringLiteral("out/sub/b.torrent"))));
+        QCOMPARE(table->model()->index(1, 2).data().toString(), QStringLiteral("Updated"));
+
+        torrentutils::core::FileTorrentRepository repository;
+        torrentutils::core::SystemClock clock;
+        const torrentutils::core::TorrentService service(repository, clock);
+        const auto reloaded = service.load(std::filesystem::u8path(
+            directory.filePath(QStringLiteral("out/sub/b.torrent")).toUtf8().toStdString()));
+        QVERIFY(reloaded);
+        QCOMPARE(QString::fromStdString(
+                     reloaded.value().document().trackers().tiers()[0].trackers()[0].value()),
+                 QStringLiteral("https://tracker.newer.example/announce"));
+    }
+
+    void trackerFileListReloadsTranslatesAndCapsFailures()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QVERIFY(QDir(directory.path()).mkpath(QStringLiteral("in")));
+        constexpr int kBrokenFiles = 55;
+        for (int index = 0; index < kBrokenFiles; ++index)
+        {
+            QFile broken(directory.filePath(QStringLiteral("in/broken-%1.torrent").arg(index)));
+            QVERIFY(broken.open(QIODevice::WriteOnly));
+            broken.write("not bencode");
+        }
+
+        MainWindow window;
+        auto* config_path = window.findChild<QLineEdit*>("editAdvancedConfigPath");
+        auto* source = window.findChild<QLineEdit*>("editTrackerSourcePath");
+        auto* output = window.findChild<QLineEdit*>("editTrackerOutputPath");
+        auto* reload = window.findChild<QPushButton*>("btnTrackerReloadFolder");
+        auto* convert = window.findChild<QPushButton*>("btnTrackerBatchConvert");
+        auto* rewrite = window.findChild<QRadioButton*>("radTrackerRewrite");
+        auto* table = window.findChild<QTableView*>("tblTrackerTorrents");
+        auto* panel = window.findChild<TrackerRewritePanel*>();
+        auto* runner = window.findChild<GuiTaskRunner*>();
+        auto* chinese = window.findChild<QAction*>("actionLanguageChinese");
+        auto* english = window.findChild<QAction*>("actionLanguageEnglish");
+        QVERIFY(config_path && source && output && reload && convert && rewrite && table && panel &&
+                runner && chinese && english);
+        config_path->setText(directory.filePath(QStringLiteral("torrentcraft.json")));
+        QSignalSpy finished(runner, &GuiTaskRunner::finished);
+
+        // Reloading replaces the list model; the old one must be freed, not kept as a child.
+        source->setText(directory.filePath(QStringLiteral("in")));
+        reload->click();
+        QTRY_COMPARE(finished.count(), 1);
+        const auto* first_model = table->model();
+        QPointer<QAbstractItemModel> first_model_guard(table->model());
+        reload->click();
+        QTRY_COMPARE(finished.count(), 2);
+        QVERIFY(table->model() != first_model);
+        QTRY_VERIFY(first_model_guard.isNull());
+        QCOMPARE(table->model()->rowCount(), kBrokenFiles);
+
+        // The list's headers and statuses follow the language.
+        chinese->trigger();
+        QCOMPARE(table->model()->headerData(0, Qt::Horizontal).toString(),
+                 QStringLiteral("文件名"));
+        QCOMPARE(table->model()->index(0, 2).data().toString(), QStringLiteral("就绪"));
+        english->trigger();
+        QCOMPARE(table->model()->index(0, 2).data().toString(), QStringLiteral("Ready"));
+
+        // Every file fails to load; the summary lists a bounded number of them.
+        rewrite->setChecked(true);
+        panel->find_edit(0)->setText(QStringLiteral("a"));
+        panel->replace_edit(0)->setText(QStringLiteral("b"));
+        panel->refresh();
+        output->setText(directory.filePath(QStringLiteral("out")));
+        QString summary;
+        QTimer dismiss;
+        QObject::connect(&dismiss, &QTimer::timeout, [&summary] {
+            if (auto* modal = QApplication::activeModalWidget())
+            {
+                if (auto* text = modal->findChild<QPlainTextEdit*>("editNotificationMessage"))
+                {
+                    summary = text->toPlainText();
+                }
+                modal->close();
+            }
+        });
+        dismiss.start(20);
+        convert->click();
+        // While the batch runs, the source, recursion and mode cannot change underneath it.
+        QVERIFY(!source->isEnabled());
+        QVERIFY(!rewrite->isEnabled());
+        QVERIFY(!window.findChild<QCheckBox*>("chkTrackerRecursive")->isEnabled());
+        QTRY_COMPARE(finished.count(), 3);
+        QTRY_VERIFY(!summary.isEmpty());
+        QVERIFY(source->isEnabled());
+        dismiss.stop();
+        QCOMPARE(summary.count(QStringLiteral("broken-")), 50);
+        QVERIFY2(summary.contains(QStringLiteral("and 5 more")), qPrintable(summary));
+        QCOMPARE(table->model()->index(0, 2).data().toString(), QStringLiteral("Failed"));
+        chinese->trigger();
+        QCOMPARE(table->model()->index(0, 2).data().toString(), QStringLiteral("失败"));
+        english->trigger();
+    }
+
+    void failedAdvancedApplyLeavesNoPartialSettingsToSaveLater()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const auto config_file = directory.filePath(QStringLiteral("torrentcraft.json"));
+        {
+            QFile config(config_file);
+            QVERIFY(config.open(QIODevice::WriteOnly));
+            config.write(R"({"schema": "torrentcraft.config/v1"})");
+        }
+        MainWindow window;
+        auto* config_path = window.findChild<QLineEdit*>("editAdvancedConfigPath");
+        auto* comment = window.findChild<QLineEdit*>("editAdvancedDefaultComment");
+        auto* log_path = window.findChild<QLineEdit*>("editAdvancedLogPath");
+        auto* apply = window.findChild<QPushButton*>("btnAdvancedApply");
+        auto* chinese = window.findChild<QAction*>("actionLanguageChinese");
+        auto* english = window.findChild<QAction*>("actionLanguageEnglish");
+        QVERIFY(config_path && comment && log_path && apply && chinese && english);
+        config_path->setText(config_file);
+        // Switching language loads the config file into the window.
+        chinese->trigger();
+        english->trigger();
+
+        // The defaults apply first and succeed; the oversized log path then fails the Apply.
+        comment->setText(QStringLiteral("partial-marker"));
+        log_path->setMaxLength(std::numeric_limits<int>::max());
+        log_path->setText(QString(qsizetype{2} * 1024 * 1024, QLatin1Char('x')));
+        QTimer dismiss;
+        QObject::connect(&dismiss, &QTimer::timeout, [] {
+            if (auto* modal = QApplication::activeModalWidget())
+            {
+                modal->close();
+            }
+        });
+        dismiss.start(20);
+        apply->click();
+        dismiss.stop();
+
+        // Switching language saves the config; it must not carry the failed Apply's defaults.
+        chinese->trigger();
+        english->trigger();
+        QFile saved(config_file);
+        QVERIFY(saved.open(QIODevice::ReadOnly));
+        const auto saved_text = saved.readAll();
+        QVERIFY(!saved_text.contains("partial-marker"));
+    }
+
+    void resetButtonsLeavePagesAloneWhileATaskRuns()
+    {
+        MainWindow window;
+        window.show();
+        auto* runner = window.findChild<GuiTaskRunner*>();
+        QVERIFY(runner != nullptr);
+        const std::pair<const char*, const char*> pages[] = {
+            {"btnCreateReset", "editCreateInputPath"},
+            {"btnModifyReset", "editModifyTorrentPath"},
+            {"btnInspectReset", "editInspectTorrentPath"},
+            {"btnVerifyReset", "editVerifyTorrentPath"},
+            {"btnTrackerReset", "editTrackerSourcePath"},
+        };
+        for (const auto& [button_name, edit_name] : pages)
+        {
+            auto* edit = window.findChild<QLineEdit*>(edit_name);
+            QVERIFY2(edit != nullptr, edit_name);
+            const QSignalBlocker block(edit);
+            edit->setText(QStringLiteral("kept"));
+        }
+        QVERIFY(runner->start(
+            [](const torrentutils::core::CancellationToken& token) {
+                while (!token.is_cancelled())
+                    QThread::msleep(1);
+            },
+            {}));
+
+        // A worker may be reading the page's loaded torrent, so Reset must not clear it.
+        for (const auto& [button_name, edit_name] : pages)
+        {
+            auto* button = window.findChild<QPushButton*>(button_name);
+            QVERIFY2(button != nullptr, button_name);
+            button->click();
+            QCOMPARE(window.findChild<QLineEdit*>(edit_name)->text(), QStringLiteral("kept"));
+        }
+        runner->cancel();
+        QTRY_VERIFY(!runner->is_running());
+    }
+
+    void everyPageScrollsInsteadOfSqueezingGroupsInSmallWindows()
+    {
+        // Large fonts (HiDPI, accessibility settings) make layouts need more than fixed sizes.
+        const auto original_font = QApplication::font();
+        auto large_font = original_font;
+        if (original_font.pointSizeF() > 0)
+        {
+            large_font.setPointSizeF(original_font.pointSizeF() * 1.6);
+        }
+        else
+        {
+            large_font.setPixelSize(original_font.pixelSize() * 8 / 5);
+        }
+        QApplication::setFont(large_font);
+        const auto restore_font = qScopeGuard([&] { QApplication::setFont(original_font); });
+        MainWindow window;
+        auto* tabs = window.findChild<QTabWidget*>("tabMain");
+        QVERIFY(tabs != nullptr);
+        window.resize(window.minimumSize());
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        // A fixed minimumSize on a group overrides what its layout needs, so a short window
+        // squeezed the group and its widgets overlapped instead of the page scrolling.
+        for (int tab = 0; tab < tabs->count(); ++tab)
+        {
+            tabs->setCurrentIndex(tab);
+            QCoreApplication::processEvents();
+            for (auto* group : tabs->widget(tab)->findChildren<QGroupBox*>())
+            {
+                if (!group->isVisible())
+                {
+                    continue;
+                }
+                const auto message = group->objectName().toUtf8();
+                QVERIFY2(group->height() >= group->minimumSizeHint().height(), message.constData());
+            }
+        }
+    }
+
+    void noPageScrollsSidewaysAtTheMinimumWindowSize()
+    {
+        // Long option labels in a row of action buttons once widened the Modify page past the
+        // minimum window width, so the page needed a horizontal scroll bar.
+        MainWindow window;
+        auto* tabs = window.findChild<QTabWidget*>("tabMain");
+        QVERIFY(tabs != nullptr);
+        window.resize(window.minimumSize());
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        for (int tab = 0; tab < tabs->count(); ++tab)
+        {
+            tabs->setCurrentIndex(tab);
+            QCoreApplication::processEvents();
+            for (auto* area : tabs->widget(tab)->findChildren<QScrollArea*>())
+            {
+                if (!area->isVisible() || area->widget() == nullptr)
+                {
+                    continue;
+                }
+                // Compare what the page needs, not its current width: the scroll area may not have
+                // resized the page to the final viewport yet (seen under xvfb with Qt 6.11).
+                const int needed = area->widget()->minimumSizeHint().width();
+                const int available = area->viewport()->width();
+                if (needed <= available)
+                {
+                    continue;
+                }
+                // Name the widest rows and widgets so a failure on another Qt version or font shows
+                // what needs the width.
+                QList<QPair<int, QString>> widest;
+                const auto add = [&widest](const QObject* object, int width) {
+                    widest.append(
+                        {width, QStringLiteral("%1 %2 (%3)")
+                                    .arg(QString::fromLatin1(object->metaObject()->className()),
+                                         object->objectName())
+                                    .arg(width)});
+                };
+                for (auto* layout : area->widget()->findChildren<QLayout*>())
+                {
+                    add(layout, layout->minimumSize().width());
+                }
+                for (auto* child : area->widget()->findChildren<QWidget*>())
+                {
+                    if (child->isVisible())
+                    {
+                        add(child, child->minimumSizeHint().width());
+                    }
+                }
+                std::sort(widest.begin(), widest.end(), [](const auto& left, const auto& right) {
+                    return left.first > right.first;
+                });
+                QStringList names;
+                for (qsizetype index = 0; index < widest.size() && index < 8; ++index)
+                {
+                    names.append(widest.at(index).second);
+                }
+                const auto message = QStringLiteral("%1 needs %2 px, viewport %3 px; widest: %4")
+                                         .arg(tabs->tabText(tab))
+                                         .arg(needed)
+                                         .arg(available)
+                                         .arg(names.join(QStringLiteral(", ")))
+                                         .toUtf8();
+                QFAIL(message.constData());
+            }
+        }
+    }
+
+    void trackerPageScrollsInsteadOfOverlappingInSmallWindows()
+    {
+        MainWindow window;
+        auto* tabs = window.findChild<QTabWidget*>("tabMain");
+        auto* page = window.findChild<QWidget*>("Tracker");
+        auto* rewrite = window.findChild<QRadioButton*>("radTrackerRewrite");
+        auto* fields = window.findChild<QGroupBox*>("grpTrackerFields");
+        auto* rewrite_splitter = window.findChild<QSplitter*>("splitTrackerRewrite");
+        auto* add_rule = window.findChild<QPushButton*>("btnTrackerAddRule");
+        auto* preview = window.findChild<QTableView*>("tblTrackerRewritePreview");
+        auto* panel = window.findChild<TrackerRewritePanel*>();
+        QVERIFY(tabs && page && rewrite && fields && rewrite_splitter && add_rule && preview &&
+                panel);
+        tabs->setCurrentWidget(page);
+        rewrite->setChecked(true);
+        panel->add_rule();
+        window.resize(window.minimumSize());
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        QCoreApplication::processEvents();
+
+        // A fixed minimum on the Fields group once let the page squeeze it below what its
+        // contents need, so the rule footer overlapped the rules and preview.
+        QVERIFY(fields->height() >= fields->minimumSizeHint().height());
+        for (int index = 0; index < rewrite_splitter->count(); ++index)
+        {
+            auto* pane = rewrite_splitter->widget(index);
+            QVERIFY(pane->height() >= pane->minimumSizeHint().height());
+        }
+        const auto add_bottom = add_rule->mapTo(panel, QPoint(0, add_rule->height())).y();
+        QVERIFY(add_bottom <= preview->mapTo(panel, QPoint(0, 0)).y());
+    }
+
+    void trackerRewritePanelTranslatesWithLanguage()
+    {
+        QTemporaryDir config_directory;
+        QVERIFY(config_directory.isValid());
+        QFile existing_config(config_directory.filePath(QStringLiteral("torrentcraft.json")));
+        QVERIFY(existing_config.open(QIODevice::WriteOnly | QIODevice::Text));
+        QVERIFY(existing_config.write(R"({"schema":"torrentcraft.config/v1"})") > 0);
+        existing_config.close();
+        MainWindow window;
+        auto* config_path = window.findChild<QLineEdit*>(QStringLiteral("editAdvancedConfigPath"));
+        auto* panel = window.findChild<TrackerRewritePanel*>();
+        auto* rewrite = window.findChild<QRadioButton*>("radTrackerRewrite");
+        QVERIFY(config_path && panel && rewrite);
+        config_path->setText(config_directory.filePath(QStringLiteral("torrentcraft.json")));
+        auto* chinese = window.findChild<QAction*>(QStringLiteral("actionLanguageChinese"));
+        auto* english = window.findChild<QAction*>(QStringLiteral("actionLanguageEnglish"));
+        QVERIFY(chinese && english);
+
+        chinese->trigger();
+        // Language changes reach child widgets through posted events.
+        QTRY_COMPARE(panel->preview_all_button()->text(), QStringLiteral("全部预览"));
+        QCOMPARE(rewrite->text(), QStringLiteral("改写（查找替换）"));
+        QCOMPARE(panel->add_rule_button()->text(), QStringLiteral("+ 添加规则"));
+        QCOMPARE(panel->find_label(0)->text(), QStringLiteral("查找"));
+        QCOMPARE(panel->match_case_button(0)->toolTip(), QStringLiteral("区分大小写"));
+        english->trigger();
+        QTRY_COMPARE(panel->preview_all_button()->text(), QStringLiteral("Preview all"));
+        QCOMPARE(panel->find_label(0)->text(), QStringLiteral("Find"));
+    }
+
     void advancedLabelsTranslateWithLanguage()
     {
         QTemporaryDir config_directory;
@@ -719,7 +1476,13 @@ class GuiLogoTest final : public QObject
         auto persisted = torrentutils::frontend::ConfigFile::load(
             std::filesystem::u8path(config_path.toUtf8().toStdString()));
         QVERIFY(persisted);
-        const auto& filter = *persisted.value().parsed().defaults.file_filter;
+        const auto& filter_setting = persisted.value().parsed().defaults.file_filter;
+        QVERIFY(filter_setting.has_value());
+        if (!filter_setting)
+        {
+            return;
+        }
+        const auto& filter = *filter_setting;
         QCOMPARE(static_cast<int>(filter.mode), static_cast<int>(FileFilterMode::CommonArtifacts));
         QVERIFY(filter.case_sensitive);
         QVERIFY(filter.patterns.empty());
@@ -1114,9 +1877,10 @@ class GuiLogoTest final : public QObject
         MainWindow window;
         auto* runner = window.findChild<GuiTaskRunner*>();
         QVERIFY(runner != nullptr);
-        emit runner->progress(QStringLiteral("hashing"), 1, 10, 1024, 10 * 1024 * 1024);
+        emit runner->progress(QStringLiteral("hashing"), 1, 10, 1024, qulonglong{10} * 1024 * 1024);
         QTest::qWait(2);
-        emit runner->progress(QStringLiteral("hashing"), 2, 10, 2 * 1024 * 1024, 10 * 1024 * 1024);
+        emit runner->progress(QStringLiteral("hashing"), 2, 10, qulonglong{2} * 1024 * 1024,
+                              qulonglong{10} * 1024 * 1024);
         const auto status = window.statusBar()->currentMessage();
         QVERIFY(status.contains(QStringLiteral("pieces/s")));
         QVERIFY(status.contains(QStringLiteral("I/O speed")));
@@ -1419,6 +2183,172 @@ class GuiLogoTest final : public QObject
         const auto tooltip = status.data(Qt::ToolTipRole).toString();
         QVERIFY(tooltip.contains(QStringLiteral("Hash mismatch")));
         QVERIFY(tooltip.contains(QStringLiteral("Shared-piece mismatch")));
+    }
+
+    void fileTreeShowsTorrentRootFolderForDirectoryLayout()
+    {
+        auto directory_hashes =
+            InfoHashes::create(TorrentFormat::V1, Sha1Digest::from_bytes({}), std::nullopt);
+        Q_ASSERT(directory_hashes);
+        auto directory_pieces = PieceInfo::create(TorrentFormat::V1, std::uint64_t{16U} * 1024U, 8,
+                                                  {Sha1Digest::from_bytes({})});
+        Q_ASSERT(directory_pieces);
+        auto directory = TorrentInfo::create(
+            "iconengines", TorrentFormat::V1, std::move(directory_hashes).value(),
+            std::move(directory_pieces).value(), {make_file({"qsvgicon.dll"}, 8)});
+        Q_ASSERT(directory);
+
+        FileTreeModel model(nullptr, FileTreeModel::Mode::Inspect);
+        model.set_files(directory.value());
+        QVERIFY(model.canFetchMore({}));
+        model.fetchMore({});
+        QCOMPARE(model.rowCount(), 1);
+        const auto root = model.index(0, 0);
+        QCOMPARE(root.data().toString(), QStringLiteral("iconengines"));
+        QVERIFY(root.data(Qt::UserRole).toBool());
+        model.fetchMore(root);
+        QVERIFY(child_named(model, root, QStringLiteral("qsvgicon.dll")).isValid());
+
+        auto single_hashes =
+            InfoHashes::create(TorrentFormat::V1, Sha1Digest::from_bytes({}), std::nullopt);
+        Q_ASSERT(single_hashes);
+        auto single_pieces = PieceInfo::create(TorrentFormat::V1, std::uint64_t{16U} * 1024U, 8,
+                                               {Sha1Digest::from_bytes({})});
+        Q_ASSERT(single_pieces);
+        auto single =
+            TorrentInfo::create("payload.bin", TorrentFormat::V1, std::move(single_hashes).value(),
+                                std::move(single_pieces).value(), {make_file({"payload.bin"}, 8)});
+        Q_ASSERT(single);
+
+        FileTreeModel single_model(nullptr, FileTreeModel::Mode::Inspect);
+        single_model.set_files(single.value());
+        single_model.fetchMore({});
+        QCOMPARE(single_model.rowCount(), 1);
+        QCOMPARE(single_model.index(0, 0).data().toString(), QStringLiteral("payload.bin"));
+        QVERIFY(!single_model.index(0, 0).data(Qt::UserRole).toBool());
+    }
+
+    void pageResetButtonsClearFilledForms()
+    {
+        MainWindow window;
+        auto* create_reset = window.findChild<QPushButton*>("btnCreateReset");
+        auto* modify_reset = window.findChild<QPushButton*>("btnModifyReset");
+        auto* inspect_reset = window.findChild<QPushButton*>("btnInspectReset");
+        auto* verify_reset = window.findChild<QPushButton*>("btnVerifyReset");
+        auto* tracker_reset = window.findChild<QPushButton*>("btnTrackerReset");
+        QVERIFY(create_reset != nullptr);
+        QVERIFY(modify_reset != nullptr);
+        QVERIFY(inspect_reset != nullptr);
+        QVERIFY(verify_reset != nullptr);
+        QVERIFY(tracker_reset != nullptr);
+
+        auto* create_input = window.findChild<QLineEdit*>("editCreateInputPath");
+        auto* create_comment = window.findChild<QPlainTextEdit*>("editCreateComment");
+        auto* create_private = window.findChild<QCheckBox*>("chkCreatePrivate");
+        auto* modify_input = window.findChild<QLineEdit*>("editModifyTorrentPath");
+        auto* modify_comment = window.findChild<QPlainTextEdit*>("editModifyComment");
+        auto* inspect_input = window.findChild<QLineEdit*>("editInspectTorrentPath");
+        auto* inspect_name = window.findChild<QLabel*>("lblInspectNameValue");
+        auto* verify_torrent = window.findChild<QLineEdit*>("editVerifyTorrentPath");
+        auto* verify_content = window.findChild<QLineEdit*>("editVerifyContentPath");
+        auto* tracker_source = window.findChild<QLineEdit*>("editTrackerSourcePath");
+        auto* select_content_file = window.findChild<QPushButton*>("btnVerifySelectContentFile");
+        auto* select_folder = window.findChild<QPushButton*>("btnVerifySelectFolder");
+        QVERIFY(create_input != nullptr);
+        QVERIFY(create_comment != nullptr);
+        QVERIFY(create_private != nullptr);
+        QVERIFY(modify_input != nullptr);
+        QVERIFY(modify_comment != nullptr);
+        QVERIFY(inspect_input != nullptr);
+        QVERIFY(inspect_name != nullptr);
+        QVERIFY(verify_torrent != nullptr);
+        QVERIFY(verify_content != nullptr);
+        QVERIFY(tracker_source != nullptr);
+        QVERIFY(select_content_file != nullptr);
+        QVERIFY(select_folder != nullptr);
+
+        create_input->setText(QStringLiteral("/tmp/torrentcraft-reset-demo"));
+        create_comment->setPlainText(QStringLiteral("draft comment"));
+        create_private->setChecked(true);
+        modify_input->setText(QStringLiteral("/tmp/torrentcraft-reset-demo.torrent"));
+        modify_comment->setPlainText(QStringLiteral("draft comment"));
+        inspect_input->setText(QStringLiteral("/tmp/torrentcraft-reset-demo.torrent"));
+        inspect_name->setText(QStringLiteral("stale name"));
+        verify_torrent->setText(QStringLiteral("/tmp/torrentcraft-reset-demo.torrent"));
+        verify_content->setText(QStringLiteral("/tmp/torrentcraft-reset-demo-content"));
+        tracker_source->setText(QStringLiteral("/tmp/torrentcraft-reset-demo"));
+
+        create_reset->click();
+        QCOMPARE(create_input->text(), QString());
+        QCOMPARE(create_comment->toPlainText(), QString());
+        QVERIFY(!create_private->isChecked());
+
+        modify_reset->click();
+        QCOMPARE(modify_input->text(), QString());
+        QCOMPARE(modify_comment->toPlainText(), QString());
+
+        inspect_reset->click();
+        QCOMPARE(inspect_input->text(), QString());
+        QCOMPARE(inspect_name->text(), QString());
+
+        verify_reset->click();
+        QCOMPARE(verify_torrent->text(), QString());
+        QCOMPARE(verify_content->text(), QString());
+        QVERIFY(!select_content_file->isHidden());
+        QVERIFY(!select_folder->isHidden());
+
+        tracker_reset->click();
+        QCOMPARE(tracker_source->text(), QString());
+    }
+
+    void createResetRestoresPresetValuesAndKeepsPresetSelected()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const auto config_path = directory.filePath(QStringLiteral("torrentcraft.json"));
+        QFile config(config_path);
+        QVERIFY(config.open(QIODevice::WriteOnly));
+        QVERIFY(config.write(R"({"schema":"torrentcraft.config/v1","default_preset":"release",)"
+                             R"("presets":{"release":{"piece_size":4096,"private":true}}})") > 0);
+        config.close();
+
+        MainWindow window;
+        auto* config_edit = window.findChild<QLineEdit*>("editAdvancedConfigPath");
+        auto* reload = window.findChild<QPushButton*>("btnAdvancedReloadConfig");
+        auto* create_reset = window.findChild<QPushButton*>("btnCreateReset");
+        auto* piece = window.findChild<QComboBox*>("cmbCreatePieceSize");
+        auto* private_box = window.findChild<QCheckBox*>("chkCreatePrivate");
+        auto* comment = window.findChild<QPlainTextEdit*>("editCreateComment");
+        auto* input = window.findChild<QLineEdit*>("editCreateInputPath");
+        QVERIFY(config_edit != nullptr);
+        QVERIFY(reload != nullptr);
+        QVERIFY(create_reset != nullptr);
+        QVERIFY(piece != nullptr);
+        QVERIFY(private_box != nullptr);
+        QVERIFY(comment != nullptr);
+        QVERIFY(input != nullptr);
+
+        config_edit->setText(config_path);
+        reload->click();
+        QVERIFY(private_box->isChecked());
+        const auto preset_piece_index = piece->currentIndex();
+        QVERIFY(preset_piece_index > 0);
+        QVERIFY(window.windowTitle().contains(QStringLiteral("[release]")));
+
+        input->setText(QStringLiteral("/tmp/torrentcraft-reset-demo"));
+        comment->setPlainText(QStringLiteral("draft comment"));
+        piece->setCurrentIndex(0);
+        private_box->setChecked(false);
+        QVERIFY(window.windowTitle().contains(QStringLiteral("[release*]")));
+
+        create_reset->click();
+
+        QCOMPARE(input->text(), QString());
+        QCOMPARE(comment->toPlainText(), QString());
+        QVERIFY(private_box->isChecked());
+        QCOMPARE(piece->currentIndex(), preset_piece_index);
+        QVERIFY(window.windowTitle().contains(QStringLiteral("[release]")));
+        QVERIFY(!window.windowTitle().contains(QStringLiteral("*")));
     }
 };
 void GuiLogoTest::initMain()

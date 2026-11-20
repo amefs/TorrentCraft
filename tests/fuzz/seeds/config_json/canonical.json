@@ -1,0 +1,1 @@
+{"schema": "torrentcraft.config/v1", "defaults": {"piece_size": 16, "private": true}, "presets": {"a": {"comment": "c", "trackers": [["https://t.example/announce"]]}}, "gui": {"language": "en"}}

@@ -11,7 +11,7 @@ class TrackerEditDialog final : public QDialog
 {
     Q_OBJECT
   public:
-    explicit TrackerEditDialog(int tier, QString tracker, const QString& title,
+    explicit TrackerEditDialog(int tier, const QString& tracker, const QString& title,
                                QWidget* parent = nullptr, bool multi_tier = false);
     ~TrackerEditDialog() override;
 

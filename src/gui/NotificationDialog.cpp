@@ -5,14 +5,14 @@
 #include <QApplication>
 #include <QStyle>
 
-NotificationDialog::NotificationDialog(const Level level, QString title, QString message,
-                                       QWidget* parent)
+NotificationDialog::NotificationDialog(const Level level, const QString& title,
+                                       const QString& message, QWidget* parent)
     : QDialog(parent), ui_(new Ui::NotificationDialog)
 {
     ui_->setupUi(this);
     setWindowTitle(title);
-    ui_->lblNotificationTitle->setText(std::move(title));
-    ui_->editNotificationMessage->setPlainText(std::move(message));
+    ui_->lblNotificationTitle->setText(title);
+    ui_->editNotificationMessage->setPlainText(message);
 
     QStyle::StandardPixmap icon = QStyle::SP_MessageBoxInformation;
     switch (level)

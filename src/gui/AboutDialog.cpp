@@ -17,7 +17,7 @@
 namespace {
 QString license_alias(const QString& component)
 {
-    const auto normalized = component.toLower();
+    auto normalized = component.toLower();
     if (normalized == QStringLiteral("nlohmann/json"))
         return QStringLiteral("nlohmann-json");
     if (normalized == QStringLiteral("qt"))
@@ -89,13 +89,18 @@ AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::AboutDi
                    torrentcraft::gui::build_info::vcpkg_commit);
 
     ui_->treeComponents->clear();
+    // License columns use SPDX license identifiers.
     add_component_info(ui_->treeComponents, tr("Qt"), torrentcraft::gui::build_info::qt_version,
-                       QStringLiteral("LGPL-3.0"));
+                       QStringLiteral("LGPL-3.0-only"));
     add_component_info(ui_->treeComponents, tr("libtorrent"),
                        torrentcraft::gui::build_info::libtorrent_version,
                        QStringLiteral("BSD-3-Clause"));
     add_component_info(ui_->treeComponents, tr("nlohmann/json"),
                        torrentcraft::gui::build_info::nlohmann_json_version, QStringLiteral("MIT"));
+    add_component_info(ui_->treeComponents, tr("RE2"), torrentcraft::gui::build_info::re2_version,
+                       QStringLiteral("BSD-3-Clause"));
+    add_component_info(ui_->treeComponents, tr("Abseil"),
+                       torrentcraft::gui::build_info::abseil_version, QStringLiteral("Apache-2.0"));
     add_component_info(ui_->treeComponents, tr("indicators"),
                        torrentcraft::gui::build_info::indicators_version, QStringLiteral("MIT"));
     add_component_info(ui_->treeComponents, tr("OpenSSL"),
@@ -109,9 +114,11 @@ AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::AboutDi
     ui_->treeLicenses->clear();
     const QList<QPair<QString, QString>> licenses = {
         {QStringLiteral("TorrentCraft"), QStringLiteral("MIT")},
-        {QStringLiteral("Qt"), QStringLiteral("LGPL-3.0")},
+        {QStringLiteral("Qt"), QStringLiteral("LGPL-3.0-only")},
         {QStringLiteral("libtorrent"), QStringLiteral("BSD-3-Clause")},
         {QStringLiteral("nlohmann/json"), QStringLiteral("MIT")},
+        {QStringLiteral("RE2"), QStringLiteral("BSD-3-Clause")},
+        {QStringLiteral("Abseil"), QStringLiteral("Apache-2.0")},
         {QStringLiteral("indicators"), QStringLiteral("MIT")},
         {QStringLiteral("OpenSSL"), QStringLiteral("Apache-2.0")},
         {QStringLiteral("Boost"), QStringLiteral("BSL-1.0")},
