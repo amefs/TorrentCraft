@@ -15,8 +15,8 @@ Both applications share the same underlying core engine and canonical configurat
 - **Inspect & Explore** — View torrent metadata, info hashes (SHA-1 / SHA-256), piece specs, and browse the logical file tree without needing the original data files.
 - **Verify Content** — Check local files and folders against a torrent to ensure data integrity, with multi-threaded hashing and configurable memory limits.
 - **Validate Structure** — Check torrent files for syntax correctness and BitTorrent specification compliance.
-- **Edit Metadata & Trackers** — Safely update tracker tiers, comments, creators, web seeds, and identity fields with built-in backup and dry-run safeguards.
-- **Unified Configuration & Presets** — Save reusable creation settings (e.g. tracker lists, piece sizes, private flags) as named presets for quick reuse.
+- **Edit Metadata & Trackers** — Safely update comments, creators, web seeds, identity fields, and tracker tiers, or batch-rewrite tracker URLs across folders while keeping each torrent's passkey intact.
+- **Unified Configuration & Presets** — Save reusable creation settings (tracker lists, piece sizes, private flags, filter rules) as named presets, or import a preset directly from an existing `.torrent` file.
 
 ## Quick Navigation
 
@@ -28,6 +28,6 @@ Both applications share the same underlying core engine and canonical configurat
 | Create a new torrent | [Create Torrents](/cli/create) |
 | Inspect a torrent or view its file tree | [Inspect Torrents](/cli/inspect) · [Print File Tree](/cli/tree) |
 | Verify local data against a torrent | [Verify Content](/cli/verify) |
-| Add, remove, or update trackers | [Manage Trackers](/cli/tracker) |
+| Add, remove, replace, or rewrite tracker URLs (keeping passkeys) | [Manage Trackers](/cli/tracker) |
 | Edit torrent metadata | [Edit Metadata](/cli/metadata) |
-| Manage presets and configuration | [Manage Presets](/cli/preset) · [Manage Configuration](/cli/config) |
+| Manage presets, import from a torrent, or edit configuration | [Manage Presets](/cli/preset) · [Manage Configuration](/cli/config) |

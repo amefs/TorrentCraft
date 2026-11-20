@@ -289,6 +289,34 @@ unavailable_verification_path(const std::filesystem::path& content_root)
     }
 }
 
+// Canonicalizes the caller-selected verify content root. Redundant trailing separators are stripped
+// so a directory chosen from a shell (which appends '/') and a file written as "file/" both name
+// the same entry instead of producing an empty final path component, which would otherwise become
+// an empty renamed-file leaf and crash libtorrent. The filesystem root has no final component and
+// is rejected explicitly.
+Result<std::filesystem::path>
+normalize_verification_content_root(const std::filesystem::path& content_root)
+{
+    auto normalized = content_root.lexically_normal();
+    while (!normalized.empty() && normalized.filename().empty())
+    {
+        const auto parent = normalized.parent_path();
+        if (parent == normalized)
+        {
+            break;
+        }
+        normalized = parent;
+    }
+    if (normalized.empty() || normalized.filename().empty())
+    {
+        return Result<std::filesystem::path>::failure(
+            {ErrorCode::ValidationFailed,
+             "verify request validation failed",
+             {{"verify.content_root", "must name a content file or directory"}}});
+    }
+    return Result<std::filesystem::path>::success(std::move(normalized));
+}
+
 std::error_code commit_file(const std::filesystem::path& source,
                             const std::filesystem::path& target, bool allow_overwrite)
 {
@@ -397,7 +425,7 @@ Result<std::shared_ptr<lt::torrent_info>> v1_verification_metadata(const Torrent
     }
 
     lt::file_storage files;
-    const bool single_file = info.files().size() == 1U;
+    const bool single_file = info.layout() == FileLayout::SingleFile;
     for (const auto& file : info.files())
     {
         auto torrent_path = file.path().to_string();
@@ -541,12 +569,34 @@ struct VerificationFilePreflight
 };
 
 Result<std::vector<VerificationFilePreflight>>
-inspect_verification_files(const VerifyRequest& request, const CancellationToken& cancellation)
+inspect_verification_files(const TorrentInfo& info, const std::filesystem::path& content_root,
+                           const CancellationToken& cancellation)
 {
-    const auto& files = request.document.info().files();
-    const bool single_file = files.size() == 1U;
-    const auto torrent_root =
-        single_file ? request.content_root.parent_path() : request.content_root;
+    const auto& files = info.files();
+    const bool single_file = info.layout() == FileLayout::SingleFile;
+    std::error_code root_error;
+    const auto root_status = std::filesystem::status(content_root, root_error);
+    if (!root_error && root_status.type() != std::filesystem::file_type::not_found)
+    {
+        if (single_file && !std::filesystem::is_regular_file(root_status))
+        {
+            return Result<std::vector<VerificationFilePreflight>>::failure(
+                {ErrorCode::ValidationFailed,
+                 "verify request validation failed",
+                 {{"verify.content_root",
+                   "must be a regular file because the loaded torrent uses a single-file "
+                   "layout"}}});
+        }
+        if (!single_file && !std::filesystem::is_directory(root_status))
+        {
+            return Result<std::vector<VerificationFilePreflight>>::failure(
+                {ErrorCode::ValidationFailed,
+                 "verify request validation failed",
+                 {{"verify.content_root",
+                   "must be a directory because the loaded torrent uses a directory layout"}}});
+        }
+    }
+    const auto torrent_root = single_file ? content_root.parent_path() : content_root;
     std::vector<VerificationFilePreflight> result;
     result.reserve(files.size());
     for (const auto& file : files)
@@ -562,26 +612,23 @@ inspect_verification_files(const VerifyRequest& request, const CancellationToken
         }
 
         const auto physical_path =
-            single_file ? request.content_root
-                        : request.content_root / std::filesystem::u8path(file.path().to_string());
-        std::error_code error;
-        const auto status = std::filesystem::symlink_status(physical_path, error);
-        if (error == std::errc::no_such_file_or_directory ||
-            status.type() == std::filesystem::file_type::not_found)
-        {
-            const auto finding = file.attributes().symlink ? FileVerificationFinding::SymlinkMissing
-                                                           : FileVerificationFinding::Missing;
-            result.push_back({0, finding});
-            continue;
-        }
-        if (error)
-        {
-            return Result<std::vector<VerificationFilePreflight>>::failure(
-                filesystem_error("could not inspect verification file", error));
-        }
-
+            single_file ? content_root
+                        : content_root / std::filesystem::u8path(file.path().to_string());
         if (file.attributes().symlink)
         {
+            std::error_code error;
+            const auto status = std::filesystem::symlink_status(physical_path, error);
+            if (error == std::errc::no_such_file_or_directory ||
+                status.type() == std::filesystem::file_type::not_found)
+            {
+                result.push_back({0, FileVerificationFinding::SymlinkMissing});
+                continue;
+            }
+            if (error)
+            {
+                return Result<std::vector<VerificationFilePreflight>>::failure(
+                    filesystem_error("could not inspect verification file", error));
+            }
             if (!std::filesystem::is_symlink(status))
             {
                 result.push_back({0, FileVerificationFinding::SymlinkMissing});
@@ -616,6 +663,48 @@ inspect_verification_files(const VerifyRequest& request, const CancellationToken
                                      : FileVerificationFinding::SymlinkTargetMismatch;
             result.push_back({0, finding});
             continue;
+        }
+
+        // A normal file entry resolves through the operating system, matching libtorrent,
+        // qBittorrent and Transmission: a final-component filesystem symlink is followed and its
+        // target bytes are verified. A dangling link is Missing; a non-regular or unresolvable
+        // target is NotRegularFile; a genuine symbolic-link loop is an unrecoverable error.
+        std::error_code error;
+        auto status = std::filesystem::symlink_status(physical_path, error);
+        if (error == std::errc::no_such_file_or_directory ||
+            status.type() == std::filesystem::file_type::not_found)
+        {
+            result.push_back({0, FileVerificationFinding::Missing});
+            continue;
+        }
+        if (error)
+        {
+            return Result<std::vector<VerificationFilePreflight>>::failure(
+                filesystem_error("could not inspect verification file", error));
+        }
+        if (std::filesystem::is_symlink(status))
+        {
+            std::error_code follow_error;
+            const auto followed = std::filesystem::status(physical_path, follow_error);
+            if (follow_error == std::errc::no_such_file_or_directory)
+            {
+                result.push_back({0, FileVerificationFinding::Missing});
+                continue;
+            }
+            if (follow_error == std::errc::too_many_symbolic_link_levels)
+            {
+                return Result<std::vector<VerificationFilePreflight>>::failure(
+                    filesystem_error("could not inspect verification file", follow_error));
+            }
+            if (follow_error)
+            {
+                // The final component is a link that does not resolve to a readable target on this
+                // platform (for example a directory reparse point on Windows); report it as a
+                // non-regular file rather than an unrecoverable failure.
+                result.push_back({0, FileVerificationFinding::NotRegularFile});
+                continue;
+            }
+            status = followed;
         }
         if (!std::filesystem::is_regular_file(status))
         {
@@ -1930,7 +2019,14 @@ Result<VerificationReport> LibtorrentAdapter::verify(const VerifyRequest& reques
         return Result<VerificationReport>::failure(cancelled_verify());
     }
 
-    auto preflight = inspect_verification_files(request, context.cancellation);
+    auto normalized_content_root = normalize_verification_content_root(request.content_root);
+    if (!normalized_content_root)
+    {
+        return Result<VerificationReport>::failure(normalized_content_root.error());
+    }
+    const auto& content_root = normalized_content_root.value();
+    auto preflight =
+        inspect_verification_files(request.document.info(), content_root, context.cancellation);
     if (!preflight)
     {
         return Result<VerificationReport>::failure(preflight.error());
@@ -1952,7 +2048,7 @@ Result<VerificationReport> LibtorrentAdapter::verify(const VerifyRequest& reques
     {
         return Result<VerificationReport>::failure(cancelled_verify());
     }
-    const bool single_file = request.document.info().files().size() == 1U;
+    const bool single_file = request.document.info().layout() == FileLayout::SingleFile;
     std::unique_ptr<VerificationProgressPublisher> progress;
     if (request.on_progress)
     {
@@ -1995,7 +2091,7 @@ Result<VerificationReport> LibtorrentAdapter::verify(const VerifyRequest& reques
     lt::session session(session_parameters);
     lt::add_torrent_params parameters;
     parameters.ti = std::move(torrent_metadata);
-    parameters.save_path = request.content_root.parent_path().u8string();
+    parameters.save_path = content_root.parent_path().u8string();
     parameters.flags = lt::torrent_flags::stop_when_ready;
     std::size_t logical_file_index{};
     for (const auto index : parameters.ti->files().file_range())
@@ -2018,12 +2114,12 @@ Result<VerificationReport> LibtorrentAdapter::verify(const VerifyRequest& reques
         }
         const auto file_index = logical_file_index++;
         const auto logical_path = request.document.info().files()[file_index].path();
-        auto physical_path = single_file ? request.content_root.filename()
-                                         : request.content_root.filename() /
+        auto physical_path = single_file ? content_root.filename()
+                                         : content_root.filename() /
                                                std::filesystem::u8path(logical_path.to_string());
         if (file_preflight[file_index].finding == FileVerificationFinding::NotRegularFile)
         {
-            auto unavailable_path = unavailable_verification_path(request.content_root);
+            auto unavailable_path = unavailable_verification_path(content_root);
             if (!unavailable_path)
             {
                 return Result<VerificationReport>::failure(unavailable_path.error());

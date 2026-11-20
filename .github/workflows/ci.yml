@@ -149,4 +149,19 @@ jobs:
           cmake --preset linux-clang-debug
           cmake --build --preset linux-clang-debug
       - name: Analyze
-        run: run-clang-tidy-18 -p out/build/linux-clang-debug -quiet
+        run: >-
+          python3 ci/run-clang-tidy.py out/build/linux-clang-debug
+          --exclude '^(src/gui/|tests/gui_test\.cpp$)'
+          --extra tests/install-consumer/domain_main.cpp
+          tests/install-consumer/foundation_main.cpp
+          tests/install-consumer/frontend_main.cpp tests/install-consumer/main.cpp
+          -- --extra-arg=-std=c++17 --extra-arg=-I$GITHUB_WORKSPACE/include
+      - name: Verify CLI remains Qt-free
+        shell: bash
+        run: |
+          if grep -RInE '#include[[:space:]]*[<"]Qt' src/cli; then
+            exit 1
+          fi
+          if ldd out/build/linux-clang-debug/torrentcraft | grep -qi qt; then
+            exit 1
+          fi

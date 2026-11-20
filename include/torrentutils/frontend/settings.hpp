@@ -125,6 +125,9 @@ resolve_verify_resource_budget(const VerifyResourceSettings& settings);
 
 [[nodiscard]] std::optional<std::uint64_t> parse_memory_size(std::string_view value);
 
+/** True when kib is a supported fixed piece size: a power of two from 16 to 16384 KiB. */
+[[nodiscard]] bool is_supported_fixed_piece_size_kib(std::uint64_t kib) noexcept;
+
 enum class ConfigScope
 {
     Defaults,

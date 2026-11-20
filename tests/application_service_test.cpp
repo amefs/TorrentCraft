@@ -914,6 +914,40 @@ TEST_CASE("given_tracker_action_batch_when_edited_then_each_action_is_applied")
     CHECK(tiers[1].trackers() == std::vector<TrackerUrl>{first});
 }
 
+TEST_CASE("given_tracker_rewrite_when_edited_then_only_tracker_urls_change")
+{
+    FileTorrentRepository repository;
+    FixedClock clock;
+    TorrentService service(repository, clock);
+    const auto loaded = service.load(metadata_fixture("valid-v1.torrent")).value();
+    const auto rules =
+        TrackerRewriteRules::parse({R"(s#tracker\.example#tracker.new.example#g)"}).value();
+
+    const auto rewritten = service.edit(loaded, {RewriteTrackers{rules}});
+
+    REQUIRE(rewritten);
+    REQUIRE(rewritten.value().disposition == EditDisposition::Applied);
+    const auto& tiers = rewritten.value().loaded.document().trackers().tiers();
+    REQUIRE(tiers.size() == 2);
+    CHECK(tiers[0].trackers()[0].value() == "https://tracker.new.example/announce");
+    CHECK(tiers[0].trackers()[1].value() == "udp://tracker.new.example:6969/announce");
+    CHECK(tiers[1].trackers()[0].value() == "https://backup.example/announce");
+    CHECK(rewritten.value().loaded.document().info().info_hashes().v1() ==
+          loaded.document().info().info_hashes().v1());
+
+    const auto unchanged = service.edit(
+        loaded, {RewriteTrackers{TrackerRewriteRules::parse({"s/nomatch/x/"}).value()}});
+    REQUIRE(unchanged);
+    CHECK(unchanged.value().disposition == EditDisposition::NoChange);
+
+    const auto invalid = service.edit(
+        loaded, {RewriteTrackers{TrackerRewriteRules::parse({"s#^udp:#ftp:#"}).value()}});
+    REQUIRE_FALSE(invalid);
+    CHECK(invalid.error().code == ErrorCode::ValidationFailed);
+    REQUIRE(invalid.error().issues.size() == 1U);
+    CHECK(invalid.error().issues.front().field == "tracker.tiers[0].trackers[1]");
+}
+
 TEST_CASE("given_load_diagnostics_when_edited_and_saved_then_they_persist_until_reload")
 {
     TempDirectory temporary;

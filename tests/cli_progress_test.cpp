@@ -86,6 +86,19 @@ TEST_CASE("given_huge_interval_when_finish_then_terminal_state_is_guaranteed", "
     REQUIRE(out.str().find("[HASH] 100%") != std::string::npos);
 }
 
+TEST_CASE("given_failed_operation_when_abandoned_then_completion_is_not_reported",
+          "[unit][progress]")
+{
+    std::ostringstream out;
+    ProgressWriter writer(ProgressMode::Plain, false, false, out, std::chrono::hours{1});
+    writer.create_start(100);
+    writer.create_event(create_event(10, 100));
+    writer.abandon();
+    writer.finish();
+
+    REQUIRE(out.str().find("100%") == std::string::npos);
+}
+
 TEST_CASE("given_json_mode_when_create_events_then_lines_are_valid_json", "[unit][progress]")
 {
     std::ostringstream out;

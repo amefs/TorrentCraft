@@ -1,5 +1,7 @@
 #pragma once
 
+#include "TrackerPage.hpp"
+
 #include <QMainWindow>
 #include <chrono>
 #include <filesystem>
@@ -20,13 +22,14 @@ class QActionGroup;
 class QCloseEvent;
 class QEvent;
 class QLabel;
+class QLineEdit;
 class QTranslator;
 class FileTreeModel;
 class GuiTaskRunner;
 class GuiLogController;
 class QStandardItemModel;
 
-class MainWindow final : public QMainWindow
+class MainWindow final : public QMainWindow, private TrackerPageHost
 {
     Q_OBJECT
   public:
@@ -39,18 +42,16 @@ class MainWindow final : public QMainWindow
 
   private:
     void show_about();
-    void choose_file(class QLineEdit* target, const QString& caption, const QString& filter = {});
-    void choose_output_file(class QLineEdit* target, const QString& caption);
-    void choose_directory(class QLineEdit* target, const QString& caption);
+    void choose_file(QLineEdit* target, const QString& caption, const QString& filter = {});
+    void choose_output_file(QLineEdit* target, const QString& caption);
+    void choose_directory(QLineEdit* target, const QString& caption) override;
     void update_create_output_path();
     void update_modify_output_path(const std::filesystem::path& source);
-    void update_tracker_output_path();
-    void populate_tracker_defaults();
-    [[nodiscard]] std::filesystem::path default_save_directory() const;
-    void remember_save_directory(const std::filesystem::path& directory);
+    [[nodiscard]] std::filesystem::path default_save_directory() const override;
+    void remember_save_directory(const std::filesystem::path& directory) override;
     void calculate_create_plan();
     void create_torrent();
-    void cancel_operation();
+    void cancel_operation() override;
     void load_inspect_torrent();
     void validate_inspect_torrent();
     void load_modify_torrent();
@@ -59,8 +60,9 @@ class MainWindow final : public QMainWindow
     void invalidate_verify_torrent();
     void load_verify_torrent();
     void start_verify();
-    void load_tracker_torrent();
-    void save_tracker_torrent();
+    void update_verify_content_controls();
+    void refresh_verify_content_status();
+    [[nodiscard]] QString verify_content_mismatch_message() const;
     void apply_language(QAction* action);
     void apply_multiline_field_heights();
     void apply_scroll_layout_constraints();
@@ -77,24 +79,32 @@ class MainWindow final : public QMainWindow
     void copy_diagnostic_context();
     void configure_logger();
     void import_preset();
+    void import_json_preset(const QString& path);
+    void import_torrent_template(const QString& path);
+    void commit_imported_preset(const std::string& operation_id, std::string_view operation,
+                                const torrentutils::frontend::CreationSettingsPatch& settings,
+                                const QString& suggested_name);
     void save_preset();
     void remove_preset();
     void clear_current_form();
+    void reset_create_page();
+    void reset_modify_page();
+    void reset_inspect_page();
+    void reset_verify_page();
     void mark_preset_modified();
     void set_active_preset(const QString& name);
-    using LogFields = std::vector<std::pair<std::string, std::string>>;
     [[nodiscard]] std::string begin_gui_operation(std::string_view component,
                                                   std::string_view operation,
-                                                  const LogFields& fields = {});
+                                                  const LogFields& fields = {}) override;
     void finish_gui_operation(const std::string& operation_id, torrentutils::core::LogLevel level,
                               std::string_view component, std::string_view operation,
-                              std::string_view event, const LogFields& fields = {});
+                              std::string_view event, const LogFields& fields = {}) override;
 
     void update_window_title();
     void load_inline_preset(const QString& name);
     void refresh_preset_menu();
-    void set_busy(bool busy);
-    void set_status(const QString& text);
+    void set_busy(bool busy) override;
+    void set_status(const QString& text) override;
     void reset_progress_state();
     /**
      * Updates the status-bar progress text and estimates Piece and hashed-byte rates from
@@ -103,8 +113,14 @@ class MainWindow final : public QMainWindow
      */
     void update_progress_status(const QString& stage, qulonglong completed, qulonglong total,
                                 qulonglong completed_bytes, qulonglong total_bytes);
-    void show_error(const torrentutils::core::Error& error);
-    void show_task_error(const QString& message);
+    void show_error(const torrentutils::core::Error& error) override;
+    void show_task_error(const QString& message) override;
+    [[nodiscard]] const torrentutils::core::TorrentService& torrent_service() const override;
+    [[nodiscard]] GuiTaskRunner& task_runner() override;
+    [[nodiscard]] bool task_running() const override;
+    [[nodiscard]] GuiLogController* logger() const override;
+    [[nodiscard]] const std::optional<torrentutils::frontend::ConfigFile>&
+    configuration() const override;
     void populate_modify_fields(const torrentutils::core::LoadedTorrent& loaded);
     void populate_inspect_fields(const torrentutils::core::LoadedTorrent& loaded);
     [[nodiscard]] torrentutils::core::Result<torrentutils::frontend::CreationSettingsPatch>
@@ -124,16 +140,14 @@ class MainWindow final : public QMainWindow
     std::unique_ptr<FileTreeModel> verify_file_model_;
     std::unique_ptr<QStandardItemModel> create_tracker_model_;
     std::unique_ptr<QStandardItemModel> modify_tracker_model_;
-    std::unique_ptr<QStandardItemModel> tracker_model_;
     std::optional<torrentutils::core::LoadedTorrent> inspect_loaded_;
     std::optional<torrentutils::core::LoadedTorrent> modify_loaded_;
     std::optional<torrentutils::core::LoadedTorrent> verify_loaded_;
-    std::optional<torrentutils::core::LoadedTorrent> tracker_loaded_;
-    std::optional<std::filesystem::path> tracker_source_directory_;
     std::optional<std::filesystem::path> create_auto_output_path_;
     std::optional<std::filesystem::path> modify_auto_output_path_;
-    std::optional<std::filesystem::path> tracker_auto_output_path_;
     std::optional<torrentutils::frontend::ConfigFile> config_;
+    // After the task runner: the destructor stops the runner before this page is destroyed.
+    std::unique_ptr<TrackerPage> tracker_page_;
     QActionGroup* language_group_{};
     QTranslator* translator_{};
     bool verification_running_{};

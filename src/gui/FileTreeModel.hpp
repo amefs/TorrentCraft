@@ -28,6 +28,7 @@ class FileTreeModel final : public QAbstractItemModel
 
     void set_files(const std::vector<torrentutils::core::FileEntry>& files,
                    bool show_padding_files = false);
+    void set_files(const torrentutils::core::TorrentInfo& info, bool show_padding_files = false);
     void clear();
     void reset_verification();
     void apply_verification_progress(const torrentutils::core::VerificationProgress& progress);
@@ -121,6 +122,8 @@ class FileTreeModel final : public QAbstractItemModel
     Mode mode_;
     QFileIconProvider icon_provider_;
     std::unique_ptr<Node> root_;
+    std::string root_name_;
+    bool prefix_root_{};
     std::unordered_map<std::string, VerificationState> verification_;
     std::unordered_map<std::string, std::unique_ptr<DirectoryIndex>> directory_index_;
     std::optional<std::uint64_t> last_progress_sequence_;
@@ -141,4 +144,6 @@ class FileTreeModel final : public QAbstractItemModel
     void set_interrupted(VerificationPhase phase);
     void emit_status_changed();
     void emit_status_changed(Node& parent, const QModelIndex& parent_index);
+    void populate(const std::vector<torrentutils::core::FileEntry>& files, bool show_padding_files);
+    [[nodiscard]] std::string key_for(const std::string& relative_path) const;
 };

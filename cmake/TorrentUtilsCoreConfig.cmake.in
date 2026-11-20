@@ -2,6 +2,7 @@
 
 include(CMakeFindDependencyMacro)
 find_dependency(LibtorrentRasterbar CONFIG REQUIRED)
+find_dependency(re2 CONFIG REQUIRED)
 
 include("${CMAKE_CURRENT_LIST_DIR}/TorrentUtilsCoreTargets.cmake")
 

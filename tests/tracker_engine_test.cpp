@@ -188,6 +188,51 @@ TEST_CASE("given_invalid_utf8_text_when_imported_then_validation_failure_is_retu
     REQUIRE(imported.error().issues.front().message == "input must be valid UTF-8");
 }
 
+TEST_CASE("given_utf8_sequences_when_text_is_imported_then_only_well_formed_text_is_accepted",
+          "[unit][tracker]")
+{
+    // Well-formed two-, three- and four-byte sequences are accepted inside comments.
+    for (const std::string valid :
+         {"# caf\xc3\xa9\n", "# \xe2\x82\xac\n", "# \xf0\x9f\x8e\xb5\n", "# \xf4\x8f\xbf\xbf\n"})
+    {
+        INFO(valid);
+        const auto imported = TrackerEngine::import_text(valid);
+        REQUIRE(imported);
+        CHECK(imported.value().tiers().empty());
+    }
+
+    const std::vector<std::string> invalid{
+        "# \x80",             // continuation byte without a lead byte
+        "# \xf8\x88\x80\x80", // five-byte lead byte
+        "# \xc3",             // truncated two-byte sequence
+        "# \xe2\x82",         // truncated three-byte sequence
+        "# \xc3\x28",         // lead byte followed by a non-continuation byte
+        "# \xc1\xbf",         // overlong two-byte encoding
+        "# \xe0\x9f\xbf",     // overlong three-byte encoding
+        "# \xf0\x8f\xbf\xbf", // overlong four-byte encoding
+        "# \xed\xa0\x80",     // UTF-16 surrogate
+        "# \xf4\x90\x80\x80", // above U+10FFFF
+    };
+    for (const auto& input : invalid)
+    {
+        const auto imported = TrackerEngine::import_text(input + "\n");
+        REQUIRE_FALSE(imported);
+        CHECK(imported.error().issues.front().message == "input must be valid UTF-8");
+    }
+}
+
+TEST_CASE("given_ascii_whitespace_around_lines_when_text_is_imported_then_it_is_trimmed",
+          "[unit][tracker]")
+{
+    const auto imported = TrackerEngine::import_text(
+        "\t\f\v https://one.example/announce \r\n \t\r\n\vudp://two.example:80/announce\f\n");
+
+    REQUIRE(imported);
+    REQUIRE(imported.value().tiers().size() == 2U);
+    CHECK(endpoint(imported.value(), 0, 0) == "https://one.example/announce");
+    CHECK(endpoint(imported.value(), 1, 0) == "udp://two.example:80/announce");
+}
+
 TEST_CASE("given_text_input_limits_when_imported_then_exact_limit_succeeds_and_over_limit_fails",
           "[unit][tracker]")
 {

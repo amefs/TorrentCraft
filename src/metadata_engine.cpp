@@ -1,6 +1,7 @@
 #include "metadata_engine.hpp"
 
 #include "metadata_field_registry.hpp"
+#include "utf8.hpp"
 
 #include <algorithm>
 #include <array>
@@ -27,10 +28,18 @@ struct MetadataEngineAccess
     [[nodiscard]] static TorrentInfo retained_info(std::string name, const TorrentFormat format,
                                                    InfoHashes hashes, PieceInfo pieces,
                                                    std::vector<FileEntry> files,
-                                                   const bool is_private)
+                                                   const FileLayout layout, const bool is_private)
     {
         return TorrentInfo(std::move(name), format, hashes, std::move(pieces), std::move(files),
-                           is_private);
+                           layout, is_private);
+    }
+
+    [[nodiscard]] static Result<TorrentInfo>
+    mapped_info(std::string name, const TorrentFormat format, InfoHashes hashes, PieceInfo pieces,
+                std::vector<FileEntry> files, const FileLayout layout, const bool is_private)
+    {
+        return TorrentInfo::create_with_layout(std::move(name), format, hashes, std::move(pieces),
+                                               std::move(files), layout, is_private);
     }
 };
 
@@ -107,76 +116,6 @@ using Bytes = std::vector<std::uint8_t>;
         }
     }
     return nullptr;
-}
-
-[[nodiscard]] bool valid_utf8(const std::string& value) noexcept
-{
-    std::size_t index = 0;
-    while (index < value.size())
-    {
-        const auto first = static_cast<unsigned char>(value[index]);
-        if (first <= 0x7fU)
-        {
-            ++index;
-            continue;
-        }
-
-        std::size_t continuation_count = 0;
-        unsigned char second_minimum = 0x80U;
-        unsigned char second_maximum = 0xbfU;
-        if (first >= 0xc2U && first <= 0xdfU)
-        {
-            continuation_count = 1;
-        }
-        else if (first >= 0xe0U && first <= 0xefU)
-        {
-            continuation_count = 2;
-            if (first == 0xe0U)
-            {
-                second_minimum = 0xa0U;
-            }
-            else if (first == 0xedU)
-            {
-                second_maximum = 0x9fU;
-            }
-        }
-        else if (first >= 0xf0U && first <= 0xf4U)
-        {
-            continuation_count = 3;
-            if (first == 0xf0U)
-            {
-                second_minimum = 0x90U;
-            }
-            else if (first == 0xf4U)
-            {
-                second_maximum = 0x8fU;
-            }
-        }
-        else
-        {
-            return false;
-        }
-
-        if (index + continuation_count >= value.size())
-        {
-            return false;
-        }
-        const auto second = static_cast<unsigned char>(value[index + 1U]);
-        if (second < second_minimum || second > second_maximum)
-        {
-            return false;
-        }
-        for (std::size_t offset = 2; offset <= continuation_count; ++offset)
-        {
-            const auto byte = static_cast<unsigned char>(value[index + offset]);
-            if (byte < 0x80U || byte > 0xbfU)
-            {
-                return false;
-            }
-        }
-        index += continuation_count + 1U;
-    }
-    return true;
 }
 
 [[nodiscard]] std::optional<std::string> string_value(const BencodeNode* node,
@@ -350,7 +289,7 @@ read_optional_text(const BencodeNode& dictionary, const std::vector<std::uint8_t
         return Result<std::optional<std::string>>::failure(
             invalid_torrent(std::string(key) + " must be a byte string"));
     }
-    if (valid_utf8(*value))
+    if (detail::is_valid_utf8(*value))
     {
         return Result<std::optional<std::string>>::success(std::move(value));
     }
@@ -374,7 +313,7 @@ read_info_name(const BencodeNode& info, const std::vector<std::uint8_t>& bytes,
         return Result<std::string>::failure(
             invalid_torrent("info name must be a non-empty byte string"));
     }
-    if (valid_utf8(*name))
+    if (detail::is_valid_utf8(*name))
     {
         return Result<std::string>::success(std::move(*name));
     }
@@ -387,18 +326,31 @@ read_info_name(const BencodeNode& info, const std::vector<std::uint8_t>& bytes,
     return Result<std::string>::success({});
 }
 
+[[nodiscard]] FileLayout v2_file_layout(const std::vector<FileEntry>& files,
+                                        const std::string& name) noexcept
+{
+    // V2 has no separate single-file encoding: the single-file shape is one non-padding file whose
+    // single-segment path equals the info name.
+    if (!name.empty() && files.size() == 1U && !files.front().attributes().padding &&
+        files.front().path().segments().size() == 1U && files.front().path().to_string() == name)
+    {
+        return FileLayout::SingleFile;
+    }
+    return FileLayout::Directory;
+}
+
 [[nodiscard]] Result<TorrentInfo> make_mapped_info(std::string name, const TorrentFormat format,
                                                    InfoHashes hashes, PieceInfo pieces,
                                                    std::vector<FileEntry> files,
-                                                   const bool is_private)
+                                                   const FileLayout layout, const bool is_private)
 {
     if (!name.empty())
     {
-        return TorrentInfo::create(std::move(name), format, hashes, std::move(pieces),
-                                   std::move(files), is_private);
+        return MetadataEngineAccess::mapped_info(std::move(name), format, hashes, std::move(pieces),
+                                                 std::move(files), layout, is_private);
     }
     return Result<TorrentInfo>::success(MetadataEngineAccess::retained_info(
-        {}, format, hashes, std::move(pieces), std::move(files), is_private));
+        {}, format, hashes, std::move(pieces), std::move(files), layout, is_private));
 }
 
 [[nodiscard]] Result<TrackerList>
@@ -577,7 +529,7 @@ read_web_seed_field(const BencodeNode& root, const std::vector<std::uint8_t>& by
         {
             return Result<void>::failure(invalid_torrent("collection value must be a byte string"));
         }
-        if (value->empty() || !valid_utf8(*value))
+        if (value->empty() || !detail::is_valid_utf8(*value))
         {
             if (mode == MetadataReadMode::Strict)
             {
@@ -815,7 +767,7 @@ read_attributes(const BencodeNode& dictionary, const std::vector<std::uint8_t>& 
         for (const auto& segment_node : std::get<BencodeList>(symlink_path->children))
         {
             auto segment = string_value(&segment_node, bytes);
-            if (!segment || !valid_utf8(*segment))
+            if (!segment || !detail::is_valid_utf8(*segment))
             {
                 return Result<ParsedFileAttributes>::failure(
                     invalid_torrent("symlink path segment must be valid UTF-8"));
@@ -1078,7 +1030,7 @@ struct V2MappedFile
     for (const auto& entry : entries)
     {
         auto segment = raw(bytes, entry.first);
-        if (segment.empty() || !valid_utf8(segment))
+        if (segment.empty() || !detail::is_valid_utf8(segment))
         {
             return Result<void>::failure(
                 invalid_torrent("v2 path segment must be non-empty UTF-8"));
@@ -1280,6 +1232,7 @@ struct V2MappedFile
     std::vector<FileEntry> files;
     std::uint64_t total_size = v2_total_size;
     std::vector<Sha1Digest> piece_hashes;
+    FileLayout layout = FileLayout::Directory;
     if (!hybrid)
     {
         files.reserve(mapped_files.size());
@@ -1287,6 +1240,7 @@ struct V2MappedFile
         {
             files.push_back(std::move(mapped.file));
         }
+        layout = v2_file_layout(files, name.value());
     }
     else
     {
@@ -1360,7 +1314,7 @@ struct V2MappedFile
                     for (const auto& segment_node : std::get<BencodeList>(path_node->children))
                     {
                         auto segment = string_value(&segment_node, bytes);
-                        if (!segment || !valid_utf8(*segment))
+                        if (!segment || !detail::is_valid_utf8(*segment))
                         {
                             return Result<TorrentDocument>::failure(
                                 invalid_torrent("hybrid path segment must be valid UTF-8"));
@@ -1393,6 +1347,7 @@ struct V2MappedFile
                 return Result<TorrentDocument>::failure(appended.error());
             }
         }
+        layout = file_list != nullptr ? FileLayout::Directory : FileLayout::SingleFile;
 
         std::vector<bool> matched(mapped_files.size(), false);
         files.reserve(v1_files.size());
@@ -1514,7 +1469,7 @@ struct V2MappedFile
     }
     auto torrent_info =
         make_mapped_info(std::move(name).value(), format, std::move(hashes).value(),
-                         std::move(piece_info).value(), std::move(files), private_flag);
+                         std::move(piece_info).value(), std::move(files), layout, private_flag);
     if (!torrent_info)
     {
         return Result<TorrentDocument>::failure(invalid_torrent("invalid v2 torrent info"));
@@ -1621,6 +1576,7 @@ struct V2MappedFile
     };
 
     const auto* file_list = lookup(*info, bytes, "files");
+    const FileLayout layout = file_list != nullptr ? FileLayout::Directory : FileLayout::SingleFile;
     if (file_list != nullptr)
     {
         if (file_list->kind != BencodeNode::Kind::List || has_key(*info, bytes, "length"))
@@ -1667,7 +1623,7 @@ struct V2MappedFile
                 for (const auto& segment_node : std::get<BencodeList>(path_node->children))
                 {
                     auto segment = string_value(&segment_node, bytes);
-                    if (!segment || !valid_utf8(*segment))
+                    if (!segment || !detail::is_valid_utf8(*segment))
                     {
                         return Result<TorrentDocument>::failure(
                             invalid_torrent("v1 path segment must be valid UTF-8"));
@@ -1750,7 +1706,7 @@ struct V2MappedFile
 
     auto torrent_info =
         make_mapped_info(std::move(name).value(), TorrentFormat::V1, std::move(hashes).value(),
-                         std::move(piece_info).value(), std::move(files), private_flag);
+                         std::move(piece_info).value(), std::move(files), layout, private_flag);
     if (!torrent_info)
     {
         return Result<TorrentDocument>::failure(invalid_torrent("invalid torrent info"));
@@ -2113,7 +2069,8 @@ splice_info_identity(const std::vector<std::uint8_t>& bytes, const BencodeNode& 
             return Result<std::optional<Bytes>>::success(std::nullopt);
         }
     }
-    if (patch.field != InfoIdentityField::Private && !patch.clear && !valid_utf8(patch.value))
+    if (patch.field != InfoIdentityField::Private && !patch.clear &&
+        !detail::is_valid_utf8(patch.value))
     {
         return Result<std::optional<Bytes>>::failure(
             metadata_error(ErrorCode::ValidationFailed, key + " must contain valid UTF-8"));
@@ -2449,7 +2406,7 @@ bool source_is_in_info(const TorrentDocument& document) noexcept
         return std::to_string(node.integer);
     case BencodeNode::Kind::String: {
         const auto value = raw(bytes, node.string_span);
-        if (valid_utf8(value))
+        if (detail::is_valid_utf8(value))
         {
             return escaped_metadata_string(value);
         }

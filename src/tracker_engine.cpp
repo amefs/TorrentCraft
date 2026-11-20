@@ -1,3 +1,5 @@
+#include "utf8.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
@@ -101,64 +103,6 @@ using TrackerVectors = std::vector<std::vector<TrackerUrl>>;
         value.remove_suffix(1);
     }
     return value;
-}
-
-[[nodiscard]] bool is_valid_utf8(const std::string_view value) noexcept
-{
-    for (std::size_t index = 0; index < value.size();)
-    {
-        const auto first = static_cast<std::uint8_t>(value[index]);
-        if (first <= 0x7fU)
-        {
-            ++index;
-            continue;
-        }
-
-        std::size_t continuation_count = 0;
-        std::uint32_t code_point = 0;
-        if ((first & 0xe0U) == 0xc0U)
-        {
-            continuation_count = 1;
-            code_point = first & 0x1fU;
-        }
-        else if ((first & 0xf0U) == 0xe0U)
-        {
-            continuation_count = 2;
-            code_point = first & 0x0fU;
-        }
-        else if ((first & 0xf8U) == 0xf0U)
-        {
-            continuation_count = 3;
-            code_point = first & 0x07U;
-        }
-        else
-        {
-            return false;
-        }
-
-        if (index + continuation_count >= value.size())
-        {
-            return false;
-        }
-        for (std::size_t continuation = 1; continuation <= continuation_count; ++continuation)
-        {
-            const auto byte = static_cast<std::uint8_t>(value[index + continuation]);
-            if ((byte & 0xc0U) != 0x80U)
-            {
-                return false;
-            }
-            code_point = (code_point << 6U) | (byte & 0x3fU);
-        }
-        if ((continuation_count == 1 && code_point < 0x80U) ||
-            (continuation_count == 2 && code_point < 0x800U) ||
-            (continuation_count == 3 && code_point < 0x10000U) || code_point > 0x10ffffU ||
-            (code_point >= 0xd800U && code_point <= 0xdfffU))
-        {
-            return false;
-        }
-        index += continuation_count + 1;
-    }
-    return true;
 }
 
 [[nodiscard]] std::string text_line_field(const std::size_t line_number)
@@ -323,7 +267,7 @@ Result<TrackerList> TrackerEngine::import_text(const std::string_view input)
     }
 
     std::vector<FieldIssue> issues;
-    if (!is_valid_utf8(input))
+    if (!detail::is_valid_utf8(input))
     {
         issues.push_back({"tracker.text", "input must be valid UTF-8"});
     }

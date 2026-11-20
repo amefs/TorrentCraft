@@ -34,8 +34,8 @@
     </message>
     <message>
         <location filename="../src/gui/AboutDialog.ui" line="87"/>
-        <source>Version 1.1.2</source>
-        <translation>版本 1.1.2</translation>
+        <source>Version 1.2.0</source>
+        <translation>版本 1.2.0</translation>
     </message>
     <message>
         <location filename="../src/gui/AboutDialog.ui" line="93"/>
@@ -210,8 +210,8 @@
     </message>
     <message>
         <location filename="../src/gui/AboutDialog.ui" line="291"/>
-        <source>1.1.2</source>
-        <translation>1.1.2</translation>
+        <source>1.2.0</source>
+        <translation>1.2.0</translation>
     </message>
     <message>
         <location filename="../src/gui/AboutDialog.ui" line="296"/>
@@ -659,16 +659,6 @@
         <translation>选择修改后种子输出路径</translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="555"/>
-        <source>Select torrent folder</source>
-        <translation>选择种子文件夹</translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="557"/>
-        <source>Select output folder</source>
-        <translation>选择输出文件夹</translation>
-    </message>
-    <message>
         <location filename="../src/gui/MainWindow.cpp" line="583"/>
         <source>Select configuration file</source>
         <translation>选择配置文件</translation>
@@ -956,91 +946,6 @@
         <translation>种子文件</translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1511"/>
-        <source>Torrent folder loaded; select one file for tracker editing.</source>
-        <translation>种子文件夹已加载；请选择一个文件编辑 Tracker。</translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1521"/>
-        <source>Loading tracker list</source>
-        <translation>正在加载 Tracker 列表</translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1527"/>
-        <source>The tracker task did not return a result.</source>
-        <translation>Tracker 任务未返回结果。</translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1548"/>
-        <source>Tracker list loaded</source>
-        <translation>Tracker 列表已加载</translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1595"/>
-        <source>No torrent files</source>
-        <translation>没有种子文件</translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1596"/>
-        <source>The selected folder contains no torrent files.</source>
-        <translation>选定文件夹不包含种子文件。</translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1609"/>
-        <source>Converting tracker files</source>
-        <translation>正在转换 Tracker 文件</translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1673"/>
-        <source>Tracker batch complete</source>
-        <translation>Tracker 批处理完成</translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1674"/>
-        <source>Processed %1 torrent file(s)%2.</source>
-        <translation>已处理 %1 个种子文件%2。</translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1676"/>
-        <source> No files were written.</source>
-        <translation>未写入文件。</translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1684"/>
-        <source>No torrent loaded</source>
-        <translation>未加载种子</translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1685"/>
-        <source>Load a torrent file before converting trackers.</source>
-        <translation>转换 Tracker 前请先加载种子文件。</translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1717"/>
-        <source>No tracker edit result was produced.</source>
-        <translation>未生成 Tracker 编辑结果。</translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1727"/>
-        <source>Tracker changes require a rebuild. No file was written.</source>
-        <translation>Tracker 更改需要重建。未写入文件。</translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1732"/>
-        <source>Tracker changes are valid; dry run wrote nothing.</source>
-        <translation>Tracker 更改有效；试运行未写入文件。</translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1736"/>
-        <source>No tracker save result was produced.</source>
-        <translation>未生成 Tracker 保存结果。</translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1745"/>
-        <source>Tracker torrent saved</source>
-        <translation>Tracker 种子已保存</translation>
-    </message>
-    <message>
         <location filename="../src/gui/MainWindow.cpp" line="1755"/>
         <source>Cancellation requested</source>
         <translation>已请求取消</translation>
@@ -1122,9 +1027,14 @@
         <translation>导入预设</translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="2124"/>
-        <source>JSON files (*.json);;All files (*)</source>
-        <translation>JSON 文件 (*.json);;所有文件 (*)</translation>
+        <location filename="../src/gui/MainWindow.cpp"/>
+        <source>Presets and torrents (*.json *.torrent);;JSON files (*.json);;Torrent files (*.torrent);;All files (*)</source>
+        <translation>预设和种子 (*.json *.torrent);;JSON 文件 (*.json);;种子文件 (*.torrent);;所有文件 (*)</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.cpp"/>
+        <source>The torrent import task did not return a result.</source>
+        <translation>种子导入任务未返回结果。</translation>
     </message>
     <message>
         <location filename="../src/gui/MainWindow.cpp" line="2136"/>
@@ -1224,26 +1134,6 @@
         <translation>种子文件 (*.torrent)</translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1740"/>
-        <source>Filename</source>
-        <translation>文件名</translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1740"/>
-        <source>Size</source>
-        <translation>大小</translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1740"/>
-        <source>Status</source>
-        <translation>状态</translation>
-    </message>
-    <message>
-        <location filename="../src/gui/MainWindow.cpp" line="1754"/>
-        <source>Unavailable</source>
-        <translation>不可用</translation>
-    </message>
-    <message>
         <location filename="../src/gui/MainWindow.cpp" line="2684"/>
         <source>pieces/s</source>
         <translation>分块/秒</translation>
@@ -1267,7 +1157,6 @@
     <message><source>DHT nodes</source><translation>DHT 节点</translation></message>
     <message><source>Trackers</source><translation>Tracker</translation></message>
     <message><source>No editable fields changed.</source><translation>没有可编辑字段发生变化。</translation></message>
-
     <message>
         <location filename="../src/gui/MainWindow.cpp" line="592"/>
         <source>Defaults</source>
@@ -1339,15 +1228,6 @@ Filtered %1 entries (%2 bytes):</source>
     </message>
     <message><source>Source</source><translation>来源</translation></message>
     <message><source>Tracker changes require re-creating the torrent.</source><translation>Tracker 更改需要重新创建种子。</translation></message>
-    <message>
-        <source>
-
-Failed %1 file(s):</source>
-        <translation>
-
-%1 个文件失败：</translation>
-    </message>
-    <message><source>Tracker batch completed with errors</source><translation>Tracker 批量处理完成，但存在错误</translation></message>
 </context>
 <context>
     <name>NotificationDialog</name>
@@ -1389,6 +1269,106 @@ Failed %1 file(s):</source>
         <location filename="../src/gui/PresetPreviewDialog.cpp" line="10"/>
         <source>Preset preview: %1</source>
         <translation>预设预览：%1</translation>
+    </message>
+</context>
+<context>
+    <name>TemplateFieldDialog</name>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Import from torrent: %1</source>
+        <translation>从种子导入：%1</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Select the settings to adopt as a preset. Unselected settings keep the default values. Name, files, piece hashes and creation date are never imported.</source>
+        <translation>选择要作为预设采用的设置。未选择的设置保持默认值。名称、文件、分片哈希和创建日期不会被导入。</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Trackers</source>
+        <translation>Tracker</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Piece size</source>
+        <translation>分片大小</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Private</source>
+        <translation>私有</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Source</source>
+        <translation>来源</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Web seeds</source>
+        <translation>Web Seed</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Format</source>
+        <translation>格式</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Comment</source>
+        <translation>注释</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Created by</source>
+        <translation>创建者</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Tier %1: %2</source>
+        <translation>层级 %1：%2</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>%1 KiB</source>
+        <translation>%1 KiB</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Yes</source>
+        <translation>是</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>No</source>
+        <translation>否</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Not present in this torrent</source>
+        <translation>此种子中不存在</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Unsupported piece size (%1 bytes); must be a power of two from 16 KiB to 16 MiB</source>
+        <translation>不支持的分片大小（%1 字节）；必须是 16 KiB 到 16 MiB 之间的 2 的幂</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Present but unreadable in this torrent</source>
+        <translation>此种子中存在但无法读取</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>Ignored non-standard metadata: %1</source>
+        <translation>已忽略非标准元数据：%1</translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../src/gui/TemplateFieldDialog.cpp"/>
+        <source>%1: ignored %n invalid entries</source>
+        <translation>
+            <numerusform>%1：已忽略 %n 个无效条目</numerusform>
+        </translation>
     </message>
 </context>
 <context>
@@ -1979,6 +1959,12 @@ Failed %1 file(s):</source>
     <message>
         <location filename="../src/gui/MainWindow.ui" line="729"/>
         <location filename="../src/gui/MainWindow.ui" line="740"/>
+        <source>Strict</source>
+        <translation>严格模式</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui" line="729"/>
+        <location filename="../src/gui/MainWindow.ui" line="740"/>
         <source>Reject leniently loaded torrents</source>
         <translation>拒绝以宽松模式加载的种子</translation>
     </message>
@@ -2146,13 +2132,34 @@ Failed %1 file(s):</source>
     </message>
     <message>
         <location filename="../src/gui/MainWindow.ui" line="783"/>
-        <source>Select content directory to verify</source>
-        <translation>选择要校验的内容目录</translation>
+        <source>Select content to verify</source>
+        <translation>选择要校验的内容</translation>
     </message>
     <message>
         <location filename="../src/gui/MainWindow.ui" line="788"/>
-        <source>Content directory to verify</source>
-        <translation>待校验的内容目录</translation>
+        <source>Content to verify</source>
+        <translation>待校验的内容</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui" line="804"/>
+        <source>Select the single content file for a single-file torrent.</source>
+        <translation>为单文件种子选择对应的内容文件。</translation>
+    </message>
+    <message>
+        <source>Select content file</source>
+        <translation>选择内容文件</translation>
+    </message>
+    <message>
+        <source>Content layout mismatch</source>
+        <translation>内容布局不匹配</translation>
+    </message>
+    <message>
+        <source>The loaded torrent uses a single-file layout. Select the matching content file, not a folder.</source>
+        <translation>已加载的种子使用单文件布局，请选择匹配的内容文件而不是文件夹。</translation>
+    </message>
+    <message>
+        <source>The loaded torrent uses a directory layout. Select the matching content folder, not a file.</source>
+        <translation>已加载的种子使用目录布局，请选择匹配的内容文件夹而不是文件。</translation>
     </message>
     <message>
         <location filename="../src/gui/MainWindow.ui" line="808"/>
@@ -2217,7 +2224,7 @@ Failed %1 file(s):</source>
     <message>
         <location filename="../src/gui/MainWindow.ui" line="945"/>
         <source>Reload Folder</source>
-        <translation>重新载入 Folder</translation>
+        <translation>重新载入文件夹</translation>
     </message>
     <message>
         <location filename="../src/gui/MainWindow.ui" line="946"/>
@@ -2570,6 +2577,41 @@ Failed %1 file(s):</source>
     <message><source>Interface style</source><translation>界面样式</translation></message>
     <message><source>Font:</source><translation>字体：</translation></message>
     <message><source>Interface font</source><translation>界面字体</translation></message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui"/>
+        <source>Include subfolders</source>
+        <translation>包含子文件夹</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui"/>
+        <source>Also list torrents in subfolders; output folders mirror the subfolder layout</source>
+        <translation>同时列出子文件夹中的种子；输出文件夹保持相同的子文件夹结构</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui"/>
+        <source>Replace list</source>
+        <translation>替换列表</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui"/>
+        <source>Replace every torrent&apos;s tracker list with the list below</source>
+        <translation>用下方列表替换每个种子的 Tracker 列表</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui"/>
+        <source>Drop a folder here or click Select folder</source>
+        <translation>将文件夹拖放到此处，或点击“选择文件夹”</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui"/>
+        <source>Rewrite (find and replace)</source>
+        <translation>改写（查找替换）</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.ui"/>
+        <source>Find and replace text in each torrent&apos;s own tracker URLs, keeping passkeys</source>
+        <translation>在每个种子自身的 Tracker URL 中查找并替换文本，保留 passkey</translation>
+    </message>
 </context>
 <context>
     <name>FilterRulesDialog</name>
@@ -2600,5 +2642,337 @@ Failed %1 file(s):</source>
     <message><source>License text</source><translation>许可证文本</translation></message>
     <message><source>License: %1</source><translation>许可证：%1</translation></message>
     <message><source>Close</source><translation>关闭</translation></message>
+</context>
+<context>
+    <name>TrackerRewritePanel</name>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Preview all</source>
+        <translation>全部预览</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Check every listed torrent and show the result in the Status column</source>
+        <translation>检查列表中的每个种子，并在“状态”列显示结果</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Tracker rewrite preview</source>
+        <translation>Tracker 改写预览</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Unchanged</source>
+        <translation>未更改</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Changed</source>
+        <translation>已更改</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Merged (duplicate)</source>
+        <translation>已合并（重复）</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Invalid</source>
+        <translation>无效</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Tier</source>
+        <translation>层级</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Original URL</source>
+        <translation>原始 URL</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Result</source>
+        <translation>结果</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Status</source>
+        <translation>状态</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Select a torrent in the list below to preview the rewrite.</source>
+        <translation>在下方列表中选择一个种子以预览改写结果。</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Preview: %1 (enter valid rules to see the result)</source>
+        <translation>预览：%1（输入有效规则以查看结果）</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Preview: %1</source>
+        <translation>预览：%1</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>%1: %2</source>
+        <translation>%1：%2</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Rules run top to bottom. With .* on, $1 inserts a group.</source>
+        <translation>规则从上到下依次应用。开启 .* 时，$1 插入捕获的分组。</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Rules apply from top to bottom. With .* on, Find is a regular expression and $1 inserts a captured group.</source>
+        <translation>规则从上到下依次应用。开启 .* 时，“查找”为正则表达式，$1 插入捕获的分组。</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>+ Add rule</source>
+        <translation>+ 添加规则</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Add another find and replace rule</source>
+        <translation>添加另一条查找替换规则</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>%1.</source>
+        <translation>%1.</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Find</source>
+        <translation>查找</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Find text for rule %1</source>
+        <translation>规则 %1 的查找文本</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Replace</source>
+        <translation>替换</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Replacement for rule %1</source>
+        <translation>规则 %1 的替换文本</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Match case</source>
+        <translation>区分大小写</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Match case for rule %1</source>
+        <translation>规则 %1 区分大小写</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Use regular expression</source>
+        <translation>使用正则表达式</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Use regular expression for rule %1</source>
+        <translation>规则 %1 使用正则表达式</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Remove rule</source>
+        <translation>删除规则</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Remove rule %1</source>
+        <translation>删除规则 %1</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/TrackerRewritePanel.cpp"/>
+        <source>Rule %1: %2</source>
+        <translation>规则 %1：%2</translation>
+    </message>
+</context>
+<context>
+    <name>TrackerPage</name>
+    <message>
+        <source>Tier</source>
+        <translation>层级</translation>
+    </message>
+    <message>
+        <source>Tracker</source>
+        <translation>Tracker</translation>
+    </message>
+    <message>
+        <source>Select torrent folder</source>
+        <translation>选择种子文件夹</translation>
+    </message>
+    <message>
+        <source>Select output folder</source>
+        <translation>选择输出文件夹</translation>
+    </message>
+    <message>
+        <source>Ready</source>
+        <translation>就绪</translation>
+    </message>
+    <message>
+        <source>Invalid tracker list</source>
+        <translation>无效的 Tracker 列表</translation>
+    </message>
+    <message>
+        <source>Loading torrent</source>
+        <translation>正在加载种子</translation>
+    </message>
+    <message>
+        <source>Rebuild required</source>
+        <translation>需要重建</translation>
+    </message>
+    <message>
+        <source>Preview</source>
+        <translation>预览</translation>
+    </message>
+    <message>
+        <source>Torrent folder loaded; select one file for tracker editing.</source>
+        <translation>种子文件夹已加载；请选择一个文件编辑 Tracker。</translation>
+    </message>
+    <message>
+        <source>Loading tracker list</source>
+        <translation>正在加载 Tracker 列表</translation>
+    </message>
+    <message>
+        <source>The tracker task did not return a result.</source>
+        <translation>Tracker 任务未返回结果。</translation>
+    </message>
+    <message>
+        <source>Tracker list loaded</source>
+        <translation>Tracker 列表已加载</translation>
+    </message>
+    <message>
+        <source>No torrent files</source>
+        <translation>没有种子文件</translation>
+    </message>
+    <message>
+        <source>The selected folder contains no torrent files.</source>
+        <translation>选定文件夹不包含种子文件。</translation>
+    </message>
+    <message>
+        <source>Converting tracker files</source>
+        <translation>正在转换 Tracker 文件</translation>
+    </message>
+    <message>
+        <source>Tracker batch complete</source>
+        <translation>Tracker 批处理完成</translation>
+    </message>
+    <message>
+        <source> No files were written.</source>
+        <translation>未写入文件。</translation>
+    </message>
+    <message>
+        <source>No torrent loaded</source>
+        <translation>未加载种子</translation>
+    </message>
+    <message>
+        <source>Load a torrent file before converting trackers.</source>
+        <translation>转换 Tracker 前请先加载种子文件。</translation>
+    </message>
+    <message>
+        <source>No tracker edit result was produced.</source>
+        <translation>未生成 Tracker 编辑结果。</translation>
+    </message>
+    <message>
+        <source>Tracker changes require a rebuild. No file was written.</source>
+        <translation>Tracker 更改需要重建。未写入文件。</translation>
+    </message>
+    <message>
+        <source>Tracker changes are valid; dry run wrote nothing.</source>
+        <translation>Tracker 更改有效；试运行未写入文件。</translation>
+    </message>
+    <message>
+        <source>No tracker save result was produced.</source>
+        <translation>未生成 Tracker 保存结果。</translation>
+    </message>
+    <message>
+        <source>Tracker torrent saved</source>
+        <translation>Tracker 种子已保存</translation>
+    </message>
+    <message>
+        <source>Filename</source>
+        <translation>文件名</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>大小</translation>
+    </message>
+    <message>
+        <source>Status</source>
+        <translation>状态</translation>
+    </message>
+    <message>
+        <source>Unavailable</source>
+        <translation>不可用</translation>
+    </message>
+    <message>
+        <source>
+
+Failed %1 file(s):</source>
+        <translation>
+
+%1 个文件失败：</translation>
+    </message>
+    <message>
+        <source>
+- …and %1 more</source>
+        <translation>
+- ……另有 %1 个</translation>
+    </message>
+    <message><source>Tracker batch completed with errors</source><translation>Tracker 批量处理完成，但存在错误</translation></message>
+    <message>
+        <source>Invalid rewrite rules</source>
+        <translation>改写规则无效</translation>
+    </message>
+    <message>
+        <source>Enter at least one valid rewrite rule.</source>
+        <translation>请至少输入一条有效的改写规则。</translation>
+    </message>
+    <message>
+        <source>Will change (%1)</source>
+        <translation>将更改（%1）</translation>
+    </message>
+    <message>
+        <source>Updated</source>
+        <translation>已更新</translation>
+    </message>
+    <message>
+        <source>No change</source>
+        <translation>无变化</translation>
+    </message>
+    <message>
+        <source>Failed</source>
+        <translation>失败</translation>
+    </message>
+    <message>
+        <source>Processed %1 torrent file(s); %2 changed.%3</source>
+        <translation>已处理 %1 个种子文件，其中 %2 个已更改。%3</translation>
+    </message>
+    <message>
+        <source>Will fail</source>
+        <translation>将失败</translation>
+    </message>
+    <message>
+        <source>Previewing tracker rewrite</source>
+        <translation>正在预览 Tracker 改写</translation>
+    </message>
+    <message>
+        <source>Rewrite preview: %1 of %2 torrent(s) would change, %3 would fail.</source>
+        <translation>改写预览：%2 个种子中有 %1 个将更改，%3 个将失败。</translation>
+    </message>
 </context>
 </TS>

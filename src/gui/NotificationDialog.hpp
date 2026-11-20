@@ -18,7 +18,7 @@ class NotificationDialog final : public QDialog
         Error,
     };
 
-    explicit NotificationDialog(Level level, QString title, QString message,
+    explicit NotificationDialog(Level level, const QString& title, const QString& message,
                                 QWidget* parent = nullptr);
     ~NotificationDialog() override;
 

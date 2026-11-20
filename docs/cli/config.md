@@ -16,7 +16,7 @@ When no `--config PATH` is explicitly provided, TorrentCraft searches for config
    - **Linux / macOS**: `$XDG_CONFIG_HOME/torrentcraft/torrentcraft.json`, or `$HOME/.config/torrentcraft/torrentcraft.json`
    - **Windows**: `%APPDATA%\torrentcraft\torrentcraft.json`
 
-An explicit `--config` path or discovered configuration file is authoritative. If the file contains invalid JSON or unsupported keys, the command reports an error immediately without falling back to defaults.
+An explicit `--config` path or discovered configuration file is authoritative. If the file contains invalid JSON or unsupported keys, the command reports an error immediately without falling back to defaults. Configuration files are capped at **1 MiB** (checked against the formatted JSON before writing, so an edit that would push the file past 1 MiB is rejected rather than saving a file that later fails to load).
 
 ## Common Operations
 

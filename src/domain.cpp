@@ -1,3 +1,5 @@
+#include "utf8.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <limits>
@@ -17,66 +19,18 @@ namespace {
             {{std::move(field), std::move(message)}}};
 }
 
-[[nodiscard]] bool is_valid_utf8(const std::string& value) noexcept
+[[nodiscard]] FileLayout derive_file_layout(const std::string& name,
+                                            const std::vector<FileEntry>& files) noexcept
 {
-    const auto* bytes = reinterpret_cast<const unsigned char*>(value.data());
-    std::size_t index = 0;
-    while (index < value.size())
+    // Only a single non-padding file whose single-segment logical path equals the info name is the
+    // canonical single-file shape. Any other structure, including a directory with one payload
+    // file, is a directory layout.
+    if (files.size() == 1U && !files.front().attributes().padding &&
+        files.front().path().segments().size() == 1U && files.front().path().to_string() == name)
     {
-        const auto first = bytes[index];
-        if (first <= 0x7F)
-        {
-            ++index;
-            continue;
-        }
-
-        std::size_t count = 0;
-        std::uint32_t code_point = 0;
-        std::uint32_t minimum = 0;
-        if ((first & 0xE0U) == 0xC0U)
-        {
-            count = 2;
-            code_point = first & 0x1FU;
-            minimum = 0x80;
-        }
-        else if ((first & 0xF0U) == 0xE0U)
-        {
-            count = 3;
-            code_point = first & 0x0FU;
-            minimum = 0x800;
-        }
-        else if ((first & 0xF8U) == 0xF0U)
-        {
-            count = 4;
-            code_point = first & 0x07U;
-            minimum = 0x10000;
-        }
-        else
-        {
-            return false;
-        }
-
-        if (index + count > value.size())
-        {
-            return false;
-        }
-        for (std::size_t offset = 1; offset < count; ++offset)
-        {
-            const auto next = bytes[index + offset];
-            if ((next & 0xC0U) != 0x80U)
-            {
-                return false;
-            }
-            code_point = (code_point << 6U) | (next & 0x3FU);
-        }
-        if (code_point < minimum || code_point > 0x10FFFFU ||
-            (code_point >= 0xD800U && code_point <= 0xDFFFU))
-        {
-            return false;
-        }
-        index += count;
+        return FileLayout::SingleFile;
     }
-    return true;
+    return FileLayout::Directory;
 }
 
 [[nodiscard]] bool contains_uri_whitespace_or_control(const std::string& value) noexcept
@@ -116,7 +70,7 @@ struct ParsedUrl
     {
         return Result<ParsedUrl>::failure(validation_error(std::move(field), "must not be empty"));
     }
-    if (!is_valid_utf8(value))
+    if (!detail::is_valid_utf8(value))
     {
         return Result<ParsedUrl>::failure(
             validation_error(std::move(field), "must contain valid UTF-8"));
@@ -599,7 +553,7 @@ Result<LogicalPath> LogicalPath::from_segments(std::vector<std::string> segments
             return Result<LogicalPath>::failure(
                 validation_error("file.path", "must not contain dot segments"));
         }
-        if (!is_valid_utf8(segment))
+        if (!detail::is_valid_utf8(segment))
         {
             return Result<LogicalPath>::failure(
                 validation_error("file.path", "must contain valid UTF-8 segments"));
@@ -750,7 +704,7 @@ DhtNode::DhtNode(std::string host, std::uint16_t port) : host_(std::move(host)),
 
 Result<DhtNode> DhtNode::create(std::string host, std::uint32_t port)
 {
-    if (host.empty() || !is_valid_utf8(host) || contains_uri_whitespace_or_control(host))
+    if (host.empty() || !detail::is_valid_utf8(host) || contains_uri_whitespace_or_control(host))
     {
         return Result<DhtNode>::failure(
             validation_error("metadata.dht_node.host", "must be a non-empty valid host"));
@@ -779,7 +733,7 @@ Result<TorrentMetadata> TorrentMetadata::create(TorrentMetadataInput input)
 {
     const auto validate_optional_text = [](const std::optional<std::string>& text,
                                            const std::string& field) -> std::optional<Error> {
-        if (text && !is_valid_utf8(*text))
+        if (text && !detail::is_valid_utf8(*text))
         {
             return validation_error(field, "must contain valid UTF-8");
         }
@@ -800,7 +754,7 @@ Result<TorrentMetadata> TorrentMetadata::create(TorrentMetadataInput input)
     }
     for (const auto& collection : input.collections)
     {
-        if (collection.empty() || !is_valid_utf8(collection))
+        if (collection.empty() || !detail::is_valid_utf8(collection))
         {
             return Result<TorrentMetadata>::failure(validation_error(
                 "metadata.collection", "must contain non-empty valid UTF-8 values"));
@@ -979,9 +933,10 @@ const std::vector<Sha1Digest>& PieceInfo::v1_piece_hashes() const noexcept
 }
 
 TorrentInfo::TorrentInfo(std::string name, TorrentFormat format, InfoHashes info_hashes,
-                         PieceInfo pieces, std::vector<FileEntry> files, bool is_private)
+                         PieceInfo pieces, std::vector<FileEntry> files, FileLayout layout,
+                         bool is_private)
     : name_(std::move(name)), format_(format), info_hashes_(info_hashes),
-      pieces_(std::move(pieces)), files_(std::move(files)), is_private_(is_private)
+      pieces_(std::move(pieces)), files_(std::move(files)), layout_(layout), is_private_(is_private)
 {
 }
 
@@ -989,7 +944,17 @@ Result<TorrentInfo> TorrentInfo::create(std::string name, TorrentFormat format,
                                         InfoHashes info_hashes, PieceInfo pieces,
                                         std::vector<FileEntry> files, bool is_private)
 {
-    if (name.empty() || !is_valid_utf8(name))
+    return create_with_layout(std::move(name), format, info_hashes, std::move(pieces),
+                              std::move(files), std::nullopt, is_private);
+}
+
+Result<TorrentInfo> TorrentInfo::create_with_layout(std::string name, TorrentFormat format,
+                                                    InfoHashes info_hashes, PieceInfo pieces,
+                                                    std::vector<FileEntry> files,
+                                                    std::optional<FileLayout> layout,
+                                                    bool is_private)
+{
+    if (name.empty() || !detail::is_valid_utf8(name))
     {
         return Result<TorrentInfo>::failure(
             validation_error("info.name", "must contain non-empty valid UTF-8"));
@@ -1036,8 +1001,10 @@ Result<TorrentInfo> TorrentInfo::create(std::string name, TorrentFormat format,
             validation_error("info.pieces", "total size must equal the sum of file lengths"));
     }
 
-    return Result<TorrentInfo>::success(TorrentInfo(
-        std::move(name), format, info_hashes, std::move(pieces), std::move(files), is_private));
+    const auto resolved_layout = layout.value_or(derive_file_layout(name, files));
+    return Result<TorrentInfo>::success(TorrentInfo(std::move(name), format, info_hashes,
+                                                    std::move(pieces), std::move(files),
+                                                    resolved_layout, is_private));
 }
 
 const std::string& TorrentInfo::name() const noexcept
@@ -1063,6 +1030,11 @@ const PieceInfo& TorrentInfo::pieces() const noexcept
 const std::vector<FileEntry>& TorrentInfo::files() const noexcept
 {
     return files_;
+}
+
+FileLayout TorrentInfo::layout() const noexcept
+{
+    return layout_;
 }
 
 bool TorrentInfo::is_private() const noexcept
@@ -1098,8 +1070,8 @@ Result<TorrentDocument> TorrentDocument::create(TorrentInfo info, TorrentMetadat
 {
     for (const auto& warning : warnings)
     {
-        if (warning.field.empty() || !is_valid_utf8(warning.field) || warning.message.empty() ||
-            !is_valid_utf8(warning.message))
+        if (warning.field.empty() || !detail::is_valid_utf8(warning.field) ||
+            warning.message.empty() || !detail::is_valid_utf8(warning.message))
         {
             return Result<TorrentDocument>::failure(validation_error(
                 "document.warning", "field and message must be non-empty valid UTF-8"));

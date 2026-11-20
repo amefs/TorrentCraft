@@ -9,7 +9,7 @@
 #include <torrentutils/core/tracker.hpp>
 #include <utility>
 
-TrackerEditDialog::TrackerEditDialog(const int tier, QString tracker, const QString& title,
+TrackerEditDialog::TrackerEditDialog(const int tier, const QString& tracker, const QString& title,
                                      QWidget* parent, const bool multi_tier)
     : QDialog(parent), ui_(new Ui::TrackerEditDialog), multi_tier_(multi_tier)
 {
@@ -17,7 +17,7 @@ TrackerEditDialog::TrackerEditDialog(const int tier, QString tracker, const QStr
     setWindowTitle(title);
     ui_->tier->setRange(1, 999);
     ui_->tier->setValue(tier);
-    ui_->tracker->setText(std::move(tracker));
+    ui_->tracker->setText(tracker);
     ui_->stackedWidget->setCurrentWidget(multi_tier_ ? ui_->pageMulti : ui_->pageSingle);
     ui_->stackedWidget->setFixedHeight(ui_->stackedWidget->currentWidget()->sizeHint().height());
     adjustSize();

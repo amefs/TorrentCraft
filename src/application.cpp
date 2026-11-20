@@ -123,25 +123,25 @@ class PendingFile
     bool committed_{};
 };
 
-class CancellationBackup
+/** Removes a backup copy unless the save it protects was committed. Until the commit, the original
+ *  file is untouched, so a backup left by a failed or cancelled save (possibly truncated) would
+ *  only mislead. */
+class PendingBackup
 {
   public:
-    CancellationBackup(std::filesystem::path path, CancellationToken cancellation)
-        : path_(std::move(path)), cancellation_(std::move(cancellation))
-    {
-    }
+    explicit PendingBackup(std::filesystem::path path) : path_(std::move(path)) {}
 
-    ~CancellationBackup()
+    ~PendingBackup()
     {
-        if (path_ && cancellation_.is_cancelled())
+        if (path_)
         {
             std::error_code ignored;
             std::filesystem::remove(*path_, ignored);
         }
     }
 
-    CancellationBackup(const CancellationBackup&) = delete;
-    CancellationBackup& operator=(const CancellationBackup&) = delete;
+    PendingBackup(const PendingBackup&) = delete;
+    PendingBackup& operator=(const PendingBackup&) = delete;
 
     void release() noexcept
     {
@@ -150,7 +150,6 @@ class CancellationBackup
 
   private:
     std::optional<std::filesystem::path> path_;
-    CancellationToken cancellation_;
 };
 
 [[nodiscard]] std::filesystem::path temporary_sibling(const std::filesystem::path& target)
@@ -665,7 +664,7 @@ Result<LoadedTorrent> FileTorrentRepository::commit(const LoadedTorrent& loaded,
             {ErrorCode::Conflict, "save target already exists", {}});
     }
 
-    std::optional<CancellationBackup> backup_guard;
+    std::optional<PendingBackup> backup_guard;
     if (request.backup && target_exists)
     {
         auto backup = target;
@@ -684,7 +683,7 @@ Result<LoadedTorrent> FileTorrentRepository::commit(const LoadedTorrent& loaded,
             return Result<LoadedTorrent>::failure(
                 filesystem_error(backup_status_error, "failed to inspect torrent backup target"));
         }
-        backup_guard.emplace(backup, cancellation);
+        backup_guard.emplace(backup);
         auto backup_result = copy_bounded_file(target, backup, cancellation);
         if (!backup_result)
         {
@@ -816,6 +815,9 @@ Result<EditResult> TorrentService::edit(const LoadedTorrent& loaded,
                 [&](const ReplaceDhtNodes& value) { metadata.dht_nodes = value.value; },
                 [&](const ReplaceTrackers& value) {
                     update_trackers(TrackerEngine::replace(value.value));
+                },
+                [&](const RewriteTrackers& value) {
+                    update_trackers(rewrite_trackers(trackers, value.rules));
                 },
                 [&](const AddTrackerToTier& value) {
                     update_trackers(

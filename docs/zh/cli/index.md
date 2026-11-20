@@ -13,10 +13,10 @@
 | [`tree`](./tree) | 以树状图直观展示种子内部包含的目录与文件层级。 |
 | [`verify`](./verify) | 比对本地文件与种子定义的数据，校验文件完整性。 |
 | [`validate`](./validate) | 快速校验 `.torrent` 文件本身的语法与规范合规性（无需读取实际数据）。 |
-| [`tracker`](./tracker) | 查看、添加、删除或批量替换种子中的 Tracker 服务器列表与层级。 |
+| [`tracker`](./tracker) | 查看、添加、删除、替换或按规则批量改写种子中的 Tracker 地址与层级。 |
 | [`metadata`](./metadata) | 查看、修改或清除种子中的附加元数据（如注释、制作者、来源、私有标记等）。 |
 | [`config`](./config) | 查看、初始化及修改全局共享的 `torrentcraft.json` 配置文件。 |
-| [`preset`](./preset) | 管理常用的命名预设模板，快速复用制作参数。 |
+| [`preset`](./preset) | 管理常用的命名预设模板，或从已有种子导入可复用的制作设置。 |
 | [`completion`](./completion) | 生成 Bash、Zsh 或 Fish 的 Shell 自动补全脚本。 |
 
 > **智能路径推断**：如果传入的第一个参数不是命令名，而是文件或文件夹路径，TorrentCraft 会自动智能推断你的意图并执行相应操作（例如直接运行 `torrentcraft demo.torrent` 会自动执行查看操作）。详见[路径推断](./path-inference)。

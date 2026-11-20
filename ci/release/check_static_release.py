@@ -28,6 +28,9 @@ WINDOWS_SYSTEM_DLLS = {
     "D3D12.DLL",
     "D3D9.DLL",
     "DCOMP.DLL",
+    # Abseil (linked through RE2) uses DbgHelp for symbolization; it ships in
+    # System32 on every supported Windows version.
+    "DBGHELP.DLL",
     "DNSAPI.DLL",
     "DSOUND.DLL",
     "DWRITE.DLL",
@@ -321,7 +324,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--directory", type=Path, required=True)
     parser.add_argument("--platform", required=True)
-    parser.add_argument("--version", default="1.1.2")
+    parser.add_argument("--version", default="1.2.0")
     parser.add_argument("--include-source", action="store_true")
     args = parser.parse_args()
 

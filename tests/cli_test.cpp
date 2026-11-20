@@ -5,6 +5,7 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <nlohmann/json.hpp>
 #include <sstream>
 #include <string>
@@ -190,6 +191,30 @@ TEST_CASE("given_config_preset_and_cli_overrides_when_created_then_torrent_is_wr
     REQUIRE(output.find("\"creator\":\"CliAuthor\"") != std::string::npos);
     REQUIRE(std::filesystem::is_regular_file(target));
 }
+
+#ifndef _WIN32
+TEST_CASE("given_non_utf8_target_name_when_created_with_json_then_valid_json_is_reported",
+          "[integration][cli]")
+{
+    const TempDirectory temp;
+    const auto content = temp.path() / "payload.bin";
+    write_file(content, "payload");
+    // Linux file names are bytes; this one is not valid UTF-8.
+    const auto target = temp.path() / std::string("out-\xff.torrent");
+
+    std::string output;
+    std::string diagnostics;
+    const auto result =
+        run_cli({"torrentcraft", "create", content.u8string(), "-o", target.string(), "--json"},
+                output, diagnostics);
+
+    REQUIRE(result == 0);
+    REQUIRE(std::filesystem::is_regular_file(target));
+    const auto document = nlohmann::json::parse(output, nullptr, false);
+    REQUIRE_FALSE(document.is_discarded());
+    REQUIRE(document.at("ok") == true);
+}
+#endif
 
 TEST_CASE("given_config_default_preset_when_created_then_explicit_presets_replace_it",
           "[integration][cli]")
@@ -390,6 +415,211 @@ TEST_CASE("given_preset_file_when_added_then_named_preset_is_listed", "[unit][cl
     REQUIRE(output.find("example") != std::string::npos);
 }
 
+std::filesystem::path cli_metadata_fixture(const char* name)
+{
+    return std::filesystem::path(TORRENTUTILS_TEST_SOURCE_DIR) / "fixtures" / "metadata" / name;
+}
+
+TEST_CASE("given_torrent_template_when_preset_added_then_default_fields_are_saved", "[unit][cli]")
+{
+    const TempDirectory temp;
+    const auto config = temp.path() / "torrentcraft.json";
+    write_file(config, R"({"schema":"torrentcraft.config/v1"})");
+    std::string output;
+    std::string diagnostics;
+
+    REQUIRE(run_cli({"torrentcraft", "preset", "add", "--from-torrent",
+                     cli_metadata_fixture("valid-v1.torrent").u8string(), "--config",
+                     config.u8string()},
+                    output, diagnostics) == 0);
+    REQUIRE(output.find("preset added: valid-v1") != std::string::npos);
+    REQUIRE(diagnostics.empty());
+
+    REQUIRE(run_cli({"torrentcraft", "preset", "show", "valid-v1", "--config", config.u8string(),
+                     "--json"},
+                    output, diagnostics) == 0);
+    REQUIRE(output.find("\"format\":\"v1\"") != std::string::npos);
+    REQUIRE(output.find("\"piece_size\":16") != std::string::npos);
+    REQUIRE(output.find("\"private\":true") != std::string::npos);
+    REQUIRE(output.find("\"source\":\"SRC\"") != std::string::npos);
+    REQUIRE(output.find("https://backup.example/announce") != std::string::npos);
+    REQUIRE(output.find("https://seed.example/web") != std::string::npos);
+    REQUIRE(output.find("comment") == std::string::npos);
+    REQUIRE(output.find("created_by") == std::string::npos);
+}
+
+TEST_CASE("given_torrent_template_when_name_and_fields_given_then_only_those_are_saved",
+          "[unit][cli]")
+{
+    const TempDirectory temp;
+    const auto config = temp.path() / "torrentcraft.json";
+    write_file(config, R"({"schema":"torrentcraft.config/v1"})");
+    std::string output;
+    std::string diagnostics;
+
+    REQUIRE(run_cli({"torrentcraft", "preset", "add", "--from-torrent",
+                     cli_metadata_fixture("unsupported-piece-size-v1.torrent").u8string(), "--name",
+                     "release", "--fields", "trackers,comment", "--config", config.u8string(),
+                     "--json"},
+                    output, diagnostics) == 0);
+    REQUIRE(output.find("\"preset\":\"release\"") != std::string::npos);
+    REQUIRE(output.find("\"skipped_fields\":[]") != std::string::npos);
+
+    REQUIRE(run_cli({"torrentcraft", "preset", "show", "release", "--config", config.u8string(),
+                     "--json"},
+                    output, diagnostics) == 0);
+    REQUIRE(output.find("\"comment\":\"release notes\"") != std::string::npos);
+    REQUIRE(output.find("https://tracker.example/announce") != std::string::npos);
+    REQUIRE(output.find("format") == std::string::npos);
+    REQUIRE(output.find("private") == std::string::npos);
+}
+
+TEST_CASE("given_torrent_template_when_named_field_unavailable_then_it_is_skipped_with_warning",
+          "[unit][cli]")
+{
+    const TempDirectory temp;
+    const auto config = temp.path() / "torrentcraft.json";
+    write_file(config, R"({"schema":"torrentcraft.config/v1"})");
+    std::string output;
+    std::string diagnostics;
+
+    REQUIRE(run_cli({"torrentcraft", "preset", "add", "--from-torrent",
+                     cli_metadata_fixture("valid-hybrid.torrent").u8string(), "--fields",
+                     "trackers,web-seeds,private", "--config", config.u8string()},
+                    output, diagnostics) == 0);
+    REQUIRE(diagnostics.find("warning: template field trackers skipped") != std::string::npos);
+    REQUIRE(diagnostics.find("warning: template field web-seeds skipped") != std::string::npos);
+    REQUIRE(output.find("preset added: valid-hybrid") != std::string::npos);
+}
+
+TEST_CASE("given_torrent_template_when_no_named_field_available_then_nothing_is_written",
+          "[unit][cli]")
+{
+    const TempDirectory temp;
+    const auto config = temp.path() / "torrentcraft.json";
+    const std::string original = R"({"schema":"torrentcraft.config/v1"})";
+    write_file(config, original);
+    std::string output;
+    std::string diagnostics;
+
+    REQUIRE(run_cli({"torrentcraft", "preset", "add", "--from-torrent",
+                     cli_metadata_fixture("unsupported-piece-size-v1.torrent").u8string(),
+                     "--fields", "piece-size", "--config", config.u8string()},
+                    output, diagnostics) == 3);
+    std::ifstream input(config, std::ios::binary);
+    const std::string persisted{std::istreambuf_iterator<char>(input),
+                                std::istreambuf_iterator<char>()};
+    REQUIRE(persisted == original);
+}
+
+TEST_CASE("given_torrent_template_with_non_standard_metadata_when_added_then_warnings_are_reported",
+          "[unit][cli]")
+{
+    const TempDirectory temp;
+    const auto config = temp.path() / "torrentcraft.json";
+    write_file(config, R"({"schema":"torrentcraft.config/v1"})");
+    std::string output;
+    std::string diagnostics;
+
+    REQUIRE(run_cli({"torrentcraft", "preset", "add", "--from-torrent",
+                     cli_metadata_fixture("unknown-field.torrent").u8string(), "--config",
+                     config.u8string(), "--dry-run"},
+                    output, diagnostics) == 0);
+    REQUIRE(diagnostics.find("warning: ignored non-standard metadata: zzz-key, info.qqq-key") !=
+            std::string::npos);
+
+    REQUIRE(run_cli({"torrentcraft", "preset", "add", "--from-torrent",
+                     cli_metadata_fixture("partially-invalid-template-v1.torrent").u8string(),
+                     "--config", config.u8string(), "--dry-run", "--json"},
+                    output, diagnostics) == 0);
+    REQUIRE(diagnostics.empty());
+    const auto document = nlohmann::json::parse(output);
+    REQUIRE(document["data"]["load_warnings"] ==
+            nlohmann::json::array(
+                {"trackers: ignored 2 invalid entries", "web-seeds: ignored 1 invalid entry"}));
+    REQUIRE(document["data"]["settings"]["tracker_tiers"] ==
+            nlohmann::json::array({nlohmann::json::array({"https://tracker.example/announce"})}));
+}
+
+TEST_CASE("given_torrent_template_when_default_field_unavailable_then_it_is_skipped_with_warning",
+          "[unit][cli]")
+{
+    const TempDirectory temp;
+    const auto config = temp.path() / "torrentcraft.json";
+    write_file(config, R"({"schema":"torrentcraft.config/v1"})");
+    std::string output;
+    std::string diagnostics;
+
+    REQUIRE(run_cli({"torrentcraft", "preset", "add", "--from-torrent",
+                     cli_metadata_fixture("unsupported-piece-size-v1.torrent").u8string(),
+                     "--config", config.u8string(), "--dry-run"},
+                    output, diagnostics) == 0);
+    REQUIRE(diagnostics.find("warning: template field piece-size skipped") != std::string::npos);
+    REQUIRE(output.find("preset dry-run valid: unsupported-piece-size-v1") != std::string::npos);
+    REQUIRE(output.find("\"tracker_tiers\"") != std::string::npos);
+    REQUIRE(output.find("\"piece_size\"") == std::string::npos);
+
+    REQUIRE(run_cli({"torrentcraft", "preset", "list", "--config", config.u8string(), "--json"},
+                    output, diagnostics) == 0);
+    REQUIRE(output.find("unsupported-piece-size-v1") == std::string::npos);
+}
+
+TEST_CASE("given_torrent_template_when_arguments_conflict_then_usage_error_is_returned",
+          "[unit][cli]")
+{
+    const TempDirectory temp;
+    const auto config = temp.path() / "torrentcraft.json";
+    write_file(config, R"({"schema":"torrentcraft.config/v1"})");
+    const auto torrent = cli_metadata_fixture("valid-v1.torrent").u8string();
+    std::string output;
+    std::string diagnostics;
+
+    REQUIRE(run_cli({"torrentcraft", "preset", "add", "extra.json", "--from-torrent", torrent,
+                     "--config", config.u8string()},
+                    output, diagnostics) == 2);
+    REQUIRE(run_cli({"torrentcraft", "preset", "list", "--from-torrent", torrent, "--config",
+                     config.u8string()},
+                    output, diagnostics) == 2);
+    REQUIRE(run_cli({"torrentcraft", "preset", "add", "x.json", "--fields", "trackers", "--config",
+                     config.u8string()},
+                    output, diagnostics) == 2);
+    REQUIRE(run_cli({"torrentcraft", "config", "show", "--from-torrent", torrent, "--config",
+                     config.u8string()},
+                    output, diagnostics) == 2);
+    REQUIRE(run_cli({"torrentcraft", "preset", "add", "--from-torrent", torrent, "--fields",
+                     "bogus", "--config", config.u8string()},
+                    output, diagnostics) == 3);
+}
+
+TEST_CASE("given_invalid_torrent_template_when_preset_added_then_error_is_reported", "[unit][cli]")
+{
+    const TempDirectory temp;
+    const auto config = temp.path() / "torrentcraft.json";
+    write_file(config, R"({"schema":"torrentcraft.config/v1"})");
+    std::string output;
+    std::string diagnostics;
+
+    REQUIRE(run_cli({"torrentcraft", "preset", "add", "--from-torrent",
+                     cli_metadata_fixture("invalid-path.torrent").u8string(), "--config",
+                     config.u8string()},
+                    output, diagnostics) != 0);
+    REQUIRE_FALSE(diagnostics.empty());
+}
+
+TEST_CASE("given_legacy_config_when_torrent_template_added_then_preset_is_rejected", "[unit][cli]")
+{
+    const TempDirectory temp;
+    const auto config = temp.path() / "torrentcraft.json";
+    write_file(config, R"({"piece_size":4096})");
+    std::string output;
+    std::string diagnostics;
+
+    REQUIRE(run_cli({"torrentcraft", "preset", "add", "--from-torrent",
+                     cli_metadata_fixture("valid-v1.torrent").u8string(), "--config",
+                     config.u8string()},
+                    output, diagnostics) != 0);
+}
+
 TEST_CASE("given_valid_torrent_when_inspect_tree_validate_then_stable_output", "[unit][cli]")
 {
     const auto torrent = std::filesystem::path(TORRENTUTILS_TEST_SOURCE_DIR) / "fixtures" /
@@ -413,6 +643,56 @@ TEST_CASE("given_valid_torrent_when_inspect_tree_validate_then_stable_output", "
     REQUIRE(run_cli({"torrentcraft", "validate", torrent.u8string(), "--json"}, output,
                     diagnostics) == 0);
     REQUIRE(output.find("\"valid\":true") != std::string::npos);
+}
+
+TEST_CASE("given_v1_directory_torrent_with_one_file_when_tree_then_rendered_as_directory",
+          "[integration][cli][layout]")
+{
+    const TempDirectory temp;
+    const auto content = temp.path() / "payload";
+    const auto torrent = temp.path() / "payload.torrent";
+    std::filesystem::create_directory(content);
+    write_file(content / "only.bin", "0123456789abcdef");
+
+    std::string output;
+    std::string diagnostics;
+    REQUIRE(run_cli({"torrentcraft", "create", content.u8string(), "-o", torrent.u8string(),
+                     "--format", "v1", "--piece-size", "16", "--json"},
+                    output, diagnostics) == 0);
+
+    REQUIRE(run_cli({"torrentcraft", "tree", torrent.u8string()}, output, diagnostics) == 0);
+    REQUIRE(output.find("payload/") != std::string::npos);
+    REQUIRE(output.find("only.bin") != std::string::npos);
+
+    REQUIRE(run_cli({"torrentcraft", "verify", torrent.u8string(), content.u8string(), "--json"},
+                    output, diagnostics) == 0);
+    REQUIRE(output.find("\"ok\":true") != std::string::npos);
+
+    REQUIRE(
+        run_cli({"torrentcraft", "verify", torrent.u8string(), (content / "only.bin").u8string()},
+                output, diagnostics) == 3);
+    REQUIRE(diagnostics.find("verify.content_root") != std::string::npos);
+    REQUIRE(diagnostics.find("directory") != std::string::npos);
+}
+
+TEST_CASE("given_single_file_content_with_trailing_separator_when_verified_then_succeeds",
+          "[integration][cli][layout]")
+{
+    const TempDirectory temp;
+    const auto content = temp.path() / "payload.bin";
+    const auto torrent = temp.path() / "payload.torrent";
+    write_file(content, "0123456789abcdef");
+
+    std::string output;
+    std::string diagnostics;
+    REQUIRE(run_cli({"torrentcraft", "create", content.u8string(), "-o", torrent.u8string(),
+                     "--format", "v1", "--piece-size", "16", "--json"},
+                    output, diagnostics) == 0);
+
+    const auto trailing = content.u8string() + "/";
+    REQUIRE(run_cli({"torrentcraft", "verify", torrent.u8string(), trailing, "--json"}, output,
+                    diagnostics) == 0);
+    REQUIRE(output.find("\"outcome\":\"verified\"") != std::string::npos);
 }
 
 TEST_CASE("given_torrent_and_mismatched_content_when_verify_then_conflict_exit_code",
@@ -726,6 +1006,238 @@ TEST_CASE("given_torrent_when_tracker_and_metadata_commands_then_expected_result
                      "client-extension", "--dry-run", "--json"},
                     output, diagnostics) == 0);
     REQUIRE(output.find("\"source\":\"client-extension\"") != std::string::npos);
+}
+
+TEST_CASE("given_rewrite_rules_when_tracker_rewrite_runs_then_folders_are_rewritten_in_batch",
+          "[unit][cli][tracker][rewrite]")
+{
+    const TempDirectory temp;
+    const auto fixtures =
+        std::filesystem::path(TORRENTUTILS_TEST_SOURCE_DIR) / "fixtures" / "metadata";
+    const auto input = temp.path() / "in";
+    std::filesystem::create_directories(input / "sub");
+    std::filesystem::copy_file(fixtures / "valid-v1.torrent", input / "a.torrent");
+    std::filesystem::copy_file(fixtures / "valid-v1-multifile.torrent",
+                               input / "sub" / "b.torrent");
+    const auto original = std::filesystem::file_size(input / "a.torrent");
+    const std::string rule = R"(s#^(https?://)tracker\.example(/.*)$#\1tracker.new.example\2#)";
+
+    std::string output;
+    std::string diagnostics;
+    REQUIRE(run_cli({"torrentcraft", "tracker", "rewrite", input.u8string(), "-e", rule,
+                     "--dry-run", "--json"},
+                    output, diagnostics) == 0);
+    const auto dry_run = nlohmann::json::parse(output);
+    CHECK(dry_run["ok"] == true);
+    CHECK(dry_run["data"]["dry_run"] == true);
+    REQUIRE(dry_run["data"]["files"].size() == 1U);
+    const auto& change = dry_run["data"]["files"][0]["changes"][0];
+    CHECK(change["from"] == "https://tracker.example/announce");
+    CHECK(change["to"] == "https://tracker.new.example/announce");
+    CHECK(change["status"] == "changed");
+    CHECK(std::filesystem::file_size(input / "a.torrent") == original);
+
+    const auto out = temp.path() / "out";
+    REQUIRE(run_cli({"torrentcraft", "tracker", "rewrite", input.u8string(), "-r", "-e", rule,
+                     "--output-dir", out.u8string(), "--json"},
+                    output, diagnostics) == 0);
+    CHECK(nlohmann::json::parse(output)["data"]["summary"]["changed"] == 2);
+    REQUIRE(std::filesystem::exists(out / "a.torrent"));
+    REQUIRE(std::filesystem::exists(out / "sub" / "b.torrent"));
+    REQUIRE(run_cli({"torrentcraft", "tracker", "list", (out / "sub" / "b.torrent").u8string(),
+                     "--json"},
+                    output, diagnostics) == 0);
+    CHECK(output.find("https://tracker.new.example/announce") != std::string::npos);
+
+    // Existing targets are conflicts unless --force is given.
+    CHECK(run_cli({"torrentcraft", "tracker", "rewrite", input.u8string(), "-r", "-e", rule,
+                   "--output-dir", out.u8string()},
+                  output, diagnostics) == 6);
+    CHECK(run_cli({"torrentcraft", "tracker", "rewrite", input.u8string(), "-r", "-e", rule,
+                   "--output-dir", out.u8string(), "--force", "--quiet"},
+                  output, diagnostics) == 0);
+
+    // In place, with one file succeeding and one failing validation.
+    std::filesystem::copy_file(fixtures / "valid-v2.torrent", input / "c.torrent");
+    REQUIRE(run_cli({"torrentcraft", "tracker", "rewrite", input.u8string(), "-e", "s#^udp:#ftp:#",
+                     "--json"},
+                    output, diagnostics) == 3);
+    const auto mixed = nlohmann::json::parse(output);
+    CHECK(mixed["ok"] == false);
+    CHECK(mixed["data"]["summary"]["failed"] == 1);
+    CHECK(mixed["data"]["summary"]["unchanged"] == 1);
+    CHECK(std::filesystem::file_size(input / "a.torrent") == original);
+}
+
+TEST_CASE("given_invalid_tracker_rewrite_arguments_when_run_then_usage_errors_are_reported",
+          "[unit][cli][tracker][rewrite]")
+{
+    const TempDirectory temp;
+    const auto torrent = temp.path() / "a.torrent";
+    std::filesystem::copy_file(std::filesystem::path(TORRENTUTILS_TEST_SOURCE_DIR) / "fixtures" /
+                                   "metadata" / "valid-v1.torrent",
+                               torrent);
+    std::string output;
+    std::string diagnostics;
+
+    CHECK(run_cli({"torrentcraft", "tracker", "rewrite", torrent.u8string()}, output,
+                  diagnostics) == 2);
+    CHECK(run_cli({"torrentcraft", "tracker", "rewrite", "-e", "s/a/b/"}, output, diagnostics) ==
+          2);
+    CHECK(run_cli(
+              {"torrentcraft", "tracker", "rewrite", torrent.u8string(), "-e", "s/a/b/", "--force"},
+              output, diagnostics) == 2);
+    diagnostics.clear();
+    CHECK(run_cli({"torrentcraft", "tracker", "rewrite", torrent.u8string(), "-e", "s/ok/fine/",
+                   "-e", "s/(passkey/x/"},
+                  output, diagnostics) == 2);
+    CHECK(diagnostics.find("rule[1]") != std::string::npos);
+    CHECK(diagnostics.find("passkey") == std::string::npos);
+    CHECK(run_cli({"torrentcraft", "tracker", "rewrite", (temp.path() / "missing").u8string(), "-e",
+                   "s/a/b/"},
+                  output, diagnostics) == 4);
+}
+
+TEST_CASE("given_tracker_rewrite_human_output_when_run_then_each_url_outcome_is_listed",
+          "[unit][cli][tracker][rewrite]")
+{
+    const TempDirectory temp;
+    const auto torrent = temp.path() / "a.torrent";
+    std::filesystem::copy_file(std::filesystem::path(TORRENTUTILS_TEST_SOURCE_DIR) / "fixtures" /
+                                   "metadata" / "valid-v1.torrent",
+                               torrent);
+    std::string output;
+    std::string diagnostics;
+
+    // The udp tracker collapses onto the https one in the same tier and is merged.
+    const std::string merge = R"(s#^udp://(tracker\.example):6969#https://\1#)";
+    REQUIRE(run_cli({"torrentcraft", "tracker", "rewrite", torrent.u8string(), "-e", merge,
+                     "--dry-run"},
+                    output, diagnostics) == 0);
+    CHECK(output.find(": changed\n") != std::string::npos);
+    CHECK(output.find("  tier 0: udp://tracker.example:6969/announce -> "
+                      "https://tracker.example/announce (merged)") != std::string::npos);
+    CHECK(output.find("backup.example") == std::string::npos);
+    CHECK(output.find("dry run: 1 changed, 0 unchanged, 0 failed") != std::string::npos);
+
+    REQUIRE(run_cli({"torrentcraft", "tracker", "rewrite", torrent.u8string(), "-e", merge,
+                     "--dry-run", "--json"},
+                    output, diagnostics) == 0);
+    const auto merged = nlohmann::json::parse(output)["data"]["files"][0];
+    CHECK(merged["status"] == "changed");
+    REQUIRE(merged["changes"].size() == 1U);
+    CHECK(merged["changes"][0]["status"] == "merged");
+    CHECK(merged["merged"] == 1);
+
+    // Invalid results go to diagnostics with the reason, and the file is left untouched.
+    const auto original = std::filesystem::file_size(torrent);
+    diagnostics.clear();
+    CHECK(run_cli({"torrentcraft", "tracker", "rewrite", torrent.u8string(), "-e", "s#^udp:#ftp:#",
+                   "--quiet"},
+                  output, diagnostics) == 3);
+    CHECK(diagnostics.find(": failed (") != std::string::npos);
+    CHECK(diagnostics.find("  tier 0: udp://tracker.example:6969/announce -> invalid (") !=
+          std::string::npos);
+    CHECK(diagnostics.find("0 changed, 0 unchanged, 1 failed") != std::string::npos);
+    CHECK(std::filesystem::file_size(torrent) == original);
+
+    REQUIRE(run_cli({"torrentcraft", "tracker", "rewrite", torrent.u8string(), "-e", "s/nomatch/x/",
+                     "--json"},
+                    output, diagnostics) == 0);
+    const auto unchanged = nlohmann::json::parse(output)["data"];
+    CHECK(unchanged["files"][0]["status"] == "unchanged");
+    CHECK_FALSE(unchanged["files"][0].contains("target"));
+    CHECK(unchanged["summary"]["unchanged"] == 1);
+
+    // Quiet success prints nothing; --backup keeps a copy of the original.
+    output.clear();
+    REQUIRE(run_cli({"torrentcraft", "tracker", "rewrite", torrent.u8string(), "-e", merge,
+                     "--backup", "--quiet"},
+                    output, diagnostics) == 0);
+    CHECK(output.empty());
+    std::size_t backups = 0;
+    for (const auto& entry : std::filesystem::directory_iterator(temp.path()))
+    {
+        backups += entry.path().filename().string().rfind("a.torrent.bak", 0) == 0U ? 1U : 0U;
+    }
+    CHECK(backups == 1U);
+    REQUIRE(run_cli({"torrentcraft", "tracker", "list", torrent.u8string(), "--json"}, output,
+                    diagnostics) == 0);
+    CHECK(output.find("udp://tracker.example") == std::string::npos);
+}
+
+TEST_CASE("given_overlapping_tracker_rewrite_inputs_when_run_then_duplicates_are_resolved",
+          "[unit][cli][tracker][rewrite]")
+{
+    const TempDirectory temp;
+    const auto fixture = std::filesystem::path(TORRENTUTILS_TEST_SOURCE_DIR) / "fixtures" /
+                         "metadata" / "valid-v1.torrent";
+    std::filesystem::create_directories(temp.path() / "one");
+    std::filesystem::create_directories(temp.path() / "two");
+    std::filesystem::copy_file(fixture, temp.path() / "one" / "same.torrent");
+    std::filesystem::copy_file(fixture, temp.path() / "two" / "same.torrent");
+    const std::string rule = R"(s#tracker\.example#tracker.new.example#g)";
+    std::string output;
+    std::string diagnostics;
+
+    // The same file named twice, directly and through its folder, is processed once.
+    REQUIRE(run_cli({"torrentcraft", "tracker", "rewrite", (temp.path() / "one").u8string(),
+                     (temp.path() / "one" / "." / "same.torrent").u8string(), "-e", rule,
+                     "--dry-run", "--json"},
+                    output, diagnostics) == 0);
+    CHECK(nlohmann::json::parse(output)["data"]["summary"]["files"] == 1);
+
+    // Two different files that map to the same output path: the second is a conflict.
+    const auto out = temp.path() / "out";
+    CHECK(run_cli({"torrentcraft", "tracker", "rewrite", (temp.path() / "one").u8string(),
+                   (temp.path() / "two").u8string(), "-e", rule, "--output-dir", out.u8string(),
+                   "--json"},
+                  output, diagnostics) == 6);
+    const auto conflict = nlohmann::json::parse(output);
+    CHECK(conflict["ok"] == false);
+    CHECK(conflict["data"]["summary"]["changed"] == 1);
+    CHECK(conflict["data"]["summary"]["failed"] == 1);
+    CHECK(conflict["data"]["files"][1]["status"] == "failed");
+    CHECK(std::filesystem::exists(out / "same.torrent"));
+}
+
+TEST_CASE("given_malformed_tracker_rewrite_options_when_run_then_usage_errors_are_reported",
+          "[unit][cli][tracker][rewrite]")
+{
+    const TempDirectory temp;
+    const auto torrent = temp.path() / "a.torrent";
+    std::filesystem::copy_file(std::filesystem::path(TORRENTUTILS_TEST_SOURCE_DIR) / "fixtures" /
+                                   "metadata" / "valid-v1.torrent",
+                               torrent);
+    std::string output;
+    std::string diagnostics;
+
+    for (const std::string option : {"-e", "--expression", "--output-dir"})
+    {
+        diagnostics.clear();
+        CHECK(run_cli({"torrentcraft", "tracker", "rewrite", torrent.u8string(), option}, output,
+                      diagnostics) == 2);
+        CHECK(diagnostics.find("requires a value") != std::string::npos);
+    }
+    diagnostics.clear();
+    CHECK(run_cli(
+              {"torrentcraft", "tracker", "rewrite", torrent.u8string(), "-e", "s/a/b/", "--bogus"},
+              output, diagnostics) == 2);
+    CHECK(diagnostics.find("unknown option: --bogus") != std::string::npos);
+
+    diagnostics.clear();
+    CHECK(run_cli({"torrentcraft", "tracker", "rewrite", torrent.u8string(), "--expression",
+                   "s/a/b/z", "--json"},
+                  output, diagnostics) == 2);
+    CHECK(diagnostics.find("rule[0]") != std::string::npos);
+
+    diagnostics.clear();
+    CHECK(run_cli({"torrentcraft", "tracker"}, output, diagnostics) == 2);
+    CHECK(diagnostics.find("requires a subcommand") != std::string::npos);
+
+    output.clear();
+    CHECK(run_cli({"torrentcraft", "tracker", "rewrite", "--help"}, output, diagnostics) == 0);
+    CHECK(output.find("--expression") != std::string::npos);
 }
 
 TEST_CASE("given_completion_shells_when_run_then_scripts_are_printed", "[unit][cli]")
@@ -1367,4 +1879,235 @@ TEST_CASE("given_config_filter_when_cli_case_override_is_used_then_patterns_are_
     REQUIRE(parsed["data"]["file_filter"]["mode"] == "custom-rules");
     REQUIRE(parsed["data"]["file_filter"]["case_sensitive"] == true);
     REQUIRE(parsed["data"]["filtered"]["count"] == 0);
+}
+
+TEST_CASE("given_torrent_when_metadata_set_without_dry_run_then_fields_are_written_with_backup",
+          "[unit][cli][metadata]")
+{
+    const TempDirectory temp;
+    const auto torrent = temp.path() / "payload.torrent";
+    std::filesystem::copy_file(std::filesystem::path(TORRENTUTILS_TEST_SOURCE_DIR) / "fixtures" /
+                                   "metadata" / "valid-v1-multifile.torrent",
+                               torrent);
+
+    std::string output;
+    std::string diagnostics;
+    REQUIRE(run_cli({"torrentcraft", "metadata", "set", torrent.u8string(), "--created-by",
+                     "TorrentCraft test", "--creation-time", "1700000000", "--web-seed",
+                     "https://seed.example/files/", "--dht-node", "router.example:6881", "--backup",
+                     "--quiet"},
+                    output, diagnostics) == 0);
+    CHECK(output.empty());
+    int backups = 0;
+    for (const auto& entry : std::filesystem::directory_iterator(temp.path()))
+    {
+        backups += entry.path().filename().u8string().find(".bak-") != std::string::npos ? 1 : 0;
+    }
+    CHECK(backups == 1);
+
+    REQUIRE(run_cli({"torrentcraft", "metadata", "show", torrent.u8string(), "--json"}, output,
+                    diagnostics) == 0);
+    const auto metadata = nlohmann::json::parse(output)["data"]["metadata"];
+    CHECK(metadata["creator"] == "TorrentCraft test");
+    CHECK(metadata["creation_time"] == 1700000000);
+    REQUIRE(metadata["web_seeds"].size() == 1U);
+    CHECK(metadata["web_seeds"][0] == "https://seed.example/files/");
+    REQUIRE(metadata["dht_nodes"].size() == 1U);
+    CHECK(metadata["dht_nodes"][0]["host"] == "router.example");
+    CHECK(metadata["dht_nodes"][0]["port"] == 6881);
+
+    REQUIRE(run_cli({"torrentcraft", "metadata", "show", torrent.u8string()}, output,
+                    diagnostics) == 0);
+    CHECK(output.find("TorrentCraft test") != std::string::npos);
+    REQUIRE(run_cli({"torrentcraft", "metadata", "set", torrent.u8string(), "--creation-time",
+                     "now", "--dry-run"},
+                    output, diagnostics) == 0);
+    CHECK(output.find("metadata dry-run valid") != std::string::npos);
+}
+
+TEST_CASE("given_torrent_with_metadata_when_cleared_then_fields_are_removed",
+          "[unit][cli][metadata]")
+{
+    const TempDirectory temp;
+    const auto torrent = temp.path() / "payload.torrent";
+    std::filesystem::copy_file(std::filesystem::path(TORRENTUTILS_TEST_SOURCE_DIR) / "fixtures" /
+                                   "metadata" / "valid-v1-multifile.torrent",
+                               torrent);
+    std::string output;
+    std::string diagnostics;
+    REQUIRE(run_cli({"torrentcraft", "metadata", "set", torrent.u8string(), "--comment", "note",
+                     "--created-by", "someone", "--creation-time", "1700000000", "--web-seed",
+                     "https://seed.example/", "--dht-node", "router.example:6881", "--quiet"},
+                    output, diagnostics) == 0);
+
+    REQUIRE(run_cli({"torrentcraft", "metadata", "clear", torrent.u8string(), "--comment",
+                     "--created-by", "--creation-time", "--web-seeds", "--dht-nodes"},
+                    output, diagnostics) == 0);
+    CHECK(output.find("metadata updated") != std::string::npos);
+    REQUIRE(run_cli({"torrentcraft", "metadata", "show", torrent.u8string(), "--json"}, output,
+                    diagnostics) == 0);
+    const auto metadata = nlohmann::json::parse(output)["data"]["metadata"];
+    CHECK(metadata["comment"].is_null());
+    CHECK(metadata["creator"].is_null());
+    CHECK(metadata["creation_time"].is_null());
+    CHECK(metadata["web_seeds"].empty());
+    CHECK(metadata["dht_nodes"].empty());
+}
+
+TEST_CASE("given_invalid_metadata_arguments_when_run_then_usage_or_validation_errors",
+          "[unit][cli][metadata]")
+{
+    const TempDirectory temp;
+    const auto torrent = temp.path() / "payload.torrent";
+    std::filesystem::copy_file(std::filesystem::path(TORRENTUTILS_TEST_SOURCE_DIR) / "fixtures" /
+                                   "metadata" / "valid-v1-multifile.torrent",
+                               torrent);
+    const auto path = torrent.u8string();
+    std::string output;
+    std::string diagnostics;
+    const auto exit_code = [&](const std::vector<std::string>& arguments) {
+        std::vector<std::string> full{"torrentcraft", "metadata"};
+        full.insert(full.end(), arguments.begin(), arguments.end());
+        return run_cli(full, output, diagnostics);
+    };
+
+    CHECK(exit_code({}) == 2);
+    CHECK(exit_code({"rename", path}) == 2);
+    CHECK(exit_code({"set", path}) == 2);
+    CHECK(exit_code({"set", path, path, "--comment", "x"}) == 2);
+    CHECK(exit_code({"set", path, "--bogus"}) == 2);
+    CHECK(exit_code({"set", path, "--comment"}) == 2);
+    CHECK(exit_code({"set", path, "--creation-time", "soon"}) == 2);
+    CHECK(exit_code({"set", path, "--dht-node", "no-port"}) == 2);
+    CHECK(exit_code({"set", path, "--dht-node", "router.example:99999"}) == 2);
+    // --json is read in argument order, so it must precede the value that fails to parse.
+    CHECK(exit_code({"set", path, "--json", "--web-seed", "not a url"}) == 3);
+    CHECK(nlohmann::json::parse(diagnostics)["ok"] == false);
+    CHECK(exit_code({"set", (temp.path() / "missing.torrent").u8string(), "--comment", "x"}) == 4);
+    // A comment edit leaves the info dictionary alone, so the file round-trips unchanged.
+    CHECK(exit_code({"set", path, "--comment", "x", "--dry-run", "--quiet"}) == 0);
+    CHECK(output.empty());
+}
+
+TEST_CASE("given_config_when_managed_with_human_output_then_values_and_errors_are_reported",
+          "[unit][cli][config]")
+{
+    const TempDirectory temp;
+    const auto config = temp.path() / "torrentcraft.json";
+    write_file(config, R"({"schema":"torrentcraft.config/v1","defaults":{"piece_size":4096}})");
+    const auto path = config.u8string();
+    std::string output;
+    std::string diagnostics;
+
+    REQUIRE(run_cli({"torrentcraft", "config", "path", "--config", path}, output, diagnostics) ==
+            0);
+    CHECK(output.find("torrentcraft.json") != std::string::npos);
+    REQUIRE(run_cli({"torrentcraft", "config", "path", "--config", path, "--json"}, output,
+                    diagnostics) == 0);
+    CHECK(nlohmann::json::parse(output)["ok"] == true);
+    REQUIRE(run_cli({"torrentcraft", "config", "show", "--config", path}, output, diagnostics) ==
+            0);
+    CHECK(output.find("4096") != std::string::npos);
+    REQUIRE(run_cli({"torrentcraft", "config", "get", "defaults.piece_size", "--config", path},
+                    output, diagnostics) == 0);
+    CHECK(output.find("4096") != std::string::npos);
+    REQUIRE(run_cli({"torrentcraft", "config", "set", "defaults.piece_size", "8192", "--config",
+                     path, "--dry-run"},
+                    output, diagnostics) == 0);
+    CHECK(output.find("config dry-run valid") != std::string::npos);
+    REQUIRE(run_cli({"torrentcraft", "config", "set", "defaults.piece_size", "8192", "--config",
+                     path, "--backup"},
+                    output, diagnostics) == 0);
+    CHECK(output.find("config updated") != std::string::npos);
+    int backups = 0;
+    for (const auto& entry : std::filesystem::directory_iterator(temp.path()))
+    {
+        backups += entry.path().filename().u8string().find(".bak-") != std::string::npos ? 1 : 0;
+    }
+    CHECK(backups == 1);
+
+    CHECK(run_cli({"torrentcraft", "config"}, output, diagnostics) == 2);
+    CHECK(run_cli({"torrentcraft", "config", "frob", "--config", path}, output, diagnostics) == 2);
+    CHECK(run_cli({"torrentcraft", "config", "get", "--config", path}, output, diagnostics) == 2);
+    CHECK(run_cli({"torrentcraft", "config", "set", "defaults.private", "--config", path}, output,
+                  diagnostics) == 2);
+}
+
+TEST_CASE("given_inline_preset_when_listed_shown_and_removed_then_config_is_updated",
+          "[unit][cli][config]")
+{
+    const TempDirectory temp;
+    const auto config = temp.path() / "torrentcraft.json";
+    write_file(config, R"({"schema":"torrentcraft.config/v1",)"
+                       R"("presets":{"release":{"piece_size":4096,"private":true}}})");
+    const auto path = config.u8string();
+    std::string output;
+    std::string diagnostics;
+
+    REQUIRE(run_cli({"torrentcraft", "preset", "list", "--config", path}, output, diagnostics) ==
+            0);
+    CHECK(output.find("release") != std::string::npos);
+    REQUIRE(run_cli({"torrentcraft", "preset", "show", "release", "--config", path}, output,
+                    diagnostics) == 0);
+    CHECK(output.find("4096") != std::string::npos);
+    REQUIRE(run_cli({"torrentcraft", "preset", "remove", "release", "--config", path, "--dry-run"},
+                    output, diagnostics) == 0);
+    CHECK(output.find("preset dry-run valid") != std::string::npos);
+    REQUIRE(run_cli({"torrentcraft", "preset", "remove", "release", "--config", path, "--json"},
+                    output, diagnostics) == 0);
+    CHECK(nlohmann::json::parse(output)["ok"] == true);
+    REQUIRE(run_cli({"torrentcraft", "preset", "list", "--config", path, "--json"}, output,
+                    diagnostics) == 0);
+    CHECK(output.find("release") == std::string::npos);
+
+    CHECK(run_cli({"torrentcraft", "preset"}, output, diagnostics) == 2);
+    CHECK(run_cli({"torrentcraft", "preset", "frob", "--config", path}, output, diagnostics) == 2);
+    CHECK(run_cli({"torrentcraft", "preset", "show", "--config", path}, output, diagnostics) == 2);
+    CHECK(run_cli({"torrentcraft", "preset", "remove", "--config", path}, output, diagnostics) ==
+          2);
+}
+
+TEST_CASE("given_console_shared_with_shell_when_long_operation_runs_then_ctrl_break_is_suggested",
+          "[unit][cli][interrupt]")
+{
+    const TempDirectory temp;
+    const auto payload = temp.path() / "payload.bin";
+    write_file(payload, "payload");
+    std::string output;
+    std::string diagnostics;
+
+    torrentcraft::cli::set_console_shared_with_shell(true);
+    struct ResetConsoleFlag
+    {
+        ResetConsoleFlag() = default;
+        ResetConsoleFlag(const ResetConsoleFlag&) = delete;
+        ResetConsoleFlag& operator=(const ResetConsoleFlag&) = delete;
+        ResetConsoleFlag(ResetConsoleFlag&&) = delete;
+        ResetConsoleFlag& operator=(ResetConsoleFlag&&) = delete;
+        ~ResetConsoleFlag()
+        {
+            torrentcraft::cli::set_console_shared_with_shell(false);
+        }
+    } const reset;
+
+    REQUIRE(run_cli({"torrentcraft", "create", payload.u8string(), "-o",
+                     (temp.path() / "a.torrent").u8string()},
+                    output, diagnostics) == 0);
+    CHECK(diagnostics.find("Ctrl+Break") != std::string::npos);
+
+    // JSON consumers read stderr too, and --quiet asks for no extra output.
+    REQUIRE(run_cli({"torrentcraft", "create", payload.u8string(), "-o",
+                     (temp.path() / "b.torrent").u8string(), "--json"},
+                    output, diagnostics) == 0);
+    CHECK(diagnostics.find("Ctrl+Break") == std::string::npos);
+    REQUIRE(run_cli({"torrentcraft", "verify", (temp.path() / "a.torrent").u8string(),
+                     payload.u8string(), "--quiet"},
+                    output, diagnostics) == 0);
+    CHECK(diagnostics.find("Ctrl+Break") == std::string::npos);
+
+    torrentcraft::cli::set_console_shared_with_shell(false);
+    REQUIRE(run_cli({"torrentcraft", "verify", (temp.path() / "a.torrent").u8string(),
+                     payload.u8string()},
+                    output, diagnostics) == 0);
+    CHECK(diagnostics.find("Ctrl+Break") == std::string::npos);
 }

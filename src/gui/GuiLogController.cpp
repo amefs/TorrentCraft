@@ -348,10 +348,16 @@ bool GuiLogController::rotate_locked()
     }
     output_->flush();
     output_->close();
+    // Append to the native path: path::string() throws or mangles non-ASCII names on Windows.
+    const auto rotated = [this](const unsigned int index) {
+        auto path = log_path_;
+        path += "." + std::to_string(index);
+        return path;
+    };
     for (unsigned int index = max_rotated_files; index > 1U; --index)
     {
-        const auto source = log_path_.string() + '.' + std::to_string(index - 1U);
-        const auto target = log_path_.string() + '.' + std::to_string(index);
+        const auto source = rotated(index - 1U);
+        const auto target = rotated(index);
         std::error_code error;
         std::filesystem::remove(target, error);
         error.clear();
@@ -365,9 +371,9 @@ bool GuiLogController::rotate_locked()
         }
     }
     std::error_code error;
-    std::filesystem::remove(log_path_.string() + ".1", error);
+    std::filesystem::remove(rotated(1U), error);
     error.clear();
-    std::filesystem::rename(log_path_, log_path_.string() + ".1", error);
+    std::filesystem::rename(log_path_, rotated(1U), error);
     if (error)
     {
         return false;

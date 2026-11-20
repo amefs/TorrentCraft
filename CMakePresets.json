@@ -109,8 +109,29 @@
       "displayName": "Linux Clang ASan + UBSan",
       "inherits": "linux-clang-debug",
       "cacheVariables": {
-        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined -fno-sanitize-recover=undefined"
+      }
+    },
+    {
+      "name": "linux-clang-fuzz",
+      "displayName": "Linux Clang libFuzzer + ASan + UBSan",
+      "inherits": "linux-clang-debug",
+      "cacheVariables": {
+        "BUILD_TESTING": "OFF",
+        "TORRENTUTILS_BUILD_FUZZERS": "ON",
+        "CMAKE_CXX_FLAGS": "-fsanitize=fuzzer-no-link,address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer",
+        "CMAKE_CXX_FLAGS_DEBUG": "-g -O1",
         "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined"
+      }
+    },
+    {
+      "name": "linux-clang-tsan",
+      "displayName": "Linux Clang ThreadSanitizer",
+      "inherits": "linux-clang-debug",
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS": "-fsanitize=thread -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=thread"
       }
     },
     {
@@ -181,6 +202,16 @@
     {
       "name": "linux-clang-asan-ubsan",
       "configurePreset": "linux-clang-asan-ubsan",
+      "jobs": 0
+    },
+    {
+      "name": "linux-clang-fuzz",
+      "configurePreset": "linux-clang-fuzz",
+      "jobs": 0
+    },
+    {
+      "name": "linux-clang-tsan",
+      "configurePreset": "linux-clang-tsan",
       "jobs": 0
     },
     {
@@ -272,6 +303,13 @@
       "name": "linux-clang-asan-ubsan",
       "configurePreset": "linux-clang-asan-ubsan",
       "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
+      "name": "linux-clang-tsan",
+      "configurePreset": "linux-clang-tsan",
+      "output": { "outputOnFailure": true },
+      "filter": { "include": { "label": "unit" } },
       "execution": { "noTestsAction": "error" }
     },
     {

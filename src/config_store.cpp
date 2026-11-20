@@ -257,9 +257,17 @@ void apply_patch(Json& object, const CreationSettingsPatch& patch)
     }
 }
 
+[[nodiscard]] std::string saved_form(const Json& document)
+{
+    // The exact text save() writes, so the size limit applies to what load() will read back.
+    auto contents = document.dump(2);
+    contents.push_back('\n');
+    return contents;
+}
+
 [[nodiscard]] core::Result<ParsedConfig> parse_document(const Json& document)
 {
-    return parse_config_json(document.dump());
+    return parse_config_json(saved_form(document));
 }
 
 [[nodiscard]] const Json* gui_member(const Json& document, const char* key)
@@ -756,6 +764,8 @@ core::Result<void> ConfigFile::add_preset(std::string name, const CreationSettin
         return core::Result<void>::failure(
             validation_error("frontend.config.preset_name", "must be a non-empty simple name"));
     }
+    // Snapshot before "presets" may be created, so a rejected preset leaves no empty section.
+    const auto original = details_->document;
     Json& presets = details_->document["presets"];
     if (!presets.is_object())
     {
@@ -763,11 +773,11 @@ core::Result<void> ConfigFile::add_preset(std::string name, const CreationSettin
     }
     if (presets.find(name) != presets.end() && !overwrite)
     {
+        details_->document = original;
         return core::Result<void>::failure(
             validation_error("frontend.config.preset_name", "must not already exist"));
     }
 
-    const auto original = details_->document;
     Json preset = Json::object();
     apply_patch(preset, settings);
     presets[std::move(name)] = std::move(preset);
@@ -813,8 +823,7 @@ core::Result<void> ConfigFile::save() const
     std::string contents;
     try
     {
-        contents = details_->document.dump(2);
-        contents.push_back('\n');
+        contents = saved_form(details_->document);
     }
     catch (const std::exception& error)
     {
@@ -822,6 +831,11 @@ core::Result<void> ConfigFile::save() const
             {core::ErrorCode::Internal,
              "could not encode config JSON: " + std::string(error.what()),
              {}});
+    }
+    if (contents.size() > kMaximumConfigBytes)
+    {
+        return core::Result<void>::failure(
+            validation_error("frontend.config", "input exceeds the 1 MiB limit"));
     }
 
     PendingFile pending(temporary_sibling(details_->path));
@@ -1023,14 +1037,15 @@ core::Result<std::string> ConfigFile::get_key(const ConfigKey& key) const
     }
     else
     {
-        const Json& defaults =
-            details_->parsed.legacy ? details_->document : details_->document["defaults"];
-        if (!defaults.is_object())
+        // Look the member up without operator[], which would insert a null "defaults".
+        const Json& document = details_->document;
+        const auto defaults = details_->parsed.legacy ? document.end() : document.find("defaults");
+        if (!details_->parsed.legacy && (defaults == document.end() || !defaults->is_object()))
         {
             return core::Result<std::string>::failure(
                 {core::ErrorCode::FileNotFound, "defaults are not set", {}});
         }
-        object = &defaults;
+        object = details_->parsed.legacy ? &document : &*defaults;
     }
 
     const auto value = object->find(key.setting);
@@ -1136,6 +1151,7 @@ core::Result<void> ConfigFile::set_key(const ConfigKey& key, std::optional<std::
         Json value = Json::parse(*json_value, nullptr, false);
         if (value.is_discarded())
         {
+            details_->document = original;
             return core::Result<void>::failure(
                 validation_error("frontend.config.value", "must be valid JSON"));
         }
